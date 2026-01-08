@@ -36,6 +36,8 @@ class StratigraphicColumn(QGraphicsView):
 
     def draw_column(self, units_dataframe, min_overall_depth, max_overall_depth, separator_thickness=0.5, draw_separators=True):
         self.scene.clear()
+        # Clear references to deleted items
+        self.highlight_rect_item = None
 
         # Store data for highlighting functionality
         self.units_dataframe = units_dataframe.copy() if units_dataframe is not None else None

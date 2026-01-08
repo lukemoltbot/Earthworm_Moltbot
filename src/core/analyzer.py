@@ -14,7 +14,7 @@ class Analyzer:
     def __init__(self):
         pass
 
-    def classify_rows(self, dataframe, lithology_rules, mnemonic_map, use_researched_defaults=True):
+    def classify_rows(self, dataframe, lithology_rules, mnemonic_map, use_researched_defaults=True, use_fallback_classification=False):
         """
         Classifies rows in the DataFrame based on lithology rules, using specified mnemonics.
 
@@ -101,6 +101,142 @@ class Analyzer:
 
             # Apply the rule only to unclassified rows that match the rule criteria
             classified_df.loc[unclassified_mask & rule_mask, LITHOLOGY_COLUMN] = code
+
+        # Apply fallback classification for remaining 'NL' rows if enabled
+        if use_fallback_classification:
+            classified_df = self._classify_fallbacks(classified_df, gamma_col_name, density_col_name)
+
+        return classified_df
+
+    def _classify_fallbacks(self, dataframe, gamma_col_name, density_col_name):
+        """
+        Classify remaining 'NL' rows using fallback methods.
+
+        Args:
+            dataframe (pandas.DataFrame): DataFrame with 'NL' rows to classify
+            gamma_col_name (str): Name of gamma column
+            density_col_name (str): Name of density column
+
+        Returns:
+            pandas.DataFrame: DataFrame with fallback classifications applied
+        """
+        logger.debug("Applying fallback classification to 'NL' rows")
+
+        # Find rows that are still 'NL'
+        nl_mask = (dataframe[LITHOLOGY_COLUMN] == 'NL')
+        nl_count = nl_mask.sum()
+
+        if nl_count == 0:
+            logger.debug("No 'NL' rows found - no fallback needed")
+            return dataframe
+
+        logger.debug(f"Found {nl_count} 'NL' rows for fallback classification")
+
+        # Apply fallback using researched defaults
+        fallback_classified_df = dataframe.copy()
+
+        for idx in dataframe[nl_mask].index:
+            row = dataframe.loc[idx]
+            gamma_val = row[gamma_col_name]
+            density_val = row[density_col_name]
+
+            # Find best matching lithology from researched defaults
+            best_match = self._get_nearest_lithology(gamma_val, density_val)
+
+            if best_match:
+                fallback_classified_df.loc[idx, LITHOLOGY_COLUMN] = best_match
+                logger.debug(f"Fallback classified row {idx}: gamma={gamma_val:.1f}, density={density_val:.3f} -> {best_match}")
+
+        # Apply extreme value rules for any remaining 'NL' rows
+        remaining_nl_mask = (fallback_classified_df[LITHOLOGY_COLUMN] == 'NL')
+        if remaining_nl_mask.sum() > 0:
+            fallback_classified_df = self._apply_extreme_value_rules(fallback_classified_df, gamma_col_name, density_col_name, remaining_nl_mask)
+
+        final_nl_count = (fallback_classified_df[LITHOLOGY_COLUMN] == 'NL').sum()
+        logger.debug(f"Fallback classification complete. Remaining 'NL' rows: {final_nl_count}")
+
+        return fallback_classified_df
+
+    def _get_nearest_lithology(self, gamma_val, density_val):
+        """
+        Find the nearest lithology match using researched defaults.
+
+        Args:
+            gamma_val (float): Gamma ray value
+            density_val (float): Density value
+
+        Returns:
+            str: Best matching lithology code, or None if no match found
+        """
+        best_match = None
+        min_distance = float('inf')
+
+        for code, defaults in RESEARCHED_LITHOLOGY_DEFAULTS.items():
+            # Calculate distance in parameter space
+            gamma_center = (defaults['gamma_min'] + defaults['gamma_max']) / 2
+            density_center = (defaults['density_min'] + defaults['density_max']) / 2
+
+            # Euclidean distance in normalized space
+            gamma_range = defaults['gamma_max'] - defaults['gamma_min']
+            density_range = defaults['density_max'] - defaults['density_min']
+
+            if gamma_range > 0 and density_range > 0:
+                gamma_distance = abs(gamma_val - gamma_center) / gamma_range
+                density_distance = abs(density_val - density_center) / density_range
+                distance = (gamma_distance ** 2 + density_distance ** 2) ** 0.5
+
+                if distance < min_distance:
+                    min_distance = distance
+                    best_match = code
+
+        # Only return match if it's reasonably close (within 2 standard deviations)
+        if min_distance <= 2.0:
+            return best_match
+
+        return None
+
+    def _apply_extreme_value_rules(self, dataframe, gamma_col_name, density_col_name, nl_mask):
+        """
+        Apply rules for extreme parameter values that don't match any standard lithologies.
+
+        Args:
+            dataframe (pandas.DataFrame): DataFrame to classify
+            gamma_col_name (str): Name of gamma column
+            density_col_name (str): Name of density column
+            nl_mask (pandas.Series): Boolean mask for 'NL' rows
+
+        Returns:
+            pandas.DataFrame: DataFrame with extreme value classifications
+        """
+        classified_df = dataframe.copy()
+
+        for idx in dataframe[nl_mask].index:
+            gamma_val = dataframe.loc[idx, gamma_col_name]
+            density_val = dataframe.loc[idx, density_col_name]
+
+            # Extreme low density (gas, organic-rich)
+            if density_val < 1.0:
+                classified_df.loc[idx, LITHOLOGY_COLUMN] = 'CO'  # Coal
+                logger.debug(f"Extreme low density fallback: row {idx}, density={density_val:.3f} -> CO")
+
+            # Extreme high density (metamorphic, dense igneous)
+            elif density_val > 3.5:
+                classified_df.loc[idx, LITHOLOGY_COLUMN] = 'IG'  # Igneous (would need to add this rule)
+                logger.debug(f"Extreme high density fallback: row {idx}, density={density_val:.3f} -> IG")
+
+            # Extreme high gamma (very shaly, radioactive)
+            elif gamma_val > 200:
+                classified_df.loc[idx, LITHOLOGY_COLUMN] = 'SH'  # Shale
+                logger.debug(f"Extreme high gamma fallback: row {idx}, gamma={gamma_val:.1f} -> SH")
+
+            # Very low gamma, moderate density (clean sandstones or carbonates)
+            elif gamma_val < 10 and 2.0 <= density_val <= 3.0:
+                if density_val < 2.7:
+                    classified_df.loc[idx, LITHOLOGY_COLUMN] = 'SS'  # Sandstone
+                    logger.debug(f"Clean sandstone fallback: row {idx}, gamma={gamma_val:.1f}, density={density_val:.3f} -> SS")
+                else:
+                    classified_df.loc[idx, LITHOLOGY_COLUMN] = 'LS'  # Limestone (would need to add this rule)
+                    logger.debug(f"Carbonate fallback: row {idx}, gamma={gamma_val:.1f}, density={density_val:.3f} -> LS")
 
         return classified_df
 
@@ -192,13 +328,17 @@ class Analyzer:
 
         return classified_df
 
-    def group_into_units(self, dataframe, lithology_rules):
+    def group_into_units(self, dataframe, lithology_rules, smart_interbedding=False, smart_interbedding_max_sequence_length=10, smart_interbedding_thick_unit_threshold=0.5):
         """
         Groups contiguous blocks of rows with the same LITHOLOGY_CODE into lithological units.
+        If smart_interbedding is enabled, detects alternating lithologies and groups them into interbedded units.
 
         Args:
             dataframe (pandas.DataFrame): The classified DataFrame.
             lithology_rules (list): A list of dictionaries, each defining a lithology rule.
+            smart_interbedding (bool): Whether to enable smart interbedding detection.
+            smart_interbedding_max_sequence_length (int): Maximum segments in interbedded sequence before stopping.
+            smart_interbedding_thick_unit_threshold (float): Stop interbedding when next unit exceeds this thickness (meters).
 
         Returns:
             pandas.DataFrame: A DataFrame summarizing the lithological units.
@@ -211,14 +351,21 @@ class Analyzer:
         if DEPTH_COLUMN not in dataframe.columns:
             raise ValueError(f"Depth column '{DEPTH_COLUMN}' not found in DataFrame.")
 
-        units = []
-        current_unit = None
-
         # Create a mapping from lithology code to rule details
         rules_map = {rule['code']: rule for rule in lithology_rules}
 
         # Ensure the DataFrame is sorted by depth for correct grouping
         sorted_df = dataframe.sort_values(by=DEPTH_COLUMN).reset_index(drop=True)
+
+        if smart_interbedding:
+            return self._group_with_smart_interbedding(sorted_df, rules_map, smart_interbedding_max_sequence_length, smart_interbedding_thick_unit_threshold)
+        else:
+            return self._group_standard_units(sorted_df, rules_map)
+
+    def _group_standard_units(self, sorted_df, rules_map):
+        """Standard unit grouping without interbedding detection."""
+        units = []
+        current_unit = None
 
         for i, row in sorted_df.iterrows():
             lithology_code = row[LITHOLOGY_COLUMN]
@@ -231,7 +378,7 @@ class Analyzer:
                     'from_depth': current_depth,
                     'to_depth': current_depth,
                     LITHOLOGY_COLUMN: lithology_code,
-                    'lithology_qualifier': rule.get('qualifier', ''), # Add lithology_qualifier
+                    'lithology_qualifier': rule.get('qualifier', ''),
                     'shade': rule.get('shade', ''),
                     'hue': rule.get('hue', ''),
                     'colour': rule.get('colour', ''),
@@ -239,14 +386,15 @@ class Analyzer:
                     'estimated_strength': rule.get('strength', ''),
                     'background_color': rule.get('background_color', '#FFFFFF'),
                     'svg_path': rule.get('svg_path'),
-                    'start_index': i
+                    'record_sequence': '',  # New column for interbedding
+                    'inter_relationship': '',  # New column for interbedding
+                    'percentage': 0.0  # New column for interbedding
                 }
             elif lithology_code == current_unit[LITHOLOGY_COLUMN]:
                 # Continue the current unit
                 current_unit['to_depth'] = current_depth
             else:
                 # End the previous unit and start a new one
-                # The 'to_depth' of the completed unit is the 'from_depth' of the new unit, ensuring continuity.
                 current_unit['to_depth'] = current_depth
                 units.append(current_unit)
 
@@ -255,7 +403,7 @@ class Analyzer:
                     'from_depth': current_depth,
                     'to_depth': current_depth,
                     LITHOLOGY_COLUMN: lithology_code,
-                    'lithology_qualifier': rule.get('qualifier', ''), # Add lithology_qualifier
+                    'lithology_qualifier': rule.get('qualifier', ''),
                     'shade': rule.get('shade', ''),
                     'hue': rule.get('hue', ''),
                     'colour': rule.get('colour', ''),
@@ -263,38 +411,271 @@ class Analyzer:
                     'estimated_strength': rule.get('strength', ''),
                     'background_color': rule.get('background_color', '#FFFFFF'),
                     'svg_path': rule.get('svg_path'),
-                    'start_index': i
+                    'record_sequence': '',  # New column for interbedding
+                    'inter_relationship': '',  # New column for interbedding
+                    'percentage': 0.0  # New column for interbedding
                 }
 
-        # Add the last unit after the loop finishes
+        # Add the last unit
         if current_unit is not None:
-            # The to_depth of the last unit is the depth of the last row in the dataframe
             current_unit['to_depth'] = sorted_df.iloc[-1][DEPTH_COLUMN]
             units.append(current_unit)
 
-        # Convert list of dictionaries to DataFrame
+        # Convert to DataFrame
         units_df = pd.DataFrame(units)
 
-        # Calculate thickness
+        # Calculate thickness and reorder columns
         if not units_df.empty:
-            units_df['thickness'] = units_df['to_depth'] - units_df['from_depth']
-
-            # Add new editable columns with default empty values
-            # Reorder columns as specified
+            units_df.loc[:, 'thickness'] = units_df['to_depth'] - units_df['from_depth']
             units_df = units_df[[
                 'from_depth', 'to_depth', 'thickness', LITHOLOGY_COLUMN,
                 'lithology_qualifier', 'shade', 'hue', 'colour',
-                'weathering', 'estimated_strength', 'background_color', 'svg_path'
+                'weathering', 'estimated_strength', 'background_color', 'svg_path',
+                'record_sequence', 'inter_relationship', 'percentage'
             ]]
         else:
-            # Return an empty DataFrame with correct columns if no units were found
             units_df = pd.DataFrame(columns=[
                 'from_depth', 'to_depth', 'thickness', LITHOLOGY_COLUMN,
                 'lithology_qualifier', 'shade', 'hue', 'colour',
-                'weathering', 'estimated_strength', 'background_color', 'svg_path'
+                'weathering', 'estimated_strength', 'background_color', 'svg_path',
+                'record_sequence', 'inter_relationship', 'percentage'
             ])
 
         return units_df
+
+    def _group_with_smart_interbedding(self, sorted_df, rules_map, max_sequence_length=10, thick_unit_threshold=0.5):
+        """Group units with smart interbedding detection."""
+        units = []
+
+        logger.debug(f"Starting smart interbedding detection on {len(sorted_df)} rows")
+
+        # First pass: identify potential interbedded sequences
+        i = 0
+        interbedding_count = 0
+        while i < len(sorted_df):
+            current_code = sorted_df.iloc[i][LITHOLOGY_COLUMN]
+
+            # Look ahead to find alternating pattern
+            interbedded_sequence = self._find_interbedded_sequence(sorted_df, i, max_sequence_length, thick_unit_threshold)
+
+            if interbedded_sequence:
+                logger.debug(f"Found interbedded sequence at index {i}: {len(interbedded_sequence)} segments")
+                # Process interbedded sequence
+                interbedded_units = self._process_interbedded_sequence(sorted_df, interbedded_sequence, rules_map)
+                units.extend(interbedded_units)
+                interbedding_count += 1
+                i = interbedded_sequence[-1]['end_index'] + 1
+            else:
+                # Process as regular unit
+                regular_unit = self._create_regular_unit(sorted_df, i, rules_map)
+                units.append(regular_unit)
+                i += 1
+
+        logger.debug(f"Smart interbedding completed: {interbedding_count} interbedded sequences found, {len(units)} total units created")
+
+        # Convert to DataFrame
+        units_df = pd.DataFrame(units)
+
+        # Calculate thickness and reorder columns
+        if not units_df.empty:
+            units_df.loc[:, 'thickness'] = units_df['to_depth'] - units_df['from_depth']
+            units_df = units_df[[
+                'from_depth', 'to_depth', 'thickness', LITHOLOGY_COLUMN,
+                'lithology_qualifier', 'shade', 'hue', 'colour',
+                'weathering', 'estimated_strength', 'background_color', 'svg_path',
+                'record_sequence', 'inter_relationship', 'percentage'
+            ]]
+        else:
+            units_df = pd.DataFrame(columns=[
+                'from_depth', 'to_depth', 'thickness', LITHOLOGY_COLUMN,
+                'lithology_qualifier', 'shade', 'hue', 'colour',
+                'weathering', 'estimated_strength', 'background_color', 'svg_path',
+                'record_sequence', 'inter_relationship', 'percentage'
+            ])
+
+        return units_df
+
+    def _find_interbedded_sequence(self, sorted_df, start_idx, max_sequence_length=10, thick_unit_threshold=0.5):
+        """Find a sequence of alternating lithologies that should be interbedded."""
+        if start_idx >= len(sorted_df):
+            return None
+
+        # Get initial lithology
+        initial_code = sorted_df.iloc[start_idx][LITHOLOGY_COLUMN]
+        sequence = []
+        current_code = initial_code
+        idx = start_idx
+
+        # Look for alternating pattern
+        while idx < len(sorted_df):
+            row = sorted_df.iloc[idx]
+            code = row[LITHOLOGY_COLUMN]
+
+            # Count consecutive rows with same lithology
+            count = 0
+            start_depth = row[DEPTH_COLUMN]
+
+            while idx < len(sorted_df) and sorted_df.iloc[idx][LITHOLOGY_COLUMN] == code:
+                count += 1
+                idx += 1
+
+            end_depth = sorted_df.iloc[idx-1][DEPTH_COLUMN] if idx > 0 else start_depth
+
+            sequence.append({
+                'code': code,
+                'count': count,
+                'start_index': idx - count,
+                'end_index': idx - 1,
+                'start_depth': start_depth,
+                'end_depth': end_depth,
+                'thickness': end_depth - start_depth
+            })
+
+            # Check if we have enough alternation cycles and meet criteria
+            if len(sequence) >= 4:  # At least 2 full alternation cycles
+                avg_thickness = sum(s['thickness'] for s in sequence) / len(sequence)
+
+                # Check if average thickness < 200mm and we have alternating pattern
+                if avg_thickness < 0.2 and self._is_alternating_sequence(sequence):
+                    # Check for stop conditions
+                    if idx < len(sorted_df):
+                        next_code = sorted_df.iloc[idx][LITHOLOGY_COLUMN]
+                        next_thickness = 0
+
+                        # Check if next unit exceeds thick unit threshold (stop condition)
+                        next_count = 0
+                        while idx + next_count < len(sorted_df) and sorted_df.iloc[idx + next_count][LITHOLOGY_COLUMN] == next_code:
+                            next_count += 1
+
+                        if next_count > 0:
+                            next_end_depth = sorted_df.iloc[idx + next_count - 1][DEPTH_COLUMN]
+                            next_start_depth = sorted_df.iloc[idx][DEPTH_COLUMN]
+                            next_thickness = next_end_depth - next_start_depth
+
+                        if next_thickness > thick_unit_threshold:  # Configurable thick unit stop condition
+                            break
+
+                    return sequence
+
+            # Stop if sequence gets too long or we hit a thick unit
+            if len(sequence) > max_sequence_length or (sequence and sequence[-1]['thickness'] > thick_unit_threshold):
+                break
+
+        return None
+
+    def _is_alternating_sequence(self, sequence):
+        """Check if sequence represents alternating lithologies."""
+        if len(sequence) < 4:  # Need at least 2 full cycles
+            return False
+
+        # Get unique codes in sequence
+        codes = [s['code'] for s in sequence]
+        unique_codes = list(set(codes))
+
+        if len(unique_codes) < 2:
+            return False  # Not alternating if only one lithology
+
+        # For simple alternating between 2 lithologies
+        if len(unique_codes) == 2:
+            # Check if it alternates between the two
+            expected_pattern = [unique_codes[0], unique_codes[1]] * (len(sequence) // 2)
+            if len(sequence) % 2 == 1:
+                expected_pattern.append(unique_codes[0])
+            return codes == expected_pattern
+
+        # For more than 2 lithologies, ensure no lithology repeats consecutively
+        # This prevents patterns like A-A-B-C which are not truly alternating
+        for i in range(1, len(codes)):
+            if codes[i] == codes[i-1]:
+                return False  # Consecutive same lithology found
+
+        # Ensure we have alternation (no more than 2 consecutive different lithologies in a row if more than 2 types)
+        # This is a basic check - more sophisticated logic could be added later
+        return True
+
+    def _process_interbedded_sequence(self, sorted_df, sequence, rules_map):
+        """Process an interbedded sequence into multiple unit rows."""
+        units = []
+
+        # Calculate total thickness of interbedded section
+        total_thickness = sum(s['thickness'] for s in sequence)
+
+        # Calculate average layer thickness for interrelationship code
+        avg_thickness = total_thickness / len(sequence)
+
+        # Determine interrelationship code
+        if avg_thickness < 0.02:
+            inter_code = 'IL'  # Interlaminated
+        elif avg_thickness < 0.06:
+            inter_code = 'UB'  # Very Thinly Interbedded
+        elif avg_thickness < 0.2:
+            inter_code = 'TB'  # Thinly Interbedded
+        else:
+            inter_code = 'CB'  # Coarsely Interbedded
+
+        # Get lithology counts for dominance
+        code_counts = {}
+        for s in sequence:
+            code_counts[s['code']] = code_counts.get(s['code'], 0) + s['thickness']
+
+        # Sort by thickness (dominance)
+        sorted_codes = sorted(code_counts.items(), key=lambda x: x[1], reverse=True)
+
+        # Create units for each lithology component
+        from_depth = sequence[0]['start_depth']
+        to_depth = sequence[-1]['end_depth']
+
+        for seq_num, (code, thickness) in enumerate(sorted_codes, 1):
+            percentage = (thickness / total_thickness) * 100
+
+            # Skip if less than 5% and not the dominant lithology
+            if seq_num > 1 and percentage < 5:
+                continue
+
+            rule = rules_map.get(code, {})
+
+            unit = {
+                'from_depth': from_depth,
+                'to_depth': to_depth,
+                LITHOLOGY_COLUMN: code,
+                'lithology_qualifier': rule.get('qualifier', ''),
+                'shade': rule.get('shade', ''),
+                'hue': rule.get('hue', ''),
+                'colour': rule.get('colour', ''),
+                'weathering': rule.get('weathering', ''),
+                'estimated_strength': rule.get('strength', ''),
+                'background_color': rule.get('background_color', '#FFFFFF'),
+                'svg_path': rule.get('svg_path'),
+                'record_sequence': seq_num,
+                'inter_relationship': inter_code if seq_num == 1 else '',
+                'percentage': round(percentage, 2)
+            }
+            units.append(unit)
+
+        return units
+
+    def _create_regular_unit(self, sorted_df, idx, rules_map):
+        """Create a regular (non-interbedded) unit."""
+        row = sorted_df.iloc[idx]
+        lithology_code = row[LITHOLOGY_COLUMN]
+        rule = rules_map.get(lithology_code, {})
+
+        return {
+            'from_depth': row[DEPTH_COLUMN],
+            'to_depth': row[DEPTH_COLUMN],
+            LITHOLOGY_COLUMN: lithology_code,
+            'lithology_qualifier': rule.get('qualifier', ''),
+            'shade': rule.get('shade', ''),
+            'hue': rule.get('hue', ''),
+            'colour': rule.get('colour', ''),
+            'weathering': rule.get('weathering', ''),
+            'estimated_strength': rule.get('strength', ''),
+            'background_color': rule.get('background_color', '#FFFFFF'),
+            'svg_path': rule.get('svg_path'),
+            'record_sequence': '',
+            'inter_relationship': '',
+            'percentage': 0.0
+        }
 
     def merge_thin_units(self, units_df, threshold=DEFAULT_MERGE_THRESHOLD):
         """
@@ -351,7 +732,8 @@ class Analyzer:
             result_df = result_df[[
                 'from_depth', 'to_depth', 'thickness', LITHOLOGY_COLUMN,
                 'lithology_qualifier', 'shade', 'hue', 'colour',
-                'weathering', 'estimated_strength', 'background_color', 'svg_path'
+                'weathering', 'estimated_strength', 'background_color', 'svg_path',
+                'record_sequence', 'inter_relationship', 'percentage'
             ]]
 
         return result_df
@@ -432,7 +814,10 @@ class Analyzer:
                 'hue': 'O',
                 'colour': 'P',
                 'weathering': 'Q',
-                'estimated_strength': 'R'
+                'estimated_strength': 'R',
+                'record_sequence': 'S',  # New column for interbedding
+                'inter_relationship': 'T',  # New column for interbedding
+                'percentage': 'U'  # New column for interbedding
             }
             
             # Function to safely write to a cell, handling merged cells
@@ -504,7 +889,19 @@ class Analyzer:
                     # Write estimated strength in column R if available
                     if 'estimated_strength' in unit and unit['estimated_strength']:
                         safe_write_cell(sheet, f'{column_mapping["estimated_strength"]}{row_num}', unit['estimated_strength'])
-                    
+
+                    # Write record sequence in column S if available
+                    if 'record_sequence' in unit and unit['record_sequence']:
+                        safe_write_cell(sheet, f'{column_mapping["record_sequence"]}{row_num}', unit['record_sequence'])
+
+                    # Write inter-relationship in column T if available
+                    if 'inter_relationship' in unit and unit['inter_relationship']:
+                        safe_write_cell(sheet, f'{column_mapping["inter_relationship"]}{row_num}', unit['inter_relationship'])
+
+                    # Write percentage in column U if available
+                    if 'percentage' in unit and unit['percentage'] > 0:
+                        safe_write_cell(sheet, f'{column_mapping["percentage"]}{row_num}', unit['percentage'])
+
                     # Update progress every 100 units
                     if i % 100 == 0 and callback and i > 0:
                         callback(f"Writing unit {i+1} of {len(units)}...")
@@ -544,3 +941,4 @@ class Analyzer:
             if callback:
                 callback(error_msg)
             return False
+            # Save the workbook to the output path

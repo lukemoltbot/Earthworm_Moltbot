@@ -58,3 +58,8 @@ DEFAULT_CURVE_THICKNESS = 1.5 # Default thickness for curve lines
 # Thin unit merging settings
 DEFAULT_MERGE_THIN_UNITS = False # Whether to merge thin units by default
 DEFAULT_MERGE_THRESHOLD = 0.05 # 5cm in meters - threshold for merging thin units
+
+# Smart interbedding settings
+DEFAULT_SMART_INTERBEDDING = False # Whether to enable smart interbedding by default
+DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH = 10 # Maximum segments in interbedded sequence before stopping
+DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD = 0.5 # Stop interbedding when next unit exceeds this thickness (meters)

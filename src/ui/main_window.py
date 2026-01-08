@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QWidget,
     QPushButton, QComboBox, QLabel, QGraphicsView, QFileDialog, QMessageBox,
-    QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView, QColorDialog, QGraphicsScene, QDoubleSpinBox, QCheckBox, QSlider, QFrame, QSplitter, QAbstractItemView
+    QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView, QColorDialog, QGraphicsScene, QDoubleSpinBox, QCheckBox, QSlider, QSpinBox, QFrame, QSplitter, QAbstractItemView
 )
 from PyQt6.QtGui import QPainter, QPixmap, QColor, QFont, QBrush
 from PyQt6.QtSvg import QSvgRenderer
@@ -56,7 +56,7 @@ class Worker(QObject):
     finished = pyqtSignal(pd.DataFrame, pd.DataFrame)
     error = pyqtSignal(str)
 
-    def __init__(self, file_path, mnemonic_map, lithology_rules, use_researched_defaults, merge_thin_units=False, merge_threshold=0.05):
+    def __init__(self, file_path, mnemonic_map, lithology_rules, use_researched_defaults, merge_thin_units=False, merge_threshold=0.05, smart_interbedding=False, smart_interbedding_max_sequence_length=10, smart_interbedding_thick_unit_threshold=0.5, use_fallback_classification=False):
         super().__init__()
         self.file_path = file_path
         self.mnemonic_map = mnemonic_map
@@ -64,6 +64,10 @@ class Worker(QObject):
         self.use_researched_defaults = use_researched_defaults
         self.merge_thin_units = merge_thin_units
         self.merge_threshold = merge_threshold
+        self.smart_interbedding = smart_interbedding
+        self.smart_interbedding_max_sequence_length = smart_interbedding_max_sequence_length
+        self.smart_interbedding_thick_unit_threshold = smart_interbedding_thick_unit_threshold
+        self.use_fallback_classification = use_fallback_classification
 
     def run(self):
         try:
@@ -84,8 +88,8 @@ class Worker(QObject):
             if hasattr(self, 'analysis_method') and self.analysis_method == "simple":
                 classified_dataframe = analyzer.classify_rows_simple(processed_dataframe, self.lithology_rules, full_mnemonic_map)
             else:
-                classified_dataframe = analyzer.classify_rows(processed_dataframe, self.lithology_rules, full_mnemonic_map, self.use_researched_defaults)
-            units_dataframe = analyzer.group_into_units(classified_dataframe, self.lithology_rules)
+                classified_dataframe = analyzer.classify_rows(processed_dataframe, self.lithology_rules, full_mnemonic_map, self.use_researched_defaults, self.use_fallback_classification)
+            units_dataframe = analyzer.group_into_units(classified_dataframe, self.lithology_rules, self.smart_interbedding, self.smart_interbedding_max_sequence_length, self.smart_interbedding_thick_unit_threshold)
             if self.merge_thin_units:
                 units_dataframe = analyzer.merge_thin_units(units_dataframe, self.merge_threshold)
             template_path = os.path.join(os.getcwd(), 'src', 'assets', 'TEMPLATE.xlsx')
@@ -118,6 +122,9 @@ class MainWindow(QMainWindow):
         self.analysis_method = app_settings.get("analysis_method", "standard")  # Load analysis method
         self.merge_thin_units = app_settings.get("merge_thin_units", False)
         self.merge_threshold = app_settings.get("merge_threshold", 0.05)
+        self.smart_interbedding = app_settings.get("smart_interbedding", False)
+        self.smart_interbedding_max_sequence_length = app_settings.get("smart_interbedding_max_sequence_length", 10)
+        self.smart_interbedding_thick_unit_threshold = app_settings.get("smart_interbedding_thick_unit_threshold", 0.5)
 
         self.lithology_qualifier_map = self.load_lithology_qualifier_map()
         self.coallog_data = self.load_coallog_data()
@@ -454,6 +461,34 @@ class MainWindow(QMainWindow):
         self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
         self.settings_file_buttons_layout.addWidget(self.mergeThinUnitsCheckBox)
 
+        # Add control for smart interbedding
+        self.smartInterbeddingCheckBox = QCheckBox("Smart Interbedding")
+        self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
+        self.settings_file_buttons_layout.addWidget(self.smartInterbeddingCheckBox)
+
+        # Add control for fallback classification
+        self.fallbackClassificationCheckBox = QCheckBox("Enable Fallback Classification")
+        self.fallbackClassificationCheckBox.setChecked(False)  # Default to False
+        self.fallbackClassificationCheckBox.setToolTip("Apply fallback classification to reduce 'NL' (Not Logged) results")
+        self.settings_file_buttons_layout.addWidget(self.fallbackClassificationCheckBox)
+
+        # Add controls for smart interbedding parameters
+        self.smartInterbeddingParamsLayout = QHBoxLayout()
+        self.smartInterbeddingParamsLayout.addWidget(QLabel("Max Sequence Length:"))
+        self.smartInterbeddingMaxSequenceSpinBox = QSpinBox()
+        self.smartInterbeddingMaxSequenceSpinBox.setRange(5, 50)
+        self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
+        self.smartInterbeddingParamsLayout.addWidget(self.smartInterbeddingMaxSequenceSpinBox)
+
+        self.smartInterbeddingParamsLayout.addWidget(QLabel("Thick Unit Threshold (m):"))
+        self.smartInterbeddingThickUnitSpinBox = QDoubleSpinBox()
+        self.smartInterbeddingThickUnitSpinBox.setRange(0.1, 5.0)
+        self.smartInterbeddingThickUnitSpinBox.setSingleStep(0.1)
+        self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
+        self.smartInterbeddingParamsLayout.addWidget(self.smartInterbeddingThickUnitSpinBox)
+        self.smartInterbeddingParamsLayout.addStretch()
+        self.settings_layout.addLayout(self.smartInterbeddingParamsLayout)
+
         # Add analysis method selection
         analysis_method_layout = QHBoxLayout()
         analysis_method_label = QLabel("Analysis Method:")
@@ -523,6 +558,11 @@ class MainWindow(QMainWindow):
         self.useResearchedDefaultsCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
         # Connect merge thin units checkbox to update_settings
         self.mergeThinUnitsCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
+        # Connect smart interbedding checkbox to update_settings
+        self.smartInterbeddingCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
+        # Connect smart interbedding parameter spinboxes to update_settings
+        self.smartInterbeddingMaxSequenceSpinBox.valueChanged.connect(lambda: self.update_settings(auto_save=True))
+        self.smartInterbeddingThickUnitSpinBox.valueChanged.connect(lambda: self.update_settings(auto_save=True))
 
     def load_separator_settings(self):
         self.separatorThicknessSpinBox.setValue(self.initial_separator_thickness)
@@ -990,8 +1030,16 @@ class MainWindow(QMainWindow):
         table_container = QWidget()
         table_layout = QVBoxLayout(table_container)
         table_layout.setContentsMargins(0, 0, 0, 0)
+        # Add Create Interbedding button
+        button_layout = QHBoxLayout()
+        self.createInterbeddingButton = QPushButton("Create Interbedding")
+        self.createInterbeddingButton.clicked.connect(self.create_manual_interbedding)
+        button_layout.addWidget(self.createInterbeddingButton)
+        button_layout.addWidget(self.exportCsvButton)
+        button_layout.addStretch()
+
         table_layout.addWidget(self.editorTable)
-        table_layout.addWidget(self.exportCsvButton)
+        table_layout.addLayout(button_layout)
 
         # 5. Add to Splitter & Set defaults (3 adjacent panels)
         self.main_splitter.addWidget(curves_container)
@@ -1001,8 +1049,14 @@ class MainWindow(QMainWindow):
         self.main_splitter.setStretchFactor(1, 1) # Strat column area
         self.main_splitter.setStretchFactor(2, 1) # Table area
 
-        # 6. Add Splitter to Main Layout
-        self.editor_tab_layout.addWidget(self.main_splitter)
+        # 6. Create a container for the main content and zoom controls
+        main_content_widget = QWidget()
+        main_content_layout = QVBoxLayout(main_content_widget)
+        main_content_layout.setContentsMargins(0, 0, 0, 0)
+        main_content_layout.setSpacing(5)
+
+        # Add Splitter to the content layout
+        main_content_layout.addWidget(self.main_splitter)
 
         # 7. Zoom Controls (affects both curve and strat views)
         zoom_controls_layout = QHBoxLayout()
@@ -1027,7 +1081,14 @@ class MainWindow(QMainWindow):
 
         zoom_controls_layout.addStretch()  # Push controls to the left
 
-        self.editor_tab_layout.addLayout(zoom_controls_layout)
+        # Add zoom controls to content layout with fixed height
+        zoom_container = QWidget()
+        zoom_container.setLayout(zoom_controls_layout)
+        zoom_container.setFixedHeight(40)  # Fixed height for zoom controls
+        main_content_layout.addWidget(zoom_container)
+
+        # Add the main content widget to the editor tab layout
+        self.editor_tab_layout.addWidget(main_content_widget)
 
         # Connect zoom controls to synchronize between curve and strat views
         self.zoomSlider.valueChanged.connect(self.on_zoom_changed)
@@ -1123,7 +1184,8 @@ class MainWindow(QMainWindow):
 
         self.thread = QThread()
         # Pass mnemonic_map to the Worker
-        self.worker = Worker(self.las_file_path, mnemonic_map, self.lithology_rules, self.use_researched_defaults, self.merge_thin_units, self.merge_threshold)
+        use_fallback_classification = self.fallbackClassificationCheckBox.isChecked()
+        self.worker = Worker(self.las_file_path, mnemonic_map, self.lithology_rules, self.use_researched_defaults, self.merge_thin_units, self.merge_threshold, self.smart_interbedding, self.smart_interbedding_max_sequence_length, self.smart_interbedding_thick_unit_threshold, use_fallback_classification)
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
         self.worker.finished.connect(self.analysis_finished)
@@ -1201,11 +1263,12 @@ class MainWindow(QMainWindow):
         editor_columns = [
             'from_depth', 'to_depth', 'thickness', 'LITHOLOGY_CODE',
             'lithology_qualifier', 'shade', 'hue', 'colour',
-            'weathering', 'estimated_strength'
+            'weathering', 'estimated_strength', 'record_sequence',
+            'inter_relationship', 'percentage'
         ]
         if 'background_color' in units_dataframe.columns:
             editor_columns.append('background_color')
-        
+
         editor_dataframe = units_dataframe[[col for col in editor_columns if col in units_dataframe.columns]]
         self.editorTable.load_data(editor_dataframe)
         self.tab_widget.setCurrentIndex(self.tab_widget.indexOf(self.editor_tab))
@@ -1595,3 +1658,157 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Export Error", f"Failed to export lithology report: {str(e)}")
             import traceback
             traceback.print_exc()
+
+    def create_manual_interbedding(self):
+        """Handle manual interbedding creation from selected table rows."""
+        if self.last_units_dataframe is None or self.last_units_dataframe.empty:
+            QMessageBox.warning(self, "No Data", "No lithology units available. Please run an analysis first.")
+            return
+
+        # Get selected rows from the table
+        selected_rows = set()
+        for item in self.editorTable.selectedItems():
+            selected_rows.add(item.row())
+
+        if len(selected_rows) < 2:
+            QMessageBox.warning(self, "Selection Required", "Please select at least 2 consecutive lithology units to create interbedding.")
+            return
+
+        # Sort selected rows
+        selected_rows = sorted(list(selected_rows))
+
+        # Check if selected rows are consecutive
+        if not self._are_rows_consecutive(selected_rows):
+            QMessageBox.warning(self, "Invalid Selection", "Selected rows must be consecutive for interbedding.")
+            return
+
+        # Get the unit data for selected rows
+        selected_units = []
+        for row_idx in selected_rows:
+            if row_idx < len(self.last_units_dataframe):
+                unit_data = self.last_units_dataframe.iloc[row_idx].to_dict()
+                selected_units.append(unit_data)
+
+        # Open the interbedding dialog
+        from .dialogs.interbedding_dialog import InterbeddingDialog
+        dialog = InterbeddingDialog(selected_units, self)
+
+        if dialog.exec():
+            # Apply the interbedding changes
+            interbedding_data = dialog.get_interbedding_data()
+            self._apply_manual_interbedding(selected_rows, interbedding_data)
+
+    def _are_rows_consecutive(self, row_indices):
+        """Check if the given row indices are consecutive."""
+        if not row_indices:
+            return False
+
+        sorted_indices = sorted(row_indices)
+        for i in range(1, len(sorted_indices)):
+            if sorted_indices[i] != sorted_indices[i-1] + 1:
+                return False
+        return True
+
+    def _apply_manual_interbedding(self, selected_rows, interbedding_data):
+        """Apply manual interbedding changes to the units dataframe."""
+        if self.last_units_dataframe is None:
+            return
+
+        # Create a copy of the dataframe
+        updated_df = self.last_units_dataframe.copy()
+
+        # Remove the selected rows
+        updated_df = updated_df.drop(selected_rows)
+
+        # Reset index
+        updated_df = updated_df.reset_index(drop=True)
+
+        # Find insertion point (where the first selected row was)
+        insert_idx = selected_rows[0]
+
+        # Create new interbedded rows
+        new_rows = []
+        for lith in interbedding_data['lithologies']:
+            # Find the rule for this lithology - ensure each lithology gets its own visual properties
+            rule = None
+            lith_code = lith['code'].upper() if lith['code'] else ''  # Normalize to uppercase
+            for r in self.lithology_rules:
+                rule_code = r.get('code', '').upper() if r.get('code') else ''  # Normalize to uppercase
+                if rule_code == lith_code:
+                    rule = r
+                    break
+
+            # If no rule found, create a default rule with basic properties
+            if not rule:
+                rule = {
+                    'qualifier': '',
+                    'shade': '',
+                    'hue': '',
+                    'colour': '',
+                    'weathering': '',
+                    'strength': '',
+                    'background_color': '#FFFFFF',
+                    'svg_path': self.find_svg_file(lith_code, '')
+                }
+
+            # Only the dominant lithology (sequence 1) gets the full thickness
+            # Subordinate lithologies get 0 thickness since they're mixed in
+            thickness = (interbedding_data['to_depth'] - interbedding_data['from_depth']) if lith['sequence'] == 1 else 0.0
+
+            new_row = {
+                'from_depth': interbedding_data['from_depth'],
+                'to_depth': interbedding_data['to_depth'],
+                'thickness': thickness,
+                'LITHOLOGY_CODE': lith['code'],
+                'lithology_qualifier': rule.get('qualifier', ''),
+                'shade': rule.get('shade', ''),
+                'hue': rule.get('hue', ''),
+                'colour': rule.get('colour', ''),
+                'weathering': rule.get('weathering', ''),
+                'estimated_strength': rule.get('strength', ''),
+                'background_color': rule.get('background_color', '#FFFFFF'),
+                'svg_path': rule.get('svg_path', self.find_svg_file(lith['code'], '')),
+                'record_sequence': lith['sequence'],
+                'inter_relationship': interbedding_data['interrelationship_code'] if lith['sequence'] == 1 else '',
+                'percentage': lith['percentage']
+            }
+            new_rows.append(new_row)
+
+        # Insert new rows at the correct position
+        if insert_idx >= len(updated_df):
+            # Append to end
+            for new_row in new_rows:
+                updated_df = updated_df.append(new_row, ignore_index=True)
+        else:
+            # Split dataframe and insert
+            before = updated_df.iloc[:insert_idx]
+            after = updated_df.iloc[insert_idx:]
+            middle = pd.DataFrame(new_rows)
+            updated_df = pd.concat([before, middle, after], ignore_index=True)
+
+        # Update the stored dataframe
+        self.last_units_dataframe = updated_df
+
+        # Refresh the display
+        editor_columns = [
+            'from_depth', 'to_depth', 'thickness', 'LITHOLOGY_CODE',
+            'lithology_qualifier', 'shade', 'hue', 'colour',
+            'weathering', 'estimated_strength', 'record_sequence',
+            'inter_relationship', 'percentage'
+        ]
+        if 'background_color' in updated_df.columns:
+            editor_columns.append('background_color')
+
+        editor_dataframe = updated_df[[col for col in editor_columns if col in updated_df.columns]]
+        self.editorTable.load_data(editor_dataframe)
+
+        # Update stratigraphic column
+        if hasattr(self, 'stratigraphicColumnView'):
+            separator_thickness = self.separatorThicknessSpinBox.value()
+            draw_separators = self.drawSeparatorsCheckBox.isChecked()
+            if self.last_classified_dataframe is not None:
+                min_depth = self.last_classified_dataframe[DEPTH_COLUMN].min()
+                max_depth = self.last_classified_dataframe[DEPTH_COLUMN].max()
+                self.stratigraphicColumnView.draw_column(updated_df, min_depth, max_depth, separator_thickness, draw_separators)
+
+        QMessageBox.information(self, "Interbedding Created", f"Successfully created interbedding with {len(new_rows)} components.")

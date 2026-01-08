@@ -57,10 +57,11 @@ class LithologyTableWidget(QTableWidget):
         super().__init__(parent)
         self.coallog_data = coallog_data
 
-        # 1point Desktop standard column layout
+        # 1point Desktop standard column layout with new interbedding columns
         self.headers = [
             'From', 'To', 'Thick', 'Litho', 'Qual',
-            'Shade', 'Hue', 'Colour', 'Weath', 'Str'
+            'Shade', 'Hue', 'Colour', 'Weath', 'Str',
+            'Rec Seq', 'Inter-rel', 'Percent'
         ]
 
         # Map internal DF columns to Table Indices
@@ -68,7 +69,8 @@ class LithologyTableWidget(QTableWidget):
             'from_depth': 0, 'to_depth': 1, 'thickness': 2,
             'LITHOLOGY_CODE': 3, 'lithology_qualifier': 4,
             'shade': 5, 'hue': 6, 'colour': 7,
-            'weathering': 8, 'estimated_strength': 9
+            'weathering': 8, 'estimated_strength': 9,
+            'record_sequence': 10, 'inter_relationship': 11, 'percentage': 12
         }
 
         self.setColumnCount(len(self.headers))
