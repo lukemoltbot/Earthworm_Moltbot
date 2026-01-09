@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QPainter, QPixmap, QColor, QFont, QBrush
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtSvgWidgets import QGraphicsSvgItem
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject, QPointF
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject, QPointF, QTimer
 import pandas as pd
 import numpy as np
 import os
@@ -20,7 +20,7 @@ from ..core.coallog_utils import load_coallog_dictionaries
 from .widgets.stratigraphic_column import StratigraphicColumn
 from .widgets.svg_renderer import SvgRenderer
 from .widgets.curve_plotter import CurvePlotter # Import CurvePlotter
-from .widgets.range_gap_visualizer import RangeGapVisualizer # Import new widget
+from .widgets.enhanced_range_gap_visualizer import EnhancedRangeGapVisualizer # Import enhanced widget
 from ..core.settings_manager import load_settings, save_settings
 from .dialogs.researched_defaults_dialog import ResearchedDefaultsDialog # Import new dialog
 from ..utils.range_analyzer import RangeAnalyzer # Import range analyzer
@@ -108,9 +108,62 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Earthworm Borehole Logger")
-        self.setGeometry(100, 100, 1200, 800)
+
+        # Load window geometry from settings or use defaults
+        self.load_window_geometry()
         self.las_file_path = None
-        
+
+    def load_window_geometry(self):
+        """Load window size and position from settings or set reasonable defaults based on screen size."""
+        from PyQt6.QtGui import QGuiApplication
+        from PyQt6.QtCore import QRect
+
+        # Get the primary screen
+        screen = QGuiApplication.primaryScreen()
+        if screen:
+            screen_geometry = screen.availableGeometry()
+            screen_width = screen_geometry.width()
+            screen_height = screen_geometry.height()
+
+            # Set reasonable default size (80% of screen size, but not larger than 1400x900)
+            default_width = min(int(screen_width * 0.8), 1400)
+            default_height = min(int(screen_height * 0.8), 900)
+
+            # Try to load saved geometry from settings
+            app_settings = load_settings()
+            saved_geometry = app_settings.get("window_geometry")
+
+            if saved_geometry and isinstance(saved_geometry, dict):
+                # Restore saved geometry if it exists
+                x = saved_geometry.get('x', 50)
+                y = saved_geometry.get('y', 50)
+                width = saved_geometry.get('width', default_width)
+                height = saved_geometry.get('height', default_height)
+                maximized = saved_geometry.get('maximized', False)
+
+                # Ensure the window fits within the current screen
+                if width > screen_width:
+                    width = screen_width - 100
+                if height > screen_height:
+                    height = screen_height - 100
+                if x + width > screen_width:
+                    x = max(0, screen_width - width - 50)
+                if y + height > screen_height:
+                    y = max(0, screen_height - height - 50)
+
+                self.setGeometry(x, y, width, height)
+
+                if maximized:
+                    self.showMaximized()
+            else:
+                # Use default geometry centered on screen
+                x = (screen_width - default_width) // 2
+                y = (screen_height - default_height) // 2
+                self.setGeometry(x, y, default_width, default_height)
+
+        # Set minimum size to prevent the window from becoming unusable
+        self.setMinimumSize(800, 600)
+
         # Load settings on startup
         app_settings = load_settings()
         self.lithology_rules = app_settings["lithology_rules"]
@@ -137,8 +190,13 @@ class MainWindow(QMainWindow):
 
         # Initialize range analyzer and visualizer
         self.range_analyzer = RangeAnalyzer()
-        self.range_visualizer = RangeGapVisualizer()
+        self.range_visualizer = EnhancedRangeGapVisualizer()
         self.range_visualizer.set_range_analyzer(self.range_analyzer)
+
+        # Initialize debouncing timer for gap visualization updates
+        self.gap_update_timer = QTimer(self)
+        self.gap_update_timer.setSingleShot(True)
+        self.gap_update_timer.timeout.connect(self._perform_gap_visualization_update)
 
         self.tab_widget = QTabWidget()
         self.setCentralWidget(self.tab_widget)
@@ -674,9 +732,41 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "Error", f"Failed to load settings: {e}")
 
     def closeEvent(self, event):
-        # Save settings automatically to the default file when the application closes
+        # Save window geometry and settings automatically when the application closes
+        self.save_window_geometry()
         self.update_settings(auto_save=True)
         super().closeEvent(event)
+
+    def save_window_geometry(self):
+        """Save current window size and position to settings."""
+        from PyQt6.QtCore import QRect
+
+        # Get current window geometry
+        geometry = self.geometry()
+        is_maximized = self.isMaximized()
+
+        # Prepare geometry data
+        geometry_data = {
+            'x': geometry.x(),
+            'y': geometry.y(),
+            'width': geometry.width(),
+            'height': geometry.height(),
+            'maximized': is_maximized
+        }
+
+        # Load current settings and add geometry
+        try:
+            app_settings = load_settings()
+            app_settings['window_geometry'] = geometry_data
+
+            # Save updated settings
+            from ..core.settings_manager import DEFAULT_SETTINGS_FILE
+            import json
+            os.makedirs(os.path.dirname(DEFAULT_SETTINGS_FILE), exist_ok=True)
+            with open(DEFAULT_SETTINGS_FILE, 'w') as f:
+                json.dump(app_settings, f, indent=4)
+        except Exception as e:
+            print(f"Warning: Could not save window geometry: {e}")
 
     def on_tab_changed(self, index):
         # Remove redundant save when switching tabs
@@ -854,10 +944,12 @@ class MainWindow(QMainWindow):
         return actions_widget
 
     def update_range_values(self, row, range_type, min_val, max_val):
-        """Update range values from CompactRangeWidget signals."""
+        """Update range values from CompactRangeWidget signals and trigger visualization refresh."""
         # This method handles the signals from CompactRangeWidget
         # The actual value extraction happens in save_settings_rules_from_table
-        pass  # Values will be retrieved when saving
+
+        # Trigger real-time gap visualization update with debouncing
+        self._schedule_gap_visualization_update()
 
     def update_visual_properties(self, row, properties):
         """Update visual properties from MultiAttributeWidget signals."""
@@ -1812,3 +1904,18 @@ class MainWindow(QMainWindow):
                 self.stratigraphicColumnView.draw_column(updated_df, min_depth, max_depth, separator_thickness, draw_separators)
 
         QMessageBox.information(self, "Interbedding Created", f"Successfully created interbedding with {len(new_rows)} components.")
+
+    def _schedule_gap_visualization_update(self):
+        """Schedule a debounced update of the gap visualization to prevent excessive updates during rapid user input."""
+        # Start or restart the timer with 500ms delay
+        self.gap_update_timer.start(500)
+
+    def _perform_gap_visualization_update(self):
+        """Perform the actual gap visualization update after debounce delay."""
+        try:
+            self.refresh_range_visualization()
+        except Exception as e:
+            # Log error but don't crash the application
+            print(f"Error updating gap visualization: {e}")
+            import traceback
+            traceback.print_exc()
