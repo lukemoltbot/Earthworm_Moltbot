@@ -638,28 +638,9 @@ class Analyzer:
                 updated_units.append(unit.to_dict())
                 units_processed += 1
 
-            # Create interbedded units for this candidate
-            for lithology in candidate['lithologies']:
-                rule = rules_map.get(lithology['code'], {})
-
-                interbedded_unit = {
-                    'from_depth': candidate_start_depth,
-                    'to_depth': candidate_end_depth,
-                    'thickness': 0.0 if lithology['sequence'] > 1 else candidate_end_depth - candidate_start_depth,
-                    LITHOLOGY_COLUMN: lithology['code'],
-                    'lithology_qualifier': rule.get('qualifier', ''),
-                    'shade': rule.get('shade', ''),
-                    'hue': rule.get('hue', ''),
-                    'colour': rule.get('colour', ''),
-                    'weathering': rule.get('weathering', ''),
-                    'estimated_strength': rule.get('strength', ''),
-                    'background_color': rule.get('background_color', '#FFFFFF'),
-                    'svg_path': rule.get('svg_path'),
-                    'record_sequence': lithology['sequence'],
-                    'inter_relationship': candidate['interrelationship_code'] if lithology['sequence'] == 1 else '',
-                    'percentage': lithology['percentage']
-                }
-                updated_units.append(interbedded_unit)
+            # Create merged interbedded section for this candidate
+            merged_section = self._create_merged_interbedded_section_for_candidate(candidate, rules_map)
+            updated_units.extend(merged_section)
 
             # Skip the original units that were replaced by interbedding
             while units_processed < len(units_df):
@@ -720,7 +701,7 @@ class Analyzer:
 
             if not current_is_interbedded:
                 # Not an interbedded unit, add as-is
-                merged_units.append(current_unit)
+                merged_units.append(current_unit.to_dict())
                 i += 1
                 continue
 
@@ -872,6 +853,48 @@ class Analyzer:
             else:
                 merged_unit['inter_relationship'] = ''
 
+            merged_units.append(merged_unit)
+
+        return merged_units
+
+    def _create_merged_interbedded_section_for_candidate(self, candidate, rules_map):
+        """
+        Create a merged interbedded section for a single candidate.
+
+        Args:
+            candidate (dict): Interbedding candidate dictionary
+            rules_map (dict): Mapping of lithology codes to rule details
+
+        Returns:
+            list: List of unit dictionaries for the interbedded section
+        """
+        from_depth = candidate['from_depth']
+        to_depth = candidate['to_depth']
+        total_thickness = to_depth - from_depth
+
+        # Create units for each lithology in the candidate
+        merged_units = []
+        for lithology in candidate['lithologies']:
+            rule = rules_map.get(lithology['code'], {})
+
+            # Create unit for this lithology component
+            merged_unit = {
+                'from_depth': from_depth,
+                'to_depth': to_depth,
+                'thickness': total_thickness if lithology['sequence'] == 1 else 0.0,  # Only dominant gets full thickness
+                LITHOLOGY_COLUMN: lithology['code'],
+                'lithology_qualifier': rule.get('qualifier', ''),
+                'shade': rule.get('shade', ''),
+                'hue': rule.get('hue', ''),
+                'colour': rule.get('colour', ''),
+                'weathering': rule.get('weathering', ''),
+                'estimated_strength': rule.get('strength', ''),
+                'background_color': rule.get('background_color', '#FFFFFF'),
+                'svg_path': rule.get('svg_path'),
+                'record_sequence': lithology['sequence'],
+                'inter_relationship': candidate['interrelationship_code'] if lithology['sequence'] == 1 else '',
+                'percentage': lithology['percentage']
+            }
             merged_units.append(merged_unit)
 
         return merged_units
