@@ -199,7 +199,14 @@ class MainWindow(QMainWindow):
         self.gap_update_timer.timeout.connect(self._perform_gap_visualization_update)
 
         self.tab_widget = QTabWidget()
-        self.setCentralWidget(self.tab_widget)
+        # Create central widget with vertical layout: control panel at top, tabs below
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(5, 5, 5, 5)
+        main_layout.setSpacing(5)
+        
+        # Control panel (load LAS, curve selection, run analysis)
         self.control_panel_layout = QHBoxLayout()
         self.loadLasButton = QPushButton("Load LAS File")
         self.control_panel_layout.addWidget(self.loadLasButton)
@@ -219,6 +226,10 @@ class MainWindow(QMainWindow):
 
         self.runAnalysisButton = QPushButton("Run Analysis")
         self.control_panel_layout.addWidget(self.runAnalysisButton)
+        main_layout.addLayout(self.control_panel_layout)
+        
+        # Tab widget for Settings and Editor (Editor will be the default)
+        self.tab_widget = QTabWidget()
         self.settings_tab = QWidget()
         self.settings_layout = QVBoxLayout(self.settings_tab)
         self.tab_widget.addTab(self.settings_tab, "Settings")
@@ -236,6 +247,8 @@ class MainWindow(QMainWindow):
         self.editorTable.rowSelectionChangedSignal.connect(self._on_table_row_selected)
 
         self.tab_widget.addTab(self.editor_tab, "Editor")
+        main_layout.addWidget(self.tab_widget)
+        
         self.connect_signals()
         self.load_default_lithology_rules()
         self.setup_settings_tab()
@@ -459,7 +472,8 @@ class MainWindow(QMainWindow):
     def setup_settings_tab(self):
         # Add data processing controls at the top
         self.settings_layout.addWidget(QLabel("Data Processing Controls:"))
-        self.settings_layout.addLayout(self.control_panel_layout)
+        # Control panel now placed above tabs, not inside settings tab
+        # self.settings_layout.addLayout(self.control_panel_layout)
 
         # Add a separator
         separator = QFrame()
