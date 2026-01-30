@@ -448,13 +448,6 @@ class Analyzer:
         avg_layer_thickness = total_thickness / len(sequence)
         print(f"DEBUG: Average layer thickness: {avg_layer_thickness}")
 
-        # Only consider for interbedding if average layer thickness < 200mm
-        if avg_layer_thickness >= 0.2:
-            print(f"DEBUG: Average layer thickness {avg_layer_thickness} >= 0.2m, not considering for interbedding")
-            return None
-
-        print("DEBUG: Average layer thickness < 0.2m, proceeding with interbedding analysis")
-
         # Determine interrelationship code based on average layer thickness
         if avg_layer_thickness < 0.02:
             inter_code = 'IL'  # Interlaminated (< 20mm)
