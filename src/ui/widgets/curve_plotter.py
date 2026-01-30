@@ -141,6 +141,16 @@ class CurvePlotter(QGraphicsView):
         self.scene.setSceneRect(0, min_depth * self.depth_scale, self.plot_width, scene_height + self.x_axis_height)
         self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatioByExpanding)
         self.verticalScrollBar().setValue(self.verticalScrollBar().maximum()) # Scroll to bottom to show top of log
+    def scroll_to_depth(self, depth):
+        """Scroll the view to make the given depth visible."""
+        if not hasattr(self, "min_depth") or not hasattr(self, "max_depth"):
+            return
+        y = (depth - self.min_depth) * self.depth_scale
+        # Center the view on this y coordinate
+        view_height = self.viewport().height()
+        scroll_value = int(y - view_height / 2)
+        scroll_value = max(0, min(scroll_value, self.verticalScrollBar().maximum()))
+        self.verticalScrollBar().setValue(scroll_value)
 
 
     def _draw_x_axes(self):

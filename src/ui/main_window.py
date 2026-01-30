@@ -327,6 +327,26 @@ class MainWindow(QMainWindow):
         else:
             # Highlight the corresponding unit in stratigraphic column
             self.stratigraphicColumnView.highlight_unit(row_index)
+            # Scroll both views to the selected unit's depth
+            if hasattr(self.stratigraphicColumnView, 'units_dataframe') and self.stratigraphicColumnView.units_dataframe is not None:
+                if 0 <= row_index < len(self.stratigraphicColumnView.units_dataframe):
+                    unit = self.stratigraphicColumnView.units_dataframe.iloc[row_index]
+                    center_depth = (unit['from_depth'] + unit['to_depth']) / 2
+                    self.stratigraphicColumnView.scroll_to_depth(center_depth)
+                    self.curvePlotter.scroll_to_depth(center_depth)
+
+    def _on_unit_clicked(self, unit_index):
+        """Handle click on a stratigraphic column unit."""
+        # Select the corresponding row in the editor table
+        if hasattr(self, 'editorTable') and self.editorTable is not None:
+            # Ensure the row exists
+            if 0 <= unit_index < self.editorTable.rowCount():
+                # Block signals to prevent recursive selection
+                self.editorTable.blockSignals(True)
+                self.editorTable.selectRow(unit_index)
+                self.editorTable.blockSignals(False)
+                # Scroll the table to make the row visible
+                self.editorTable.scrollToItem(self.editorTable.item(unit_index, 0))
 
     def find_svg_file(self, lithology_code, lithology_qualifier=''):
         svg_dir = os.path.join(os.getcwd(), 'src', 'assets', 'svg')
@@ -367,6 +387,9 @@ class MainWindow(QMainWindow):
         self.runAnalysisButton.clicked.connect(self.run_analysis)
         self.exportCsvButton.clicked.connect(self.export_editor_data_to_csv)
         self.tab_widget.currentChanged.connect(self.on_tab_changed)
+        # Connect stratigraphic column unit clicks
+        if hasattr(self, 'stratigraphicColumnView'):
+            self.stratigraphicColumnView.unitClicked.connect(self._on_unit_clicked)
 
     def load_las_file_dialog(self):
         file_dialog = QFileDialog()

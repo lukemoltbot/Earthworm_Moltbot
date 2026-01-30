@@ -3,12 +3,14 @@ from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsRectItem, QG
 from PyQt6.QtSvgWidgets import QGraphicsSvgItem
 from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPixmap, QPen
 from PyQt6.QtSvg import QSvgRenderer
-from PyQt6.QtCore import QRectF, Qt
+from PyQt6.QtCore import QRectF, Qt, pyqtSignal
 import numpy as np # Import numpy
 from ...core.config import LITHOLOGY_COLUMN
 from .svg_renderer import SvgRenderer
 
 class StratigraphicColumn(QGraphicsView):
+    unitClicked = pyqtSignal(int)  # emits unit index when a unit is clicked
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         self.scene = QGraphicsScene(self)
@@ -242,3 +244,31 @@ class StratigraphicColumn(QGraphicsView):
                 # Add to scene and store reference
                 self.scene.addItem(highlight_rect)
                 self.highlight_rect_item = highlight_rect
+
+    def mousePressEvent(self, event):
+        """Handle mouse clicks to select units."""
+        pos = self.mapToScene(event.pos())
+        # Find which unit was clicked
+        if self.units_dataframe is not None:
+            for idx, unit in self.units_dataframe.iterrows():
+                from_depth = unit['from_depth']
+                to_depth = unit['to_depth']
+                y_start = (from_depth - self.min_depth) * self.depth_scale
+                y_end = y_start + (to_depth - from_depth) * self.depth_scale
+                # Check if click is within column area (x between y_axis_width and y_axis_width+column_width)
+                if (self.y_axis_width <= pos.x() <= self.y_axis_width + self.column_width and
+                    y_start <= pos.y() <= y_end):
+                    self.selected_unit_index = idx
+                    self._update_highlight()
+                    self.unitClicked.emit(idx)
+                    break
+        super().mousePressEvent(event)
+
+    def scroll_to_depth(self, depth):
+        """Scroll the view to make the given depth visible."""
+        y = (depth - self.min_depth) * self.depth_scale
+        # Center the view on this y coordinate
+        view_height = self.viewport().height()
+        scroll_value = int(y - view_height / 2)
+        scroll_value = max(0, min(scroll_value, self.verticalScrollBar().maximum()))
+        self.verticalScrollBar().setValue(scroll_value)
