@@ -571,31 +571,29 @@ class Analyzer:
                 # Same lithology - this breaks the alternating pattern
                 break
 
-        # Validate that the sequence alternates between exactly 2 lithologies
+        # Validate that the sequence alternates between 2 or 3 lithologies
         if len(sequence) >= 3:  # Need at least 3 units for meaningful alternation
             codes = [u[LITHOLOGY_COLUMN] for u in sequence]
             unique_codes = list(set(codes))
 
-            # For interbedding, we require STRICT alternation between exactly 2 lithologies
-            if len(unique_codes) != 2:
-                print(f"DEBUG: Sequence has {len(unique_codes)} unique lithologies (need exactly 2), returning empty sequence")
+            # For interbedding, we require STRICT alternation between 2 or 3 lithologies
+            if len(unique_codes) < 2 or len(unique_codes) > 3:
+                print(f"DEBUG: Sequence has {len(unique_codes)} unique lithologies (need 2 or 3), returning empty sequence")
                 return []
 
-            # Check if it strictly alternates between the two lithologies
-            litho_a, litho_b = unique_codes[0], unique_codes[1]
-
-            # The sequence must alternate: A-B-A-B-A-B... or B-A-B-A-B-A...
-            expected_pattern_ab = [litho_a, litho_b] * (len(sequence) // 2)
-            if len(sequence) % 2 == 1:
-                expected_pattern_ab.append(litho_a)
-
-            expected_pattern_ba = [litho_b, litho_a] * (len(sequence) // 2)
-            if len(sequence) % 2 == 1:
-                expected_pattern_ba.append(litho_b)
-
-            if codes != expected_pattern_ab and codes != expected_pattern_ba:
-                print(f"DEBUG: Sequence does not strictly alternate between {litho_a} and {litho_b}, returning empty sequence")
-                return []
+            # Check if the sequence follows a repeating pattern of the unique codes in order of first appearance
+            # Determine pattern order by first appearance
+            pattern = []
+            for code in codes:
+                if code not in pattern:
+                    pattern.append(code)
+            # Now pattern length equals len(unique_codes)
+            # Verify that the entire sequence matches pattern repeated
+            for i, code in enumerate(codes):
+                expected = pattern[i % len(pattern)]
+                if code != expected:
+                    print(f"DEBUG: Sequence does not follow repeating pattern {pattern}, returning empty sequence")
+                    return []
 
         print(f"DEBUG: Extracted sequence with {len(sequence)} units: {[u[LITHOLOGY_COLUMN] for u in sequence]}")
         return sequence
