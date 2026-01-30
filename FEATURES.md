@@ -3,25 +3,30 @@
 ## Priority Features (from user)
 
 ### 1. Smart Interbedding Function
-**Status:** Not working properly.
-**Expected behavior:** Detect multiple consecutive small units that alternate between two types, merge them correctly, and write correct output.
-**Notes:** This is an important feature for geological analysis.
+**Status:** Improved algorithm, needs testing with real data.
+**Expected behavior:** Detect multiple consecutive small units that alternate between two or three lithology types, merge them correctly, and write correct output.
+**Notes:** Algorithm now allows up to 3 lithologies, strict alternating pattern, and coarse interbedding (CB) for avg layer thickness >=200mm. Awaiting LAS file for validation.
 
 ### 2. Row Selection Synchronization
-**Status:** Missing.
+**Status:** Implemented.
 **Expected behavior:** When user selects a row in the editor table, automatically scroll the curve pane and stratigraphic column pane to the same depth location.
+**Implementation:** Added scroll_to_depth methods to both CurvePlotter and StratigraphicColumn; enhanced _on_table_row_selected.
 
 ### 3. Click Lithology Unit → Editor
-**Status:** Missing.
+**Status:** Implemented.
 **Expected behavior:** When user clicks a lithology unit in the stratigraphic column, highlight/show the corresponding row in the editor table.
+**Implementation:** Added unitClicked signal and mousePressEvent to StratigraphicColumn; added _on_unit_clicked slot.
 
 ### 4. UI Redesign – Remove Tabbed System
-**Status:** Current UI uses a QTabWidget with "Settings" and "Editor" tabs.
+**Status:** In progress.
 **Desired UI:** Editor as main window; settings moved to a series of buttons at the top (similar to 1pointdesktop software by Flout Software).
-**Actions:**
-- Remove QTabWidget.
-- Create a toolbar or button bar at top for settings/controls.
-- Ensure all settings are accessible via modal dialogs or side panels.
+**Actions completed:**
+- Moved control panel (Load LAS, curve selection, Run Analysis) above the tab widget, making it always visible.
+- Settings tab still exists but no longer contains the control panel.
+**Remaining actions:**
+- Move remaining settings (lithology rules, visual settings, interbedding options) into a dialog or side panel.
+- Remove Settings tab entirely.
+- Add toolbar with Settings button.
 
 ## Bugs (to be identified)
 - Run the app and test core workflows; log any crashes, freezes, or incorrect outputs.

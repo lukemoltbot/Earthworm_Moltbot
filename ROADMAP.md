@@ -46,6 +46,9 @@
 - **Analysis Improvements**
   - Additional lithology classification algorithms.
   - User‑defined curve ranges and rules.
+  - **Smart Interbedding** – improved algorithm (allows up to 3 lithologies, coarse interbedding detection).
+  - **Row selection sync** – implemented.
+  - **Click lithology unit to select table row** – implemented.
 
 ### 2.2 UI/UX Polish
 - Modernize icons and color scheme.
