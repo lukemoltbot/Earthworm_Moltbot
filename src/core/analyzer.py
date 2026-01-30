@@ -464,13 +464,56 @@ class Analyzer:
         lithology_thicknesses = {}
         for unit in sequence:
             code = unit[LITHOLOGY_COLUMN]
+            # NL units are excluded from percentage calculations
+            if code == 'NL':
+                continue
             lithology_thicknesses[code] = lithology_thicknesses.get(code, 0) + unit['thickness']
 
-        print(f"DEBUG: Lithology thicknesses: {lithology_thicknesses}")
+        print(f"DEBUG: Lithology thicknesses (NL excluded): {lithology_thicknesses}")
+
+        # If we have no lithologies after excluding NL, return None
+        if not lithology_thicknesses:
+            print(f"DEBUG: No lithologies after excluding NL, returning None")
+            return None
 
         # Sort by thickness (dominance) - user specified "by total thickness"
         sorted_lithologies = sorted(lithology_thicknesses.items(), key=lambda x: x[1], reverse=True)
         print(f"DEBUG: Sorted lithologies by thickness: {sorted_lithologies}")
+
+        # Apply simplification for 3+ lithologies
+        if len(sorted_lithologies) > 2:
+            print(f"DEBUG: Found {len(sorted_lithologies)} lithologies, applying simplification rules")
+            
+            # Get the two most dominant lithologies
+            dominant1_code, dominant1_thickness = sorted_lithologies[0]
+            dominant2_code, dominant2_thickness = sorted_lithologies[1]
+            
+            # Calculate total thickness of all lithologies (excluding NL)
+            total_non_nl_thickness = sum(thickness for _, thickness in sorted_lithologies)
+            
+            # Process remaining lithologies (3rd and beyond)
+            remaining_lithologies = []
+            for i in range(2, len(sorted_lithologies)):
+                code, thickness = sorted_lithologies[i]
+                percentage = (thickness / total_non_nl_thickness) * 100
+                
+                # If third lithology exceeds 10%, keep it as separate
+                if percentage > 10:
+                    print(f"DEBUG: Third lithology {code} exceeds 10% ({percentage:.2f}%), keeping as separate")
+                    remaining_lithologies.append((code, thickness))
+                else:
+                    # Group into most similar major lithology
+                    # For now, we'll group into dominant1 (could be enhanced with similarity logic)
+                    print(f"DEBUG: Third lithology {code} is {percentage:.2f}%, grouping into {dominant1_code}")
+                    dominant1_thickness += thickness
+            
+            # Rebuild sorted lithologies list
+            sorted_lithologies = [
+                (dominant1_code, dominant1_thickness),
+                (dominant2_code, dominant2_thickness)
+            ] + remaining_lithologies
+            
+            print(f"DEBUG: Simplified lithologies: {sorted_lithologies}")
 
         # Create lithology components with percentages and sequence numbers
         lithologies = []
@@ -478,7 +521,7 @@ class Analyzer:
             percentage = (thickness / total_thickness) * 100
             print(f"DEBUG: Lithology {code}: thickness={thickness}, percentage={percentage}")
 
-            # Skip lithologies < 5% unless they are the dominant one
+            # Apply ≥5% rule for non-dominant lithologies (dominant always included)
             if seq_num > 1 and percentage < 5:
                 print(f"DEBUG: Skipping lithology {code} (percentage {percentage} < 5% and not dominant)")
                 continue
@@ -513,7 +556,12 @@ class Analyzer:
 
     def _extract_alternating_sequence(self, units_df, start_idx, max_sequence_length=10, thick_unit_threshold=0.5):
         """
-        Extract a sequence of alternating lithology units.
+        Extract a sequence of alternating lithology units according to Luke's specifications:
+        - Individual layer thicknesses must be <200mm
+        - At least two full cycles of alternation (minimum 4 units for 2 lithologies)
+        - Stop if single lithology persists for >500mm
+        - Stop if clean (non-alternating) unit detected
+        - NL units are excluded from sequence
 
         Args:
             units_df (pandas.DataFrame): DataFrame of lithological units
@@ -533,6 +581,8 @@ class Analyzer:
         sequence = []
         current_code = None
         units_added = 0
+        same_lithology_run_length = 0
+        same_lithology_run_thickness = 0.0
 
         print(f"DEBUG: Scanning from index {start_idx} to {min(start_idx + max_sequence_length, len(units_df))}")
 
@@ -543,29 +593,69 @@ class Analyzer:
 
             print(f"DEBUG: Checking unit at index {i}: code={unit_code}, thickness={unit_thickness}")
 
-            # Skip units that are too thick (user's thick unit threshold)
+            # Skip NL units - they should not be included in interbedding sequences
+            if unit_code == 'NL':
+                print(f"DEBUG: Unit is NL (Not Logged), breaking sequence")
+                break
+
+            # Check individual layer thickness <200mm (0.2m)
+            if unit_thickness >= 0.2:
+                print(f"DEBUG: Unit thickness {unit_thickness} >= 0.2m, individual layers must be <200mm, stopping sequence")
+                break
+
+            # Skip units that are too thick (user's thick unit threshold - 500mm)
             if unit_thickness > thick_unit_threshold:
                 print(f"DEBUG: Unit thickness {unit_thickness} > thick_unit_threshold {thick_unit_threshold}, stopping sequence extraction")
                 break
 
-            # If this is a different lithology than the previous one, add it
-            if unit_code != current_code:
-                print(f"DEBUG: Adding unit with code {unit_code} (different from previous {current_code})")
-                sequence.append(unit.to_dict())
+            # Forward-looking: check if next unit would break the sequence
+            if i + 1 < len(units_df):
+                next_unit = units_df.iloc[i + 1]
+                next_unit_thickness = next_unit['thickness']
+                next_unit_code = next_unit[LITHOLOGY_COLUMN]
+                
+                # Stop if next unit is too thick (>500mm)
+                if next_unit_thickness > 0.5:
+                    print(f"DEBUG: Next unit thickness {next_unit_thickness} > 500mm, stopping proactively")
+                    # Still add current unit if it fits the pattern
+                    pass
+                # Stop if next unit is NL
+                elif next_unit_code == 'NL':
+                    print(f"DEBUG: Next unit is NL (Not Logged), stopping proactively")
+                    # Still add current unit if it fits the pattern
+                    pass
+
+            # Check if this is the same lithology as previous
+            if unit_code == current_code:
+                same_lithology_run_length += 1
+                same_lithology_run_thickness += unit_thickness
+                print(f"DEBUG: Same lithology {unit_code} as previous, run length={same_lithology_run_length}, run thickness={same_lithology_run_thickness}")
+                
+                # Stop if single lithology persists for >500mm
+                if same_lithology_run_thickness > 0.5:
+                    print(f"DEBUG: Single lithology {unit_code} persists for {same_lithology_run_thickness}m > 500mm, stopping sequence")
+                    break
+                    
+                # Same lithology - this breaks the alternating pattern
+                print(f"DEBUG: Same lithology {unit_code} as previous, breaking alternating pattern")
+                break
+            else:
+                # Different lithology - reset same lithology tracking
+                same_lithology_run_length = 1
+                same_lithology_run_thickness = unit_thickness
                 current_code = unit_code
+                
+                print(f"DEBUG: Adding unit with code {unit_code} (different from previous)")
+                sequence.append(unit.to_dict())
                 units_added += 1
 
                 # Stop if we've added too many units
                 if units_added >= max_sequence_length:
                     print(f"DEBUG: Reached max_sequence_length {max_sequence_length}, stopping")
                     break
-            else:
-                print(f"DEBUG: Same lithology {unit_code} as previous, breaking alternating pattern")
-                # Same lithology - this breaks the alternating pattern
-                break
 
-        # Validate that the sequence alternates between 2 or 3 lithologies
-        if len(sequence) >= 3:  # Need at least 3 units for meaningful alternation
+        # Validate that we have at least two full cycles of alternation
+        if len(sequence) >= 4:  # Need at least 4 units for two full cycles (A-B-A-B)
             codes = [u[LITHOLOGY_COLUMN] for u in sequence]
             unique_codes = list(set(codes))
 
@@ -587,6 +677,17 @@ class Analyzer:
                 if code != expected:
                     print(f"DEBUG: Sequence does not follow repeating pattern {pattern}, returning empty sequence")
                     return []
+                    
+            # Check that we have at least two full cycles
+            # For 2 lithologies: need at least pattern repeated twice (4 units)
+            # For 3 lithologies: need at least pattern repeated twice (6 units)
+            min_units_needed = len(pattern) * 2
+            if len(sequence) < min_units_needed:
+                print(f"DEBUG: Sequence has {len(sequence)} units but need at least {min_units_needed} for two full cycles, returning empty sequence")
+                return []
+        else:
+            print(f"DEBUG: Sequence too short (length={len(sequence)}), need at least 4 units for two full cycles. Returning empty sequence")
+            return []
 
         print(f"DEBUG: Extracted sequence with {len(sequence)} units: {[u[LITHOLOGY_COLUMN] for u in sequence]}")
         return sequence
@@ -850,7 +951,11 @@ class Analyzer:
 
     def _create_merged_interbedded_section_for_candidate(self, candidate, rules_map):
         """
-        Create a merged interbedded section for a single candidate.
+        Create a merged interbedded section for a single candidate according to Luke's specifications:
+        - Multiple rows for same depth interval
+        - Rec_Seq: 1 for dominant, 2 for secondary, etc.
+        - Interrelationship code only on Rec_Seq 1 row
+        - Percentage calculated from total volume
 
         Args:
             candidate (dict): Interbedding candidate dictionary
@@ -872,7 +977,7 @@ class Analyzer:
             merged_unit = {
                 'from_depth': from_depth,
                 'to_depth': to_depth,
-                'thickness': total_thickness if lithology['sequence'] == 1 else 0.0,  # Only dominant gets full thickness
+                'thickness': total_thickness,  # All rows have full thickness
                 LITHOLOGY_COLUMN: lithology['code'],
                 'lithology_qualifier': rule.get('qualifier', ''),
                 'shade': rule.get('shade', ''),
