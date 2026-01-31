@@ -65,10 +65,11 @@ class DataProcessor:
         # Create standardized columns based on mnemonic_map
         for standard_name, original_mnemonic in mnemonic_map.items():
             if original_mnemonic in processed_df.columns:
-                processed_df[standard_name] = processed_df[original_mnemonic]
+                # Use .loc assignment to avoid chained assignment warning
+                processed_df.loc[:, standard_name] = processed_df[original_mnemonic].values
             else:
                 # If the original mnemonic is not found, create a column of NaNs
-                processed_df[standard_name] = np.nan
+                processed_df.loc[:, standard_name] = np.nan
                 print(f"Warning: Mnemonic '{original_mnemonic}' not found in DataFrame for standard name '{standard_name}'.")
 
         return processed_df

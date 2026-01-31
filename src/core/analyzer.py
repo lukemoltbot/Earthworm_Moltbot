@@ -1021,7 +1021,8 @@ class Analyzer:
                     'svg_path': rule.get('svg_path'),
                     'record_sequence': '',  # New column for interbedding
                     'inter_relationship': '',  # New column for interbedding
-                    'percentage': 0.0  # New column for interbedding
+                    'percentage': 0.0,  # New column for interbedding
+                    'bed_spacing': ''  # Bed spacing attribute
                 }
             elif lithology_code == current_unit[LITHOLOGY_COLUMN]:
                 # Continue the current unit
@@ -1046,7 +1047,8 @@ class Analyzer:
                     'svg_path': rule.get('svg_path'),
                     'record_sequence': '',  # New column for interbedding
                     'inter_relationship': '',  # New column for interbedding
-                    'percentage': 0.0  # New column for interbedding
+                    'percentage': 0.0,  # New column for interbedding
+                    'bed_spacing': ''  # Bed spacing attribute
                 }
 
         # Add the last unit
@@ -1064,14 +1066,14 @@ class Analyzer:
                 'from_depth', 'to_depth', 'thickness', LITHOLOGY_COLUMN,
                 'lithology_qualifier', 'shade', 'hue', 'colour',
                 'weathering', 'estimated_strength', 'background_color', 'svg_path',
-                'record_sequence', 'inter_relationship', 'percentage'
+                'record_sequence', 'inter_relationship', 'percentage', 'bed_spacing'
             ]]
         else:
             units_df = pd.DataFrame(columns=[
                 'from_depth', 'to_depth', 'thickness', LITHOLOGY_COLUMN,
                 'lithology_qualifier', 'shade', 'hue', 'colour',
                 'weathering', 'estimated_strength', 'background_color', 'svg_path',
-                'record_sequence', 'inter_relationship', 'percentage'
+                'record_sequence', 'inter_relationship', 'percentage', 'bed_spacing'
             ])
 
         return units_df
@@ -1116,14 +1118,14 @@ class Analyzer:
                 'from_depth', 'to_depth', 'thickness', LITHOLOGY_COLUMN,
                 'lithology_qualifier', 'shade', 'hue', 'colour',
                 'weathering', 'estimated_strength', 'background_color', 'svg_path',
-                'record_sequence', 'inter_relationship', 'percentage'
+                'record_sequence', 'inter_relationship', 'percentage', 'bed_spacing'
             ]]
         else:
             units_df = pd.DataFrame(columns=[
                 'from_depth', 'to_depth', 'thickness', LITHOLOGY_COLUMN,
                 'lithology_qualifier', 'shade', 'hue', 'colour',
                 'weathering', 'estimated_strength', 'background_color', 'svg_path',
-                'record_sequence', 'inter_relationship', 'percentage'
+                'record_sequence', 'inter_relationship', 'percentage', 'bed_spacing'
             ])
 
         return units_df

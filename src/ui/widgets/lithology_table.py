@@ -61,7 +61,7 @@ class LithologyTableWidget(QTableWidget):
         self.headers = [
             'From', 'To', 'Thick', 'Litho', 'Qual',
             'Shade', 'Hue', 'Colour', 'Weath', 'Str',
-            'Rec Seq', 'Inter-rel', 'Percent'
+            'Rec Seq', 'Inter-rel', 'Percent', 'Bed Sp'
         ]
 
         # Map internal DF columns to Table Indices
@@ -70,11 +70,33 @@ class LithologyTableWidget(QTableWidget):
             'LITHOLOGY_CODE': 3, 'lithology_qualifier': 4,
             'shade': 5, 'hue': 6, 'colour': 7,
             'weathering': 8, 'estimated_strength': 9,
-            'record_sequence': 10, 'inter_relationship': 11, 'percentage': 12
+            'record_sequence': 10, 'inter_relationship': 11, 
+            'percentage': 12, 'bed_spacing': 13
         }
 
         self.setColumnCount(len(self.headers))
         self.setHorizontalHeaderLabels(self.headers)
+        # Set column tooltips
+        tooltips = {
+            0: "From depth (meters)",
+            1: "To depth (meters)",
+            2: "Thickness (meters)",
+            3: "Lithology type code",
+            4: "Lithology qualifier",
+            5: "Shade (light, medium, dark)",
+            6: "Hue (color tint)",
+            7: "Colour (primary color)",
+            8: "Weathering degree",
+            9: "Estimated strength",
+            10: "Record sequence for interbedding",
+            11: "Inter-relationship code",
+            12: "Percentage in interbedded unit",
+            13: "Bed spacing (CoalLog standard)"
+        }
+        for col, tip in tooltips.items():
+            header_item = self.horizontalHeaderItem(col)
+            if header_item:
+                header_item.setToolTip(tip)
         self.verticalHeader().setVisible(True) # Show Row Numbers
         self.setAlternatingRowColors(True)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -84,7 +106,8 @@ class LithologyTableWidget(QTableWidget):
             # Map specific columns to specific dictionary sheets
             mappings = {
                 3: 'Litho_Type', 4: 'Litho_Qual', 5: 'Shade',
-                6: 'Hue', 7: 'Colour', 8: 'Weathering', 9: 'Est_Strength'
+                6: 'Hue', 7: 'Colour', 8: 'Weathering', 9: 'Est_Strength',
+                11: 'Litho_Interrel', 13: 'Bed_Spacing'
             }
             for col_idx, sheet_name in mappings.items():
                 if sheet_name in self.coallog_data:

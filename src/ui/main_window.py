@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (
-    QMainWindow, QVBoxLayout, QHBoxLayout, QWidget,
+    QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QDialog, QScrollArea, QDockWidget,
     QPushButton, QComboBox, QLabel, QGraphicsView, QFileDialog, QMessageBox,
     QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView, QColorDialog, QGraphicsScene, QDoubleSpinBox, QCheckBox, QSlider, QSpinBox, QFrame, QSplitter, QAbstractItemView
 )
@@ -226,13 +226,32 @@ class MainWindow(QMainWindow):
 
         self.runAnalysisButton = QPushButton("Run Analysis")
         self.control_panel_layout.addWidget(self.runAnalysisButton)
+        
+        # Settings button to open settings dialog (replaces Settings tab)
+        self.settingsButton = QPushButton("Settings")
+        self.control_panel_layout.addWidget(self.settingsButton)
+        
         main_layout.addLayout(self.control_panel_layout)
         
         # Tab widget for Settings and Editor (Editor will be the default)
+        # Note: Settings tab will be created but not added to tab widget
+        # It will be used in a dialog instead
         self.tab_widget = QTabWidget()
         self.settings_tab = QWidget()
         self.settings_layout = QVBoxLayout(self.settings_tab)
-        self.tab_widget.addTab(self.settings_tab, "Settings")
+        # Settings tab is NOT added to tab widget - will be used in dock widget instead
+        # self.tab_widget.addTab(self.settings_tab, "Settings")
+        
+        # Create dock widget for settings
+        self.settings_dock = QDockWidget("Settings", self)
+        self.settings_dock.setWidget(self.settings_tab)
+        self.settings_dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
+        self.settings_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | 
+                                       QDockWidget.DockWidgetFeature.DockWidgetFloatable |
+                                       QDockWidget.DockWidgetFeature.DockWidgetClosable)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.settings_dock)
+        self.settings_dock.hide()  # Initially hidden
+        self.settings_dock.visibilityChanged.connect(self.update_settings_button_text)
 
         self.editor_tab = QWidget()
 
@@ -398,11 +417,27 @@ class MainWindow(QMainWindow):
     def connect_signals(self):
         self.loadLasButton.clicked.connect(self.load_las_file_dialog)
         self.runAnalysisButton.clicked.connect(self.run_analysis)
+        self.settingsButton.clicked.connect(self.open_settings_dialog)
         self.exportCsvButton.clicked.connect(self.export_editor_data_to_csv)
         self.tab_widget.currentChanged.connect(self.on_tab_changed)
         # Connect stratigraphic column unit clicks
         if hasattr(self, 'stratigraphicColumnView'):
             self.stratigraphicColumnView.unitClicked.connect(self._on_unit_clicked)
+
+    def open_settings_dialog(self):
+        """Toggle visibility of settings dock widget."""
+        if self.settings_dock.isVisible():
+            self.settings_dock.hide()
+        else:
+            self.settings_dock.show()
+            self.settings_dock.raise_()  # Bring to front if floating
+    
+    def update_settings_button_text(self):
+        """Update settings button text based on dock visibility."""
+        if self.settings_dock.isVisible():
+            self.settingsButton.setText("Hide Settings")
+        else:
+            self.settingsButton.setText("Settings")
 
     def load_las_file_dialog(self):
         file_dialog = QFileDialog()
@@ -1879,7 +1914,7 @@ class MainWindow(QMainWindow):
             'from_depth', 'to_depth', 'thickness', 'LITHOLOGY_CODE',
             'lithology_qualifier', 'shade', 'hue', 'colour',
             'weathering', 'estimated_strength', 'record_sequence',
-            'inter_relationship', 'percentage'
+            'inter_relationship', 'percentage', 'bed_spacing'
         ]
         if 'background_color' in updated_df.columns:
             editor_columns.append('background_color')
@@ -2037,7 +2072,7 @@ class MainWindow(QMainWindow):
             'from_depth', 'to_depth', 'thickness', 'LITHOLOGY_CODE',
             'lithology_qualifier', 'shade', 'hue', 'colour',
             'weathering', 'estimated_strength', 'record_sequence',
-            'inter_relationship', 'percentage'
+            'inter_relationship', 'percentage', 'bed_spacing'
         ]
         if 'background_color' in units_dataframe.columns:
             editor_columns.append('background_color')
