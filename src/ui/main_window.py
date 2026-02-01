@@ -84,6 +84,9 @@ class HoleEditorWindow(QWidget):
         # Connect boundary drag signal for depth correction (Phase 4)
         self.curvePlotter.boundaryDragged.connect(self._on_boundary_dragged)
         
+        # Connect table data changes to update boundary lines (bidirectional sync)
+        self.editorTable.dataChangedSignal.connect(self._on_table_data_changed)
+        
         # Set stratigraphic column to overview mode (showing entire hole)
         self.stratigraphicColumnView.set_overview_mode(True, hole_min_depth=0.0, hole_max_depth=500.0)
         
@@ -247,6 +250,27 @@ class HoleEditorWindow(QWidget):
                     self.stratigraphicColumnView.set_lithology_data(updated_data)
         else:
             print(f"✗ Failed to update table")
+    
+    def _on_table_data_changed(self, dataframe):
+        """
+        Handle table data changes to update boundary lines (bidirectional sync).
+        
+        Args:
+            dataframe: Updated dataframe from the lithology table
+        """
+        if dataframe is None:
+            return
+            
+        print(f"Table data changed, updating boundary lines...")
+        
+        # Update curve plotter's lithology data and boundary lines
+        if hasattr(self.curvePlotter, 'set_lithology_data'):
+            self.curvePlotter.set_lithology_data(dataframe)
+            print(f"✓ Boundary lines updated from table data")
+            
+        # Update stratigraphic column if needed
+        if hasattr(self.stratigraphicColumnView, 'set_lithology_data'):
+            self.stratigraphicColumnView.set_lithology_data(dataframe)
     
     def on_zoom_changed(self):
         """Handle zoom control changes."""
