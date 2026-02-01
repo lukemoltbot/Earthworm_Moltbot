@@ -197,6 +197,104 @@ class LithologyTableWidget(QTableWidget):
             delegate = DictionaryDelegate(category, self)
             self.setItemDelegateForColumn(col_idx, delegate)
     
+    def update_depth_value(self, row_index: int, boundary_type: str, new_depth: float):
+        """
+        Update a depth value in the table and dataframe.
+        
+        Args:
+            row_index: Row index (0-based)
+            boundary_type: 'top' for From_Depth, 'bottom' for To_Depth
+            new_depth: New depth value
+        """
+        if self.current_dataframe is None or row_index >= len(self.current_dataframe):
+            return False
+            
+        # Block signals to prevent recursive updates
+        self.blockSignals(True)
+        
+        try:
+            # Update the dataframe
+            if boundary_type == 'top':
+                column_name = 'from_depth'
+                # Update From_Depth in dataframe
+                self.current_dataframe.loc[row_index, 'from_depth'] = new_depth
+                
+                # Update To_Depth of previous row if it exists
+                if row_index > 0:
+                    self.current_dataframe.loc[row_index - 1, 'to_depth'] = new_depth
+                    # Update thickness for previous row
+                    prev_thickness = new_depth - self.current_dataframe.loc[row_index - 1, 'from_depth']
+                    self.current_dataframe.loc[row_index - 1, 'thickness'] = prev_thickness
+                    
+            else:  # 'bottom'
+                column_name = 'to_depth'
+                # Update To_Depth in dataframe
+                self.current_dataframe.loc[row_index, 'to_depth'] = new_depth
+                
+                # Update From_Depth of next row if it exists
+                if row_index < len(self.current_dataframe) - 1:
+                    self.current_dataframe.loc[row_index + 1, 'from_depth'] = new_depth
+                    # Update thickness for next row
+                    next_thickness = self.current_dataframe.loc[row_index + 1, 'to_depth'] - new_depth
+                    self.current_dataframe.loc[row_index + 1, 'thickness'] = next_thickness
+            
+            # Update thickness for current row
+            if boundary_type == 'top':
+                current_thickness = self.current_dataframe.loc[row_index, 'to_depth'] - new_depth
+            else:
+                current_thickness = new_depth - self.current_dataframe.loc[row_index, 'from_depth']
+            self.current_dataframe.loc[row_index, 'thickness'] = current_thickness
+            
+            # Update the table UI
+            col_idx = self.col_map[column_name]
+            item = QTableWidgetItem(f"{new_depth:.3f}")
+            self.setItem(row_index, col_idx, item)
+            
+            # Update thickness column
+            thickness_col_idx = self.col_map['thickness']
+            thickness_item = QTableWidgetItem(f"{current_thickness:.3f}")
+            self.setItem(row_index, thickness_col_idx, thickness_item)
+            
+            # Update adjacent rows if needed
+            if boundary_type == 'top' and row_index > 0:
+                # Update previous row's To_Depth in UI
+                prev_to_col_idx = self.col_map['to_depth']
+                prev_to_item = QTableWidgetItem(f"{new_depth:.3f}")
+                self.setItem(row_index - 1, prev_to_col_idx, prev_to_item)
+                
+                # Update previous row's thickness
+                prev_thickness_col_idx = self.col_map['thickness']
+                prev_thickness_item = QTableWidgetItem(f"{prev_thickness:.3f}")
+                self.setItem(row_index - 1, prev_thickness_col_idx, prev_thickness_item)
+                
+            elif boundary_type == 'bottom' and row_index < len(self.current_dataframe) - 1:
+                # Update next row's From_Depth in UI
+                next_from_col_idx = self.col_map['from_depth']
+                next_from_item = QTableWidgetItem(f"{new_depth:.3f}")
+                self.setItem(row_index + 1, next_from_col_idx, next_from_item)
+                
+                # Update next row's thickness
+                next_thickness_col_idx = self.col_map['thickness']
+                next_thickness_item = QTableWidgetItem(f"{next_thickness:.3f}")
+                self.setItem(row_index + 1, next_thickness_col_idx, next_thickness_item)
+            
+            # Run validation on affected rows
+            affected_rows = [row_index]
+            if boundary_type == 'top' and row_index > 0:
+                affected_rows.append(row_index - 1)
+            elif boundary_type == 'bottom' and row_index < len(self.current_dataframe) - 1:
+                affected_rows.append(row_index + 1)
+            
+            self._run_validation_for_rows(affected_rows)
+            
+            # Emit data changed signal
+            self.dataChangedSignal.emit(self.current_dataframe)
+            
+            return True
+            
+        finally:
+            self.blockSignals(False)
+    
     def load_data(self, dataframe: pd.DataFrame, total_depth: Optional[float] = None):
         """Load data into the table and run validation."""
         self.blockSignals(True)
@@ -249,6 +347,36 @@ class LithologyTableWidget(QTableWidget):
         self.validationChangedSignal.emit(result)
         
         # Trigger repaint
+        self.viewport().update()
+    
+    def _run_validation_for_rows(self, row_indices: List[int]):
+        """Run validation only for specific rows."""
+        if not self.current_dataframe or self.current_dataframe.empty:
+            return
+            
+        # Import here to avoid circular imports
+        from ..core.validation import RealTimeValidator
+        
+        validator = RealTimeValidator(self.dictionary_manager)
+        
+        # Clear validation issues for affected rows
+        for row_idx in row_indices:
+            if row_idx in self.validation_issues:
+                del self.validation_issues[row_idx]
+        
+        # Validate affected rows
+        for row_idx in row_indices:
+            if row_idx < len(self.current_dataframe):
+                row_data = self.current_dataframe.iloc[row_idx]
+                result = validator.validate_row(row_idx, row_data, self.total_depth)
+                
+                if result.issues:
+                    self.validation_issues[row_idx] = result.issues
+        
+        # Update validation delegate
+        self.validation_delegate.set_validation_issues(self.validation_issues)
+        
+        # Trigger repaint for affected rows
         self.viewport().update()
     
     def _handle_item_changed(self, item):

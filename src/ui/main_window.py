@@ -81,6 +81,9 @@ class HoleEditorWindow(QWidget):
         # Connect plotter view range changes to update overview overlay
         self.curvePlotter.viewRangeChanged.connect(self._on_plot_view_range_changed)
         
+        # Connect boundary drag signal for depth correction (Phase 4)
+        self.curvePlotter.boundaryDragged.connect(self._on_boundary_dragged)
+        
         # Set stratigraphic column to overview mode (showing entire hole)
         self.stratigraphicColumnView.set_overview_mode(True, hole_min_depth=0.0, hole_max_depth=500.0)
         
@@ -210,6 +213,40 @@ class HoleEditorWindow(QWidget):
     def _on_plot_view_range_changed(self, min_depth, max_depth):
         """Handle plot view range changes to update overview overlay (Subtask 3.3)."""
         self.stratigraphicColumnView.update_zoom_overlay(min_depth, max_depth)
+    
+    def _on_boundary_dragged(self, row_index, boundary_type, new_depth):
+        """
+        Handle boundary drag events for depth correction (Phase 4).
+        
+        Args:
+            row_index: Row index in lithology table (0-based)
+            boundary_type: 'top' for From_Depth, 'bottom' for To_Depth
+            new_depth: New depth value after dragging
+        """
+        print(f"Boundary dragged: Row {row_index}, {boundary_type} boundary moved to {new_depth:.2f}m")
+        
+        # Update the lithology table
+        success = self.editorTable.update_depth_value(row_index, boundary_type, new_depth)
+        
+        if success:
+            print(f"✓ Table updated successfully")
+            
+            # Update the curve plotter's lithology data to keep in sync
+            if hasattr(self.curvePlotter, 'lithology_data') and self.curvePlotter.lithology_data is not None:
+                # Get updated data from table
+                updated_data = self.editorTable.current_dataframe
+                if updated_data is not None:
+                    self.curvePlotter.lithology_data = updated_data.copy()
+                    # Update all boundary lines to reflect changes
+                    self.curvePlotter.update_all_boundary_lines()
+                    
+            # Update stratigraphic column if it has lithology data
+            if hasattr(self.stratigraphicColumnView, 'set_lithology_data'):
+                updated_data = self.editorTable.current_dataframe
+                if updated_data is not None:
+                    self.stratigraphicColumnView.set_lithology_data(updated_data)
+        else:
+            print(f"✗ Failed to update table")
     
     def on_zoom_changed(self):
         """Handle zoom control changes."""
@@ -2425,6 +2462,10 @@ class MainWindow(QMainWindow):
 
         editor_dataframe = updated_df[[col for col in editor_columns if col in updated_df.columns]]
         self.editorTable.load_data(editor_dataframe)
+        
+        # Update curve plotter with lithology data for boundary lines (Phase 4)
+        if hasattr(self.curvePlotter, 'set_lithology_data'):
+            self.curvePlotter.set_lithology_data(editor_dataframe)
 
         # Update stratigraphic column
         if hasattr(self, 'stratigraphicColumnView'):
@@ -2583,6 +2624,11 @@ class MainWindow(QMainWindow):
 
         editor_dataframe = units_dataframe[[col for col in editor_columns if col in units_dataframe.columns]]
         self.editorTable.load_data(editor_dataframe)
+        
+        # Set lithology data on curve plotter for boundary lines (Phase 4)
+        if hasattr(self.curvePlotter, 'set_lithology_data'):
+            self.curvePlotter.set_lithology_data(editor_dataframe)
+        
         self.tab_widget.setCurrentIndex(self.tab_widget.indexOf(self.editor_tab))
         QMessageBox.information(self, "Analysis Complete", "Borehole analysis finished successfully!")
 
