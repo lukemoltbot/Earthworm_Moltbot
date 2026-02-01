@@ -10,7 +10,7 @@ import re
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QToolButton, 
     QComboBox, QSpinBox, QDoubleSpinBox, QCheckBox, QGroupBox, QFrame,
-    QSizePolicy, QMessageBox
+    QSizePolicy, QMessageBox, QToolTip
 )
 from PyQt6.QtGui import QColor, QPen, QFont, QBrush, QPainter, QPainterPath
 from PyQt6.QtCore import Qt, pyqtSignal, QPointF, QRectF, QTimer
@@ -47,6 +47,9 @@ class MapWindow(QWidget):
         self.lasso_mode = False
         self.lasso_points = []
         self.lasso_item = None
+        
+        # Point labels
+        self.point_labels = []
         
         # Initialize UI
         self.setup_ui()
@@ -101,8 +104,16 @@ class MapWindow(QWidget):
         self.plot_widget.scene().sigMouseClicked.connect(self.on_plot_clicked)
         self.plot_widget.scene().sigMouseMoved.connect(self.on_plot_mouse_move)
         
-        # Create scatter plot item
-        self.scatter_plot = pg.ScatterPlotItem(size=self.point_size, pen=pg.mkPen(None), brush=pg.mkBrush(self.point_color))
+        # Create scatter plot item with hover events
+        self.scatter_plot = pg.ScatterPlotItem(
+            size=self.point_size, 
+            pen=pg.mkPen(None), 
+            brush=pg.mkBrush(self.point_color),
+            hoverable=True,
+            hoverPen=pg.mkPen(QColor(255, 255, 0), width=2),  # Yellow border on hover
+            hoverSize=self.point_size + 2
+        )
+        self.scatter_plot.sigHovered.connect(self.on_point_hovered)
         self.plot_widget.addItem(self.scatter_plot)
         
         # Create lasso item (initially hidden)
@@ -172,6 +183,10 @@ class MapWindow(QWidget):
         sizes = []
         brushes = []
         symbols = []
+        labels = []
+        
+        # Get color by setting
+        color_by = self.color_combo.currentText()
         
         for file_path, hole_info in self.hole_data.items():
             easting = hole_info.get('easting', 0)
@@ -183,19 +198,28 @@ class MapWindow(QWidget):
                 
             eastings.append(easting)
             northings.append(northing)
+            labels.append(hole_info.get('hole_id', os.path.basename(file_path)))
             
-            # Set point properties based on selection
+            # Determine point color based on selection and color_by setting
             if file_path in self.selected_holes:
                 sizes.append(self.selected_point_size)
-                brushes.append(pg.mkBrush(self.selected_point_color))
+                brush_color = self.selected_point_color
                 symbols.append('o')  # Circle
             else:
                 sizes.append(self.point_size)
-                brushes.append(pg.mkBrush(self.point_color))
+                brush_color = self.get_color_for_hole(hole_info, color_by)
                 symbols.append('o')  # Circle
+                
+            brushes.append(pg.mkBrush(brush_color))
                 
         # Update scatter plot
         self.scatter_plot.setData(x=eastings, y=northings, size=sizes, brush=brushes, symbol=symbols)
+        
+        # Add labels if there are not too many points
+        if len(eastings) <= 50:  # Only show labels for reasonable number of points
+            self.add_point_labels(eastings, northings, labels)
+        else:
+            self.clear_point_labels()
         
         # Update labels
         self.hole_count_label.setText(f"Holes: {len(self.hole_data)}")
@@ -204,6 +228,57 @@ class MapWindow(QWidget):
         # Auto-range if needed
         if eastings and northings:
             self.plot_widget.autoRange()
+            
+    def get_color_for_hole(self, hole_info, color_by):
+        """Get color for a hole based on the color_by setting."""
+        if color_by == "Default":
+            return self.point_color
+        elif color_by == "Total Depth":
+            return self.get_color_by_depth(hole_info.get('total_depth'))
+        elif color_by == "Hole Count":
+            # Color by sequence - just for demonstration
+            return QColor(70, 130, 180)  # Steel blue
+        elif color_by == "File Type":
+            # Color by file extension - just for demonstration
+            return QColor(100, 149, 237)  # Cornflower blue
+        else:
+            return self.point_color
+            
+    def get_color_by_depth(self, depth):
+        """Get color based on total depth."""
+        if depth is None:
+            return self.point_color
+            
+        # Color gradient from light blue (shallow) to dark blue (deep)
+        # Normalize depth to 0-1 range (assuming max depth ~500m)
+        normalized = min(depth / 500.0, 1.0)
+        
+        # Interpolate between light blue and dark blue
+        r = int(70 + normalized * 30)  # 70-100
+        g = int(130 + normalized * 50)  # 130-180
+        b = int(180 + normalized * 75)  # 180-255
+        
+        return QColor(r, g, b)
+        
+    def add_point_labels(self, eastings, northings, labels):
+        """Add text labels to points."""
+        # Clear existing labels
+        self.clear_point_labels()
+        
+        # Create new text items
+        self.point_labels = []
+        for i, (x, y, label) in enumerate(zip(eastings, northings, labels)):
+            text_item = pg.TextItem(label, color=(255, 255, 255), anchor=(0.5, 1.5))
+            text_item.setPos(x, y)
+            self.plot_widget.addItem(text_item)
+            self.point_labels.append(text_item)
+            
+    def clear_point_labels(self):
+        """Clear all point labels."""
+        if hasattr(self, 'point_labels'):
+            for label in self.point_labels:
+                self.plot_widget.removeItem(label)
+            self.point_labels = []
             
     def toggle_lasso_mode(self, enabled):
         """Toggle lasso selection mode."""
@@ -335,8 +410,38 @@ class MapWindow(QWidget):
         
     def update_colors(self, color_by):
         """Update point colors based on selected property."""
-        # TODO: Implement color coding based on hole properties
-        pass
+        self.update_plot()
+        
+    def on_point_hovered(self, points, event):
+        """Handle point hover events to show tooltips."""
+        if points and len(points) > 0:
+            # Get the point index
+            point_index = points[0].index()
+            
+            # Get the corresponding file path
+            file_paths = list(self.hole_data.keys())
+            if 0 <= point_index < len(file_paths):
+                file_path = file_paths[point_index]
+                hole_info = self.hole_data[file_path]
+                
+                # Create tooltip text
+                tooltip_text = f"Hole: {hole_info.get('hole_id', 'N/A')}\n"
+                tooltip_text += f"Easting: {hole_info.get('easting', 'N/A'):.2f}\n"
+                tooltip_text += f"Northing: {hole_info.get('northing', 'N/A'):.2f}\n"
+                
+                if hole_info.get('total_depth'):
+                    tooltip_text += f"Total Depth: {hole_info['total_depth']:.2f}m\n"
+                    
+                if hole_info.get('elevation'):
+                    tooltip_text += f"Elevation: {hole_info['elevation']:.2f}m\n"
+                    
+                tooltip_text += f"File: {os.path.basename(file_path)}"
+                
+                # Show tooltip
+                QToolTip.showText(event.screenPos().toPoint(), tooltip_text, self.plot_widget)
+        else:
+            # Hide tooltip when not hovering over a point
+            QToolTip.hideText()
         
     def get_selected_holes(self):
         """Get list of selected hole file paths."""
@@ -354,61 +459,246 @@ class MapWindow(QWidget):
             or None if coordinates not found.
         """
         try:
-            # Read file as text to look for header comments
-            with open(file_path, 'r') as f:
-                lines = f.readlines()
-                
             hole_info = {
                 'file_path': file_path,
-                'hole_id': os.path.basename(file_path).replace('.csv', '').replace('.xlsx', ''),
+                'hole_id': os.path.basename(file_path).replace('.csv', '').replace('.xlsx', '').replace('.las', ''),
                 'easting': None,
                 'northing': None,
-                'total_depth': None
+                'total_depth': None,
+                'elevation': None,
+                'collar_elevation': None
             }
             
-            # Look for coordinate patterns in header comments
-            for line in lines:
-                line = line.strip()
-                
-                # Skip empty lines and data rows
-                if not line or line[0].isdigit() or line[0] == '-':
-                    continue
-                    
-                # Check for Easting
-                easting_match = re.search(r'[Ee]asting\s*[:=]\s*([\d\.]+)', line)
-                if easting_match:
-                    try:
-                        hole_info['easting'] = float(easting_match.group(1))
-                    except ValueError:
-                        pass
-                        
-                # Check for Northing
-                northing_match = re.search(r'[Nn]orthing\s*[:=]\s*([\d\.]+)', line)
-                if northing_match:
-                    try:
-                        hole_info['northing'] = float(northing_match.group(1))
-                    except ValueError:
-                        pass
-                        
-                # Check for Total Depth
-                td_match = re.search(r'[Tt]otal\s*[Dd]epth\s*[:=]\s*([\d\.]+)', line)
-                if td_match:
-                    try:
-                        hole_info['total_depth'] = float(td_match.group(1))
-                    except ValueError:
-                        pass
-                        
-                # Check for Hole ID
-                hole_match = re.search(r'[Hh]ole\s*[:=]\s*([\w\d\-_]+)', line)
-                if hole_match:
-                    hole_info['hole_id'] = hole_match.group(1)
-                    
+            # Handle different file types
+            if file_path.lower().endswith('.csv'):
+                hole_info = self._extract_from_csv(file_path, hole_info)
+            elif file_path.lower().endswith('.las'):
+                hole_info = self._extract_from_las(file_path, hole_info)
+            elif file_path.lower().endswith('.xlsx'):
+                hole_info = self._extract_from_excel(file_path, hole_info)
+            else:
+                # Try generic text file extraction
+                hole_info = self._extract_from_text(file_path, hole_info)
+            
             # If coordinates found, return hole info
             if hole_info['easting'] is not None and hole_info['northing'] is not None:
                 return hole_info
             else:
+                # Return None if no coordinates found
                 return None
                 
         except Exception as e:
             print(f"Error extracting coordinates from {file_path}: {e}")
             return None
+            
+    def _extract_from_csv(self, file_path, hole_info):
+        """Extract coordinates from CSV file."""
+        try:
+            # Read file as text to look for header comments
+            with open(file_path, 'r') as f:
+                lines = f.readlines()
+                
+            return self._extract_from_text_lines(lines, hole_info)
+        except Exception as e:
+            print(f"Error reading CSV {file_path}: {e}")
+            return hole_info
+            
+    def _extract_from_las(self, file_path, hole_info):
+        """Extract coordinates from LAS file."""
+        try:
+            # Read file as text to look for header section
+            with open(file_path, 'r') as f:
+                lines = f.readlines()
+                
+            # LAS files have specific sections
+            in_well_section = False
+            for line in lines:
+                line = line.strip()
+                
+                # Check for well section
+                if line.startswith('~W'):
+                    in_well_section = True
+                    continue
+                elif line.startswith('~') and not line.startswith('~W'):
+                    in_well_section = False
+                    continue
+                    
+                if in_well_section and line:
+                    # Parse LAS well information
+                    parts = line.split('.')
+                    if len(parts) >= 2:
+                        mnemonic = parts[0].strip()
+                        value_part = '.'.join(parts[1:]).strip()
+                        
+                        # Extract value (remove unit if present)
+                        if ':' in value_part:
+                            value = value_part.split(':')[0].strip()
+                        else:
+                            value = value_part
+                            
+                        # Check for coordinates
+                        if mnemonic.upper() in ['X', 'EAST', 'EASTING']:
+                            try:
+                                hole_info['easting'] = float(value)
+                            except ValueError:
+                                pass
+                        elif mnemonic.upper() in ['Y', 'NORTH', 'NORTHING']:
+                            try:
+                                hole_info['northing'] = float(value)
+                            except ValueError:
+                                pass
+                        elif mnemonic.upper() in ['ELEV', 'ELEVATION', 'KB', 'GL']:
+                            try:
+                                hole_info['elevation'] = float(value)
+                            except ValueError:
+                                pass
+                        elif mnemonic.upper() in ['WELL', 'UWI']:
+                            hole_info['hole_id'] = value
+                            
+            return hole_info
+        except Exception as e:
+            print(f"Error reading LAS {file_path}: {e}")
+            return hole_info
+            
+    def _extract_from_excel(self, file_path, hole_info):
+        """Extract coordinates from Excel file."""
+        try:
+            import pandas as pd
+            # Try to read the first few rows as text to find metadata
+            df = pd.read_excel(file_path, nrows=10)
+            
+            # Check for coordinates in column names or first row
+            for col in df.columns:
+                col_lower = str(col).lower()
+                if 'easting' in col_lower or 'x' == col_lower:
+                    if not pd.isna(df[col].iloc[0]):
+                        try:
+                            hole_info['easting'] = float(df[col].iloc[0])
+                        except (ValueError, TypeError):
+                            pass
+                elif 'northing' in col_lower or 'y' == col_lower:
+                    if not pd.isna(df[col].iloc[0]):
+                        try:
+                            hole_info['northing'] = float(df[col].iloc[0])
+                        except (ValueError, TypeError):
+                            pass
+                            
+            return hole_info
+        except Exception as e:
+            print(f"Error reading Excel {file_path}: {e}")
+            # Fall back to text extraction
+            try:
+                with open(file_path, 'rb') as f:
+                    # Try to read as text (Excel files are binary, but we'll try)
+                    # This is a fallback for very simple Excel files
+                    return hole_info
+            except:
+                return hole_info
+                
+    def _extract_from_text(self, file_path, hole_info):
+        """Extract coordinates from generic text file."""
+        try:
+            with open(file_path, 'r') as f:
+                lines = f.readlines()
+            return self._extract_from_text_lines(lines, hole_info)
+        except Exception as e:
+            print(f"Error reading text file {file_path}: {e}")
+            return hole_info
+            
+    def _extract_from_text_lines(self, lines, hole_info):
+        """Extract coordinates from text lines."""
+        # Look for coordinate patterns in header comments
+        for line in lines:
+            line = line.strip()
+            
+            # Skip empty lines and data rows (starting with numbers or dashes)
+            if not line or (line[0].isdigit() if line else False) or (line[0] == '-' if line else False):
+                continue
+                
+            # Check for Easting (various patterns)
+            easting_patterns = [
+                r'[Ee]asting\s*[:=]\s*([\d\.\-]+)',  # Easting: 500000
+                r'[Xx]\s*[:=]\s*([\d\.\-]+)',        # X: 500000
+                r'[Ee]asting\s+([\d\.\-]+)',         # Easting 500000
+                r'[Xx]\s+([\d\.\-]+)',               # X 500000
+                r'EAST\s*[:=]\s*([\d\.\-]+)',        # EAST: 500000
+            ]
+            
+            for pattern in easting_patterns:
+                match = re.search(pattern, line)
+                if match:
+                    try:
+                        hole_info['easting'] = float(match.group(1))
+                        break
+                    except ValueError:
+                        pass
+                        
+            # Check for Northing (various patterns)
+            northing_patterns = [
+                r'[Nn]orthing\s*[:=]\s*([\d\.\-]+)',  # Northing: 7000000
+                r'[Yy]\s*[:=]\s*([\d\.\-]+)',         # Y: 7000000
+                r'[Nn]orthing\s+([\d\.\-]+)',         # Northing 7000000
+                r'[Yy]\s+([\d\.\-]+)',                # Y 7000000
+                r'NORTH\s*[:=]\s*([\d\.\-]+)',        # NORTH: 7000000
+            ]
+            
+            for pattern in northing_patterns:
+                match = re.search(pattern, line)
+                if match:
+                    try:
+                        hole_info['northing'] = float(match.group(1))
+                        break
+                    except ValueError:
+                        pass
+                        
+            # Check for Total Depth
+            td_patterns = [
+                r'[Tt]otal\s*[Dd]epth\s*[:=]\s*([\d\.\-]+)',
+                r'[Tt][Dd]\s*[:=]\s*([\d\.\-]+)',
+                r'[Ff]inal\s*[Dd]epth\s*[:=]\s*([\d\.\-]+)',
+                r'[Ee]nd\s*[Dd]epth\s*[:=]\s*([\d\.\-]+)',
+            ]
+            
+            for pattern in td_patterns:
+                match = re.search(pattern, line)
+                if match:
+                    try:
+                        hole_info['total_depth'] = float(match.group(1))
+                        break
+                    except ValueError:
+                        pass
+                        
+            # Check for Elevation
+            elev_patterns = [
+                r'[Ee]levation\s*[:=]\s*([\d\.\-]+)',
+                r'[Ee]lev\s*[:=]\s*([\d\.\-]+)',
+                r'[Cc]ollar\s*[Ee]levation\s*[:=]\s*([\d\.\-]+)',
+                r'[Kk][Bb]\s*[:=]\s*([\d\.\-]+)',  # Kelly Bushing
+                r'[Gg][Ll]\s*[:=]\s*([\d\.\-]+)',  # Ground Level
+            ]
+            
+            for pattern in elev_patterns:
+                match = re.search(pattern, line)
+                if match:
+                    try:
+                        hole_info['elevation'] = float(match.group(1))
+                        break
+                    except ValueError:
+                        pass
+                        
+            # Check for Hole ID
+            hole_patterns = [
+                r'[Hh]ole\s*[:=]\s*([\w\d\-_\.]+)',
+                r'[Ww]ell\s*[:=]\s*([\w\d\-_\.]+)',
+                r'[Bb]orehole\s*[:=]\s*([\w\d\-_\.]+)',
+                r'[Dd]rillhole\s*[:=]\s*([\w\d\-_\.]+)',
+                r'[Ii][Dd]\s*[:=]\s*([\w\d\-_\.]+)',
+            ]
+            
+            for pattern in hole_patterns:
+                match = re.search(pattern, line)
+                if match:
+                    hole_info['hole_id'] = match.group(1)
+                    break
+                    
+        return hole_info

@@ -119,7 +119,7 @@ To make this performant in Python:
 | 4 | 7 | 7.2 | Completed | Dragging enabled with constraints, snapping, visual feedback, and tooltips; Integrated with HoleEditorWindow |
 | 4 | 7 | 7.3 | Completed | Roof and floor correction logic implemented, data updates on drag, validation integration; Connected to LithologyTableWidget |
 | 5 | 8 | 8.1 | Completed | MapWindow class created with PyQtGraph scatter plot, integrated into MDI framework with Window menu |
-| 5 | 8 | 8.2 | Not Started | |
+| 5 | 8 | 8.2 | Completed | Enhanced coordinate extraction from CSV/LAS/Excel files, added point labels, tooltips, and color coding |
 | 5 | 8 | 8.3 | Not Started | |
 | 5 | 9 | 9.1 | Not Started | |
 | 5 | 9 | 9.2 | Not Started | |
