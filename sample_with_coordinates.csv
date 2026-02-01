@@ -1,0 +1,13 @@
+# Hole: DH001
+# Easting: 500000
+# Northing: 7000000
+# Total Depth: 150.0
+From,To,Thick,Litho,Qual,Shade,Hue,Colour,Weath,Str,Rec Seq,Inter-rel,Percent
+0.0,10.0,10.0,SS,FM,A,B,B,F,R4,,,0.0
+10.0,25.0,15.0,ST,,A,B,B,F,R4,,,0.0
+25.0,45.0,20.0,CO,,A,B,B,F,R4,,,0.0
+45.0,65.0,20.0,SS,FM,A,B,B,F,R4,,,0.0
+65.0,85.0,20.0,ST,,A,B,B,F,R4,,,0.0
+85.0,105.0,20.0,CO,,A,B,B,F,R4,,,0.0
+105.0,125.0,20.0,SS,FM,A,B,B,F,R4,,,0.0
+125.0,150.0,25.0,ST,,A,B,B,F,R4,,,0.0

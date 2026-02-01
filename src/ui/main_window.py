@@ -33,6 +33,7 @@ from .widgets.compact_range_widget import CompactRangeWidget # Import compact wi
 from .widgets.multi_attribute_widget import MultiAttributeWidget
 from .widgets.enhanced_pattern_preview import EnhancedPatternPreview
 from .widgets.lithology_table import LithologyTableWidget
+from .widgets.map_window import MapWindow # Import MapWindow for Phase 5
 
 class SvgPreviewWidget(QGraphicsView):
     def __init__(self, parent=None):
@@ -584,6 +585,14 @@ class MainWindow(QMainWindow):
         """Create Window menu with tile, cascade, close actions."""
         window_menu = self.menuBar().addMenu("&Window")
         
+        # New window actions
+        new_map_action = QAction("New Map Window", self)
+        new_map_action.triggered.connect(self.open_map_window)
+        window_menu.addAction(new_map_action)
+        
+        window_menu.addSeparator()
+        
+        # Window arrangement actions
         tile_action = QAction("Tile", self)
         tile_action.triggered.connect(self.mdi_area.tileSubWindows)
         window_menu.addAction(tile_action)
@@ -800,6 +809,65 @@ class MainWindow(QMainWindow):
         # For backward compatibility, still set global las_file_path?
         # self.las_file_path = file_path
         # But we should not call load_las_data() because it would affect the main window's widgets
+
+    def open_map_window(self):
+        """Open a new map window (Phase 5, Task 8)."""
+        # Create a new map window
+        map_window = MapWindow()
+        
+        # Create MDI subwindow
+        subwindow = QMdiSubWindow()
+        subwindow.setWidget(map_window)
+        subwindow.setWindowTitle("Map")
+        
+        # Add to MDI area
+        self.mdi_area.addSubWindow(subwindow)
+        subwindow.show()
+        
+        # Connect selection changed signal to sync with holes list
+        map_window.selectionChanged.connect(self.on_map_selection_changed)
+        
+        # Load existing holes from the project explorer into the map
+        self.load_holes_into_map(map_window)
+        
+        return map_window
+
+    def load_holes_into_map(self, map_window):
+        """Load holes from project explorer into map window."""
+        # Get all files from the holes model
+        root_index = self.holes_model.index(os.getcwd())
+        
+        # Walk through the model to find all files
+        files_to_process = []
+        stack = [root_index]
+        
+        while stack:
+            index = stack.pop()
+            if self.holes_model.isDir(index):
+                # Add child directories to stack
+                for row in range(self.holes_model.rowCount(index)):
+                    child_index = self.holes_model.index(row, 0, index)
+                    stack.append(child_index)
+            else:
+                # It's a file
+                file_path = self.holes_model.filePath(index)
+                if file_path.lower().endswith(('.csv', '.xlsx', '.las')):
+                    files_to_process.append(file_path)
+        
+        # Process each file
+        for file_path in files_to_process:
+            hole_info = map_window.extract_coordinates_from_file(file_path)
+            if hole_info:
+                map_window.add_hole(file_path, hole_info)
+        
+        if files_to_process:
+            print(f"Loaded {len(files_to_process)} files into map window")
+
+    def on_map_selection_changed(self, selected_files):
+        """Handle map selection changes to sync with holes list."""
+        # TODO: Implement synchronization with holes list sidebar
+        print(f"Map selection changed: {len(selected_files)} holes selected")
+        # In the future: highlight corresponding items in holes tree
 
     def load_las_file_dialog(self):
         file_dialog = QFileDialog()
