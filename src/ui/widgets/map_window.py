@@ -117,10 +117,20 @@ class MapWindow(QWidget):
         self.plot_widget.addItem(self.scatter_plot)
         
         # Create lasso item (initially hidden)
-        self.lasso_item = pg.PlotCurveItem(pen=pg.mkPen(QColor(255, 165, 0), width=2), 
-                                          brush=pg.mkBrush(QColor(255, 165, 0, 50)))
+        self.lasso_item = pg.PlotCurveItem(
+            pen=pg.mkPen(QColor(255, 165, 0), width=2, style=Qt.PenStyle.DashLine), 
+            brush=pg.mkBrush(QColor(255, 165, 0, 30))
+        )
         self.plot_widget.addItem(self.lasso_item)
         self.lasso_item.hide()
+        
+        # Create lasso fill item for better visibility
+        self.lasso_fill = pg.PlotCurveItem(
+            pen=pg.mkPen(None),
+            brush=pg.mkBrush(QColor(255, 165, 0, 20))
+        )
+        self.plot_widget.addItem(self.lasso_fill)
+        self.lasso_fill.hide()
         
         main_layout.addWidget(self.plot_widget)
         
@@ -288,10 +298,14 @@ class MapWindow(QWidget):
         
         if enabled:
             self.status_label.setText("Lasso mode: Click to draw polygon, double-click to finish")
-            self.lasso_button.setStyleSheet("background-color: #FFA500;")  # Orange
+            self.lasso_button.setStyleSheet("background-color: #FFA500; color: black; font-weight: bold;")  # Orange
+            # Change cursor to crosshair
+            self.plot_widget.setCursor(Qt.CursorShape.CrossCursor)
         else:
             self.status_label.setText("Ready")
             self.lasso_button.setStyleSheet("")  # Reset
+            # Restore default cursor
+            self.plot_widget.setCursor(Qt.CursorShape.ArrowCursor)
             
     def on_plot_clicked(self, event):
         """Handle mouse clicks on the plot."""
@@ -329,8 +343,20 @@ class MapWindow(QWidget):
         if len(self.lasso_points) >= 2:
             x = [p.x() for p in self.lasso_points]
             y = [p.y() for p in self.lasso_points]
+            
+            # Update lasso line
             self.lasso_item.setData(x, y)
             self.lasso_item.show()
+            
+            # Update lasso fill (close the polygon)
+            if len(self.lasso_points) >= 3:
+                # Close the polygon by repeating the first point
+                x_fill = x + [x[0]]
+                y_fill = y + [y[0]]
+                self.lasso_fill.setData(x_fill, y_fill)
+                self.lasso_fill.show()
+            else:
+                self.lasso_fill.hide()
             
     def finish_lasso(self):
         """Finish lasso selection and select holes inside polygon."""
@@ -362,6 +388,7 @@ class MapWindow(QWidget):
         self.selectionChanged.emit(list(self.selected_holes))
         
         # Reset lasso
+        self.lasso_fill.hide()
         self.toggle_lasso_mode(False)
         self.status_label.setText(f"Selected {len(selected)} holes")
         
@@ -446,6 +473,42 @@ class MapWindow(QWidget):
     def get_selected_holes(self):
         """Get list of selected hole file paths."""
         return list(self.selected_holes)
+        
+    def set_selected_holes(self, file_paths):
+        """
+        Set selected holes from external source (e.g., holes list sidebar).
+        
+        Args:
+            file_paths: List of file paths to select
+        """
+        # Convert to set for efficient operations
+        new_selection = set(file_paths)
+        
+        # Only update if selection has changed
+        if new_selection != self.selected_holes:
+            self.selected_holes = new_selection
+            self.update_plot()
+            
+            # Emit signal (but don't cause infinite loop)
+            # We'll use a flag to prevent re-emission
+            if not hasattr(self, '_updating_from_external'):
+                self._updating_from_external = True
+                try:
+                    self.selectionChanged.emit(list(self.selected_holes))
+                finally:
+                    delattr(self, '_updating_from_external')
+                    
+    def select_all_holes(self):
+        """Select all holes in the map."""
+        self.selected_holes = set(self.hole_data.keys())
+        self.update_plot()
+        self.selectionChanged.emit(list(self.selected_holes))
+        
+    def deselect_all_holes(self):
+        """Deselect all holes in the map."""
+        self.selected_holes.clear()
+        self.update_plot()
+        self.selectionChanged.emit([])
         
     def extract_coordinates_from_file(self, file_path):
         """

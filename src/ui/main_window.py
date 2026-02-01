@@ -544,6 +544,8 @@ class MainWindow(QMainWindow):
         self.holes_tree.setModel(self.holes_model)
         self.holes_tree.setRootIndex(self.holes_model.index(os.getcwd()))  # Show current directory initially
         self.holes_tree.doubleClicked.connect(self.on_hole_double_clicked)
+        # Connect selection changed signal for map synchronization
+        self.holes_tree.selectionModel().selectionChanged.connect(self.on_holes_tree_selection_changed)
         self.holes_dock.setWidget(self.holes_tree)
         self.holes_dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
         self.holes_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | 
@@ -864,10 +866,69 @@ class MainWindow(QMainWindow):
             print(f"Loaded {len(files_to_process)} files into map window")
 
     def on_map_selection_changed(self, selected_files):
-        """Handle map selection changes to sync with holes list."""
-        # TODO: Implement synchronization with holes list sidebar
+        """Handle map selection changes to sync with holes list sidebar."""
         print(f"Map selection changed: {len(selected_files)} holes selected")
-        # In the future: highlight corresponding items in holes tree
+        
+        # Convert to set for efficient lookup
+        selected_set = set(selected_files)
+        
+        # Get selection model
+        selection_model = self.holes_tree.selectionModel()
+        if not selection_model:
+            return
+            
+        # Clear current selection
+        selection_model.clear()
+        
+        # Select items in the tree that match the selected files
+        for file_path in selected_files:
+            # Get the index for this file path
+            index = self.holes_model.index(file_path)
+            if index.isValid():
+                # Select the item
+                selection_model.select(index, selection_model.SelectionFlag.Select)
+                
+        # If we have selections, ensure they're visible
+        if selected_files:
+            first_index = self.holes_model.index(selected_files[0])
+            if first_index.isValid():
+                self.holes_tree.scrollTo(first_index)
+                
+    def on_holes_tree_selection_changed(self, selected, deselected):
+        """Handle holes tree selection changes to sync with map window."""
+        # Find active map window
+        map_window = self.find_active_map_window()
+        if not map_window:
+            return
+            
+        # Get selected file paths
+        selected_indexes = self.holes_tree.selectionModel().selectedIndexes()
+        selected_files = []
+        
+        for index in selected_indexes:
+            if index.column() == 0:  # Only process first column
+                file_path = self.holes_model.filePath(index)
+                if file_path.lower().endswith(('.csv', '.xlsx', '.las')):
+                    selected_files.append(file_path)
+                    
+        # Update map window selection
+        map_window.set_selected_holes(selected_files)
+        
+    def find_active_map_window(self):
+        """Find the active map window among MDI subwindows."""
+        active_subwindow = self.mdi_area.activeSubWindow()
+        if active_subwindow:
+            widget = active_subwindow.widget()
+            if isinstance(widget, MapWindow):
+                return widget
+                
+        # If no active subwindow, look for any map window
+        for subwindow in self.mdi_area.subWindowList():
+            widget = subwindow.widget()
+            if isinstance(widget, MapWindow):
+                return widget
+                
+        return None
 
     def load_las_file_dialog(self):
         file_dialog = QFileDialog()
