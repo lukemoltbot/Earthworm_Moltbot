@@ -110,11 +110,11 @@ To make this performant in Python:
 | 2 | 3 | 3.3 | Completed | Overview view shows entire hole (0-500m) with zoom overlay; view range changes update overlay |
 | 2 | 4 | 4.1 | Completed | Table selection scrolls plot view to selected unit's depth |
 | 2 | 4 | 4.2 | Partially Completed | Plot click signal connected; needs depth-to-row mapping logic |
-| 3 | 5 | 5.1 | Not Started | |
-| 3 | 5 | 5.2 | Not Started | |
-| 3 | 5 | 5.3 | Not Started | |
-| 3 | 6 | 6.1 | Not Started | |
-| 3 | 6 | 6.2 | Not Started | |
+| 3 | 5 | 5.1 | Completed | DictionaryManager class created with caching and fallback support |
+| 3 | 5 | 5.2 | Completed | QComboBox delegates integrated with DictionaryManager for all code columns |
+| 3 | 5 | 5.3 | Completed | F3 key mapped to CodeSearchDialog with search across all categories |
+| 3 | 6 | 6.1 | Completed | Real-time validation engine with gap/overlap/TD checks and structured results |
+| 3 | 6 | 6.2 | Completed | ValidationDelegate paints error/warning cells; ValidationPanel for UI feedback |
 | 4 | 7 | 7.1 | Not Started | |
 | 4 | 7 | 7.2 | Not Started | |
 | 4 | 7 | 7.3 | Not Started | |
