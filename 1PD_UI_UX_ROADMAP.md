@@ -74,9 +74,9 @@
 **Purpose:** Moving from "Hole view" to "Site view."
 
 ### Task 8: The Interactive Map Window
-- [ ] **Subtask 8.1:** Create a new MDI window using `pg.PlotWidget` (but as a 2D Scatter Plot).
-- [ ] **Subtask 8.2:** Plot points using the `Easting` and `Northing` columns from your CSV headers.
-- [ ] **Subtask 8.3:** Implement "Lasso Selection." When the user circles holes on the map, highlight them in the "Holes List" sidebar.
+- [x] **Subtask 8.1:** Create a new MDI window using `pg.PlotWidget` (but as a 2D Scatter Plot).
+- [x] **Subtask 8.2:** Plot points using the `Easting` and `Northing` columns from your CSV headers.
+- [x] **Subtask 8.3:** Implement "Lasso Selection." When the user circles holes on the map, highlight them in the "Holes List" sidebar.
 
 ### Task 9: The Cross-Section (Fence Diagram)
 - [ ] **Subtask 9.1:** Create a tool that takes 3+ selected holes and creates a new window.
