@@ -80,6 +80,24 @@ def load_coallog_dictionaries(file_path):
     df3.columns = ['Code', 'Description']
     litho_qual_df = pd.concat([df1, df2, df3]).dropna()
 
+    # Litho_Interrel
+    litho_interrel_sheet = xls.parse('Litho_Interrel', header=None)
+    df1 = litho_interrel_sheet.iloc[2:88, [0, 1]]
+    df1.columns = ['Code', 'Description']
+    df2 = litho_interrel_sheet.iloc[2:88, [3, 2]]
+    df2.columns = ['Code', 'Description']
+    litho_interrel_df = pd.concat([df1, df2]).dropna()
+
+    # Bed_Spacing
+    bed_spacing_sheet = xls.parse('Bed_Spacing', header=None)
+    df1 = bed_spacing_sheet.iloc[2:17, [0, 1]]
+    df1.columns = ['Code', 'Description']
+    df2 = bed_spacing_sheet.iloc[2:17, [3, 2]]
+    df2.columns = ['Code', 'Description']
+    df3 = bed_spacing_sheet.iloc[2:17, [5, 4]]
+    df3.columns = ['Code', 'Description']
+    bed_spacing_df = pd.concat([df1, df2, df3]).dropna()
+
     dictionaries = {
         'Litho_Type': litho_type_df,
         'Litho_Qual': litho_qual_df,
@@ -87,7 +105,9 @@ def load_coallog_dictionaries(file_path):
         'Hue': hue_df,
         'Colour': colour_df,
         'Weathering': weathering_df,
-        'Est_Strength': strength_df
+        'Est_Strength': strength_df,
+        'Litho_Interrel': litho_interrel_df,
+        'Bed_Spacing': bed_spacing_df
     }
     
     return dictionaries

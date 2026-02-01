@@ -9,7 +9,8 @@ from PyQt6.QtGui import QFont
 
 # Import widgets that might be needed
 # Note: We'll need to handle imports for range visualizer and other custom widgets
-# from ..widgets.enhanced_range_gap_visualizer import EnhancedRangeGapVisualizer
+from ..widgets.enhanced_range_gap_visualizer import EnhancedRangeGapVisualizer
+from ...utils.range_analyzer import RangeAnalyzer
 
 class SettingsDialog(QDialog):
     # Signal to notify MainWindow when settings are updated
@@ -18,7 +19,8 @@ class SettingsDialog(QDialog):
     def __init__(self, parent=None, current_settings=None):
         super().__init__(parent)
         self.setWindowTitle("Earthworm Settings")
-        self.setGeometry(100, 100, 1000, 700)  # Larger dialog to accommodate all controls
+        self.setGeometry(100, 100, 900, 650)  # Reasonable size for settings dialog
+        self.setMinimumSize(800, 600)
         
         # Store current settings passed from MainWindow
         self.current_settings = current_settings or {}
@@ -71,7 +73,20 @@ class SettingsDialog(QDialog):
     def create_lithology_tab(self):
         """Create the lithology rules tab with table and controls."""
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        main_layout = QVBoxLayout(tab)
+        main_layout.setContentsMargins(4, 4, 4, 4)
+        
+        # Create scroll area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        
+        # Container widget for scroll content
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setSpacing(8)
+        layout.setContentsMargins(8, 8, 8, 8)
         
         # Table for lithology rules
         self.rulesTable = QTableWidget()
@@ -96,16 +111,34 @@ class SettingsDialog(QDialog):
         self.addRuleButton.clicked.connect(self.add_rule)
         self.removeRuleButton.clicked.connect(self.remove_rule)
         
+        # Set container as scroll widget
+        scroll.setWidget(container)
+        main_layout.addWidget(scroll)
+        
         return tab
     
     def create_display_tab(self):
         """Create display settings tab."""
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        main_layout = QVBoxLayout(tab)
+        main_layout.setContentsMargins(4, 4, 4, 4)
+        
+        # Create scroll area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        
+        # Container widget for scroll content
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setSpacing(10)
+        layout.setContentsMargins(8, 8, 8, 8)
         
         # Separator settings group
         separator_group = QGroupBox("Stratigraphic Column Separators")
         separator_layout = QVBoxLayout(separator_group)
+        separator_layout.setSpacing(8)
         
         # Separator thickness
         thickness_layout = QHBoxLayout()
@@ -113,6 +146,7 @@ class SettingsDialog(QDialog):
         self.separatorThicknessSpinBox = QDoubleSpinBox()
         self.separatorThicknessSpinBox.setRange(0.0, 5.0)
         self.separatorThicknessSpinBox.setSingleStep(0.1)
+        self.separatorThicknessSpinBox.setMaximumWidth(100)
         thickness_layout.addWidget(self.separatorThicknessSpinBox)
         thickness_layout.addStretch()
         separator_layout.addLayout(thickness_layout)
@@ -126,6 +160,7 @@ class SettingsDialog(QDialog):
         # Curve display settings group
         curve_group = QGroupBox("Curve Display")
         curve_layout = QVBoxLayout(curve_group)
+        curve_layout.setSpacing(8)
         
         # Curve thickness
         curve_thickness_layout = QHBoxLayout()
@@ -133,6 +168,7 @@ class SettingsDialog(QDialog):
         self.curveThicknessSpinBox = QDoubleSpinBox()
         self.curveThicknessSpinBox.setRange(0.1, 5.0)
         self.curveThicknessSpinBox.setSingleStep(0.1)
+        self.curveThicknessSpinBox.setMaximumWidth(100)
         curve_thickness_layout.addWidget(self.curveThicknessSpinBox)
         curve_thickness_layout.addStretch()
         curve_layout.addLayout(curve_thickness_layout)
@@ -149,16 +185,35 @@ class SettingsDialog(QDialog):
         layout.addWidget(curve_group)
         
         layout.addStretch()
+        
+        # Set container as scroll widget
+        scroll.setWidget(container)
+        main_layout.addWidget(scroll)
+        
         return tab
     
     def create_analysis_tab(self):
         """Create analysis settings tab."""
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        main_layout = QVBoxLayout(tab)
+        main_layout.setContentsMargins(4, 4, 4, 4)
+        
+        # Create scroll area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        
+        # Container widget for scroll content
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setSpacing(10)
+        layout.setContentsMargins(8, 8, 8, 8)
         
         # General analysis settings group
         general_group = QGroupBox("General Analysis Settings")
         general_layout = QVBoxLayout(general_group)
+        general_layout.setSpacing(8)
         
         self.useResearchedDefaultsCheckBox = QCheckBox("Apply Researched Defaults for Missing Ranges")
         self.mergeThinUnitsCheckBox = QCheckBox("Merge thin lithology units (< 5cm)")
@@ -174,8 +229,9 @@ class SettingsDialog(QDialog):
         layout.addWidget(general_group)
         
         # Smart interbedding parameters group
-        interbedding_group = QGroupBox("Smart Interbedding Parameters")
-        interbedding_layout = QGridLayout(interbedding_group)
+        self.interbedding_group = QGroupBox("Smart Interbedding Parameters")
+        interbedding_layout = QGridLayout(self.interbedding_group)
+        interbedding_layout.setSpacing(8)
         
         interbedding_layout.addWidget(QLabel("Max Sequence Length:"), 0, 0)
         self.smartInterbeddingMaxSequenceSpinBox = QSpinBox()
@@ -189,11 +245,12 @@ class SettingsDialog(QDialog):
         interbedding_layout.addWidget(self.smartInterbeddingThickUnitSpinBox, 1, 1)
         
         interbedding_layout.setColumnStretch(2, 1)
-        layout.addWidget(interbedding_group)
+        layout.addWidget(self.interbedding_group)
         
         # Analysis method
         method_group = QGroupBox("Analysis Method")
         method_layout = QHBoxLayout(method_group)
+        method_layout.setSpacing(8)
         method_layout.addWidget(QLabel("Analysis Method:"))
         self.analysisMethodComboBox = QComboBox()
         self.analysisMethodComboBox.addItems(["Standard", "Simple"])
@@ -202,16 +259,86 @@ class SettingsDialog(QDialog):
         layout.addWidget(method_group)
         
         layout.addStretch()
+        
+        # Set container as scroll widget
+        scroll.setWidget(container)
+        main_layout.addWidget(scroll)
+        
+        # Connect smart interbedding checkbox to toggle parameters visibility
+        self.smartInterbeddingCheckBox.stateChanged.connect(self.toggle_interbedding_params_visibility)
+        
         return tab
+    
+    def toggle_interbedding_params_visibility(self):
+        """Show/hide smart interbedding parameters based on checkbox state."""
+        visible = self.smartInterbeddingCheckBox.isChecked()
+        self.interbedding_group.setVisible(visible)
+    
+    def refresh_range_analysis(self):
+        """Refresh the range gap analysis with current lithology rules."""
+        # Gather lithology rules from the table
+        rules = []
+        for row_idx in range(self.rulesTable.rowCount()):
+            rule = {}
+            rule['name'] = self.rulesTable.item(row_idx, 0).text() if self.rulesTable.item(row_idx, 0) else ''
+            rule['code'] = self.rulesTable.item(row_idx, 1).text() if self.rulesTable.item(row_idx, 1) else ''
+            
+            # Convert numeric fields
+            try:
+                rule['gamma_min'] = float(self.rulesTable.item(row_idx, 2).text()) if self.rulesTable.item(row_idx, 2) and self.rulesTable.item(row_idx, 2).text() else 0.0
+            except ValueError:
+                rule['gamma_min'] = 0.0
+            try:
+                rule['gamma_max'] = float(self.rulesTable.item(row_idx, 3).text()) if self.rulesTable.item(row_idx, 3) and self.rulesTable.item(row_idx, 3).text() else 0.0
+            except ValueError:
+                rule['gamma_max'] = 0.0
+            try:
+                rule['density_min'] = float(self.rulesTable.item(row_idx, 4).text()) if self.rulesTable.item(row_idx, 4) and self.rulesTable.item(row_idx, 4).text() else 0.0
+            except ValueError:
+                rule['density_min'] = 0.0
+            try:
+                rule['density_max'] = float(self.rulesTable.item(row_idx, 5).text()) if self.rulesTable.item(row_idx, 5) and self.rulesTable.item(row_idx, 5).text() else 0.0
+            except ValueError:
+                rule['density_max'] = 0.0
+            
+            # Only add rule if it has a name and code
+            if rule['name'] and rule['code']:
+                rules.append(rule)
+        
+        # Update the range visualizer with the rules
+        if hasattr(self, 'range_analyzer') and self.range_analyzer:
+            self.range_visualizer.lithology_rules = rules
+            self.range_visualizer.refresh_visualization()
+        else:
+            # Fallback: create a range analyzer
+            from ...utils.range_analyzer import RangeAnalyzer
+            self.range_analyzer = RangeAnalyzer()
+            self.range_visualizer.set_range_analyzer(self.range_analyzer)
+            self.range_visualizer.lithology_rules = rules
+            self.range_visualizer.refresh_visualization()
     
     def create_file_tab(self):
         """Create file operations tab."""
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        main_layout = QVBoxLayout(tab)
+        main_layout.setContentsMargins(4, 4, 4, 4)
+        
+        # Create scroll area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        
+        # Container widget for scroll content
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setSpacing(10)
+        layout.setContentsMargins(8, 8, 8, 8)
         
         # File operations group
         file_group = QGroupBox("Settings File Operations")
         file_layout = QVBoxLayout(file_group)
+        file_layout.setSpacing(8)
         
         # Buttons for file operations
         self.saveAsSettingsButton = QPushButton("Save Settings As...")
@@ -235,22 +362,43 @@ class SettingsDialog(QDialog):
         self.exportLithologyReportButton.clicked.connect(self.export_lithology_report)
         
         layout.addStretch()
+        
+        # Set container as scroll widget
+        scroll.setWidget(container)
+        main_layout.addWidget(scroll)
+        
         return tab
     
     def create_range_tab(self):
         """Create range analysis tab."""
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        main_layout = QVBoxLayout(tab)
+        main_layout.setContentsMargins(4, 4, 4, 4)
+        
+        # Create scroll area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        
+        # Container widget for scroll content
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setSpacing(10)
+        layout.setContentsMargins(8, 8, 8, 8)
         
         # Range analysis group
         range_group = QGroupBox("Range Gap Analysis")
         range_layout = QVBoxLayout(range_group)
+        range_layout.setSpacing(8)
         
         range_layout.addWidget(QLabel("Analyze gaps and overlaps in lithology rule ranges"))
         
-        # Placeholder for range visualizer
-        # TODO: Import and add EnhancedRangeGapVisualizer
-        range_layout.addWidget(QLabel("Range visualizer would appear here"))
+        # Enhanced range visualizer
+        self.range_visualizer = EnhancedRangeGapVisualizer()
+        self.range_analyzer = RangeAnalyzer()
+        self.range_visualizer.set_range_analyzer(self.range_analyzer)
+        range_layout.addWidget(self.range_visualizer)
         
         # Refresh button
         self.refreshRangeAnalysisButton = QPushButton("Refresh Range Analysis")
@@ -259,13 +407,74 @@ class SettingsDialog(QDialog):
         layout.addWidget(range_group)
         
         layout.addStretch()
+        
+        # Set container as scroll widget
+        scroll.setWidget(container)
+        main_layout.addWidget(scroll)
+        
+        # Connect refresh button
+        self.refreshRangeAnalysisButton.clicked.connect(self.refresh_range_analysis)
+        
         return tab
     
     def load_settings(self):
         """Load current settings into dialog controls."""
-        # This method should populate controls with values from self.current_settings
-        # For now, implement basic loading
-        pass
+        if not self.current_settings:
+            return
+        
+        # Load lithology rules into table
+        if 'lithology_rules' in self.current_settings:
+            rules = self.current_settings['lithology_rules']
+            self.rulesTable.setRowCount(0)  # Clear existing rows
+            for rule in rules:
+                row_position = self.rulesTable.rowCount()
+                self.rulesTable.insertRow(row_position)
+                # Set items for each column
+                self.rulesTable.setItem(row_position, 0, QTableWidgetItem(rule.get('name', '')))
+                self.rulesTable.setItem(row_position, 1, QTableWidgetItem(rule.get('code', '')))
+                self.rulesTable.setItem(row_position, 2, QTableWidgetItem(str(rule.get('gamma_min', 0.0))))
+                self.rulesTable.setItem(row_position, 3, QTableWidgetItem(str(rule.get('gamma_max', 0.0))))
+                self.rulesTable.setItem(row_position, 4, QTableWidgetItem(str(rule.get('density_min', 0.0))))
+                self.rulesTable.setItem(row_position, 5, QTableWidgetItem(str(rule.get('density_max', 0.0))))
+        
+        # Load display settings
+        if 'separator_thickness' in self.current_settings:
+            self.separatorThicknessSpinBox.setValue(self.current_settings['separator_thickness'])
+        if 'draw_separators' in self.current_settings:
+            self.drawSeparatorsCheckBox.setChecked(self.current_settings['draw_separators'])
+        if 'curve_thickness' in self.current_settings:
+            self.curveThicknessSpinBox.setValue(self.current_settings['curve_thickness'])
+        if 'invert_gamma' in self.current_settings:
+            self.invertGammaCheckBox.setChecked(self.current_settings['invert_gamma'])
+        if 'invert_short_space_density' in self.current_settings:
+            self.invertShortSpaceDensityCheckBox.setChecked(self.current_settings['invert_short_space_density'])
+        if 'invert_long_space_density' in self.current_settings:
+            self.invertLongSpaceDensityCheckBox.setChecked(self.current_settings['invert_long_space_density'])
+        
+        # Load analysis settings
+        if 'use_researched_defaults' in self.current_settings:
+            self.useResearchedDefaultsCheckBox.setChecked(self.current_settings['use_researched_defaults'])
+        if 'merge_thin_units' in self.current_settings:
+            self.mergeThinUnitsCheckBox.setChecked(self.current_settings['merge_thin_units'])
+        if 'smart_interbedding' in self.current_settings:
+            self.smartInterbeddingCheckBox.setChecked(self.current_settings['smart_interbedding'])
+        if 'fallback_classification' in self.current_settings:
+            self.fallbackClassificationCheckBox.setChecked(self.current_settings['fallback_classification'])
+        if 'smart_interbedding_max_sequence_length' in self.current_settings:
+            self.smartInterbeddingMaxSequenceSpinBox.setValue(self.current_settings['smart_interbedding_max_sequence_length'])
+        if 'smart_interbedding_thick_unit_threshold' in self.current_settings:
+            self.smartInterbeddingThickUnitSpinBox.setValue(self.current_settings['smart_interbedding_thick_unit_threshold'])
+        if 'analysis_method' in self.current_settings:
+            method = self.current_settings['analysis_method']
+            index = self.analysisMethodComboBox.findText(method.capitalize())
+            if index >= 0:
+                self.analysisMethodComboBox.setCurrentIndex(index)
+        
+        # Update interbedding parameters visibility based on checkbox
+        self.toggle_interbedding_params_visibility()
+        
+        # Refresh range analysis with loaded rules
+        self.refresh_range_analysis()
     
     def gather_settings(self):
         """Gather all settings from dialog controls into a dictionary."""
@@ -325,12 +534,16 @@ class SettingsDialog(QDialog):
         # Pre-fill with empty QTableWidgetItems
         for col in range(self.rulesTable.columnCount()):
             self.rulesTable.setItem(row_position, col, QTableWidgetItem(""))
+        # Refresh range analysis to include new (empty) rule
+        self.refresh_range_analysis()
     
     def remove_rule(self):
         """Remove the currently selected row from the lithology rules table."""
         current_row = self.rulesTable.currentRow()
         if current_row >= 0:
             self.rulesTable.removeRow(current_row)
+            # Refresh range analysis after removal
+            self.refresh_range_analysis()
     
     def save_settings_as_file(self):
         """Open file dialog to save settings to a JSON file."""

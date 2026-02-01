@@ -1,6 +1,6 @@
 import json
 import os
-from .config import DEFAULT_LITHOLOGY_RULES, DEFAULT_SEPARATOR_THICKNESS, DRAW_SEPARATOR_LINES, CURVE_INVERSION_DEFAULTS, DEFAULT_CURVE_THICKNESS, DEFAULT_MERGE_THIN_UNITS, DEFAULT_MERGE_THRESHOLD, DEFAULT_SMART_INTERBEDDING, DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH, DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD
+from .config import DEFAULT_LITHOLOGY_RULES, DEFAULT_SEPARATOR_THICKNESS, DRAW_SEPARATOR_LINES, CURVE_INVERSION_DEFAULTS, DEFAULT_CURVE_THICKNESS, DEFAULT_MERGE_THIN_UNITS, DEFAULT_MERGE_THRESHOLD, DEFAULT_SMART_INTERBEDDING, DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH, DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD, DEFAULT_FALLBACK_CLASSIFICATION
 
 USE_RESEARCHED_DEFAULTS_DEFAULT = True  # Default to maintaining backward compatibility
 
@@ -23,7 +23,8 @@ def load_settings(file_path=None):
         "merge_threshold": DEFAULT_MERGE_THRESHOLD,
         "smart_interbedding": DEFAULT_SMART_INTERBEDDING,
         "smart_interbedding_max_sequence_length": DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH,
-        "smart_interbedding_thick_unit_threshold": DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD
+        "smart_interbedding_thick_unit_threshold": DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD,
+        "fallback_classification": DEFAULT_FALLBACK_CLASSIFICATION
     }
     if os.path.exists(file_path):
         try:
@@ -41,7 +42,7 @@ def load_settings(file_path=None):
             print(f"Warning: Error loading settings from {file_path}: {e}. Using default settings.")
     return settings
 
-def save_settings(lithology_rules, separator_thickness, draw_separator_lines, curve_inversion_settings, curve_thickness, use_researched_defaults, analysis_method="standard", merge_thin_units=False, merge_threshold=0.05, smart_interbedding=False, smart_interbedding_max_sequence_length=10, smart_interbedding_thick_unit_threshold=0.5, file_path=None):
+def save_settings(lithology_rules, separator_thickness, draw_separator_lines, curve_inversion_settings, curve_thickness, use_researched_defaults, analysis_method="standard", merge_thin_units=False, merge_threshold=0.05, smart_interbedding=False, smart_interbedding_max_sequence_length=10, smart_interbedding_thick_unit_threshold=0.5, fallback_classification=DEFAULT_FALLBACK_CLASSIFICATION, file_path=None):
     """Saves application settings to a JSON file."""
     if file_path is None:
         file_path = DEFAULT_SETTINGS_FILE
@@ -58,7 +59,8 @@ def save_settings(lithology_rules, separator_thickness, draw_separator_lines, cu
         "merge_threshold": merge_threshold,
         "smart_interbedding": smart_interbedding,
         "smart_interbedding_max_sequence_length": smart_interbedding_max_sequence_length,
-        "smart_interbedding_thick_unit_threshold": smart_interbedding_thick_unit_threshold
+        "smart_interbedding_thick_unit_threshold": smart_interbedding_thick_unit_threshold,
+        "fallback_classification": fallback_classification
     }
     try:
         # Ensure the directory exists before writing

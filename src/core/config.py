@@ -63,3 +63,4 @@ DEFAULT_MERGE_THRESHOLD = 0.05 # 5cm in meters - threshold for merging thin unit
 DEFAULT_SMART_INTERBEDDING = False # Whether to enable smart interbedding by default
 DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH = 10 # Maximum segments in interbedded sequence before stopping
 DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD = 0.5 # Stop interbedding when next unit exceeds this thickness (meters)
+DEFAULT_FALLBACK_CLASSIFICATION = False # Whether to enable fallback classification to reduce "NL" results

@@ -1,9 +1,12 @@
 from PyQt6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QDialog, QScrollArea, QDockWidget,
     QPushButton, QComboBox, QLabel, QGraphicsView, QFileDialog, QMessageBox,
-    QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView, QColorDialog, QGraphicsScene, QDoubleSpinBox, QCheckBox, QSlider, QSpinBox, QFrame, QSplitter, QAbstractItemView
+    QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView, QColorDialog, QGraphicsScene, QDoubleSpinBox, QCheckBox, QSlider, QSpinBox, QFrame, QSplitter, QAbstractItemView,
+    QGroupBox, QGridLayout, QSizePolicy,
+    QMdiArea, QMdiSubWindow, QMenu,
+    QTreeView
 )
-from PyQt6.QtGui import QPainter, QPixmap, QColor, QFont, QBrush
+from PyQt6.QtGui import QPainter, QPixmap, QColor, QFont, QBrush, QFileSystemModel, QAction
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtSvgWidgets import QGraphicsSvgItem
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject, QPointF, QTimer
@@ -15,14 +18,16 @@ import traceback
 
 from ..core.data_processor import DataProcessor
 from ..core.analyzer import Analyzer
-from ..core.config import DEFAULT_LITHOLOGY_RULES, DEPTH_COLUMN, DEFAULT_SEPARATOR_THICKNESS, DRAW_SEPARATOR_LINES, CURVE_RANGES, INVALID_DATA_VALUE
+from ..core.config import DEFAULT_LITHOLOGY_RULES, DEPTH_COLUMN, DEFAULT_SEPARATOR_THICKNESS, DRAW_SEPARATOR_LINES, DEFAULT_CURVE_THICKNESS, CURVE_RANGES, INVALID_DATA_VALUE, DEFAULT_MERGE_THIN_UNITS, DEFAULT_MERGE_THRESHOLD, DEFAULT_SMART_INTERBEDDING, DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH, DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD
 from ..core.coallog_utils import load_coallog_dictionaries
 from .widgets.stratigraphic_column import StratigraphicColumn
 from .widgets.svg_renderer import SvgRenderer
 from .widgets.curve_plotter import CurvePlotter # Import CurvePlotter
+from .widgets.pyqtgraph_curve_plotter import PyQtGraphCurvePlotter # Import PyQtGraph-based plotter
 from .widgets.enhanced_range_gap_visualizer import EnhancedRangeGapVisualizer # Import enhanced widget
 from ..core.settings_manager import load_settings, save_settings
 from .dialogs.researched_defaults_dialog import ResearchedDefaultsDialog # Import new dialog
+from .dialogs.settings_dialog import SettingsDialog # Import settings dialog
 from ..utils.range_analyzer import RangeAnalyzer # Import range analyzer
 from .widgets.compact_range_widget import CompactRangeWidget # Import compact widgets
 from .widgets.multi_attribute_widget import MultiAttributeWidget
@@ -50,6 +55,218 @@ class SvgPreviewWidget(QGraphicsView):
         else:
             self.scene.setBackgroundBrush(QColor(color))
         self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+
+
+class HoleEditorWindow(QWidget):
+    """A self-contained window for editing a single drill hole."""
+    
+    def __init__(self, parent=None, coallog_data=None, file_path=None):
+        super().__init__(parent)
+        self.coallog_data = coallog_data
+        self.file_path = file_path
+        self.dataframe = None
+        
+        # Create widgets - using PyQtGraphCurvePlotter for better performance
+        self.curvePlotter = PyQtGraphCurvePlotter()
+        self.stratigraphicColumnView = StratigraphicColumn()
+        self.editorTable = LithologyTableWidget(coallog_data=self.coallog_data)
+        self.exportCsvButton = QPushButton("Export to CSV")
+        
+        # Connect table row selection to stratigraphic column highlighting
+        self.editorTable.rowSelectionChangedSignal.connect(self._on_table_row_selected)
+        
+        # Connect PyQtGraph plotter click signal for synchronization
+        self.curvePlotter.pointClicked.connect(self._on_plot_point_clicked)
+        
+        # Connect plotter view range changes to update overview overlay
+        self.curvePlotter.viewRangeChanged.connect(self._on_plot_view_range_changed)
+        
+        # Set stratigraphic column to overview mode (showing entire hole)
+        self.stratigraphicColumnView.set_overview_mode(True, hole_min_depth=0.0, hole_max_depth=500.0)
+        
+        self.setup_ui()
+        
+        if file_path:
+            # Load data in background (TODO)
+            pass
+    
+    def setup_ui(self):
+        """Create the 3-pane layout with zoom controls according to roadmap: [Plot View | Data Table | Overview View]."""
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # 1. Create the Splitter
+        main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        
+        # Left Container: Plot View (PyQtGraph Curves)
+        plot_container = QWidget()
+        plot_layout = QVBoxLayout(plot_container)
+        plot_layout.setContentsMargins(0, 0, 0, 0)
+        plot_layout.addWidget(self.curvePlotter)
+        
+        # Middle Container: Data Table (Lithology Editor)
+        table_container = QWidget()
+        table_layout = QVBoxLayout(table_container)
+        table_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Add Create Interbedding button (placeholder)
+        button_layout = QHBoxLayout()
+        self.createInterbeddingButton = QPushButton("Create Interbedding")
+        # self.createInterbeddingButton.clicked.connect(self.create_manual_interbedding)
+        button_layout.addWidget(self.createInterbeddingButton)
+        button_layout.addWidget(self.exportCsvButton)
+        button_layout.addStretch()
+        
+        table_layout.addWidget(self.editorTable)
+        table_layout.addLayout(button_layout)
+        
+        # Right Container: Overview View (Stratigraphic Column - entire hole)
+        overview_container = QWidget()
+        overview_layout = QVBoxLayout(overview_container)
+        overview_layout.setContentsMargins(0, 0, 0, 0)
+        overview_layout.addWidget(self.stratigraphicColumnView)
+        
+        # Add to Splitter in correct order: Plot | Table | Overview
+        main_splitter.addWidget(plot_container)
+        main_splitter.addWidget(table_container)
+        main_splitter.addWidget(overview_container)
+        main_splitter.setStretchFactor(0, 2)  # Plot view gets more space
+        main_splitter.setStretchFactor(1, 3)  # Table gets most space
+        main_splitter.setStretchFactor(2, 1)  # Overview gets less space
+        
+        # Create container for main content and zoom controls
+        main_content_widget = QWidget()
+        main_content_layout = QVBoxLayout(main_content_widget)
+        main_content_layout.setContentsMargins(0, 0, 0, 0)
+        main_content_layout.setSpacing(5)
+        main_content_layout.addWidget(main_splitter)
+        
+        # Zoom Controls
+        zoom_controls_layout = QHBoxLayout()
+        zoom_label = QLabel("Zoom:")
+        zoom_controls_layout.addWidget(zoom_label)
+        
+        self.zoomSlider = QSlider(Qt.Orientation.Horizontal)
+        self.zoomSlider.setMinimum(50)
+        self.zoomSlider.setMaximum(500)
+        self.zoomSlider.setValue(100)
+        self.zoomSlider.setSingleStep(10)
+        self.zoomSlider.setPageStep(50)
+        zoom_controls_layout.addWidget(self.zoomSlider)
+        
+        self.zoomSpinBox = QDoubleSpinBox()
+        self.zoomSpinBox.setRange(50.0, 500.0)
+        self.zoomSpinBox.setValue(100.0)
+        self.zoomSpinBox.setSingleStep(10.0)
+        self.zoomSpinBox.setSuffix("%")
+        zoom_controls_layout.addWidget(self.zoomSpinBox)
+        
+        zoom_controls_layout.addStretch()
+        
+        zoom_container = QWidget()
+        zoom_container.setLayout(zoom_controls_layout)
+        zoom_container.setFixedHeight(40)
+        main_content_layout.addWidget(zoom_container)
+        
+        main_layout.addWidget(main_content_widget)
+        
+        # Connect zoom controls
+        self.zoomSlider.valueChanged.connect(self.on_zoom_changed)
+        self.zoomSpinBox.valueChanged.connect(self.on_zoom_changed)
+        
+        # Initialize empty table
+        self.editorTable.setRowCount(0)
+        self.editorTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+    
+    def _on_table_row_selected(self, row):
+        """Handle table row selection to highlight stratigraphic column and scroll plot view (Subtask 4.1)."""
+        if row == -1:
+            # No selection - clear highlight
+            self.stratigraphicColumnView.highlight_unit(None)
+        else:
+            # Highlight the corresponding unit in stratigraphic column
+            self.stratigraphicColumnView.highlight_unit(row)
+            
+            # Scroll plot view to the selected unit's depth (Subtask 4.1)
+            if hasattr(self.stratigraphicColumnView, 'units_dataframe') and self.stratigraphicColumnView.units_dataframe is not None:
+                if 0 <= row < len(self.stratigraphicColumnView.units_dataframe):
+                    unit = self.stratigraphicColumnView.units_dataframe.iloc[row]
+                    center_depth = (unit['from_depth'] + unit['to_depth']) / 2
+                    self.curvePlotter.scroll_to_depth(center_depth)
+    
+    def _on_plot_point_clicked(self, depth):
+        """Handle plot point clicks to select corresponding table row (Subtask 4.2)."""
+        if hasattr(self, 'editorTable') and self.editorTable is not None:
+            # Find the row in the table that corresponds to this depth
+            # This assumes the table has depth information
+            # For now, we'll implement a simple search
+            # In a real implementation, we would need to map depth to table row
+            
+            # TODO: Implement proper depth-to-row mapping
+            # For now, just emit a signal or print for debugging
+            print(f"Plot clicked at depth: {depth}")
+            # In the future: self.editorTable.selectRow(row_index)
+    
+    def _on_plot_view_range_changed(self, min_depth, max_depth):
+        """Handle plot view range changes to update overview overlay (Subtask 3.3)."""
+        self.stratigraphicColumnView.update_zoom_overlay(min_depth, max_depth)
+    
+    def on_zoom_changed(self):
+        """Handle zoom control changes."""
+        sender = self.sender()
+        if sender == self.zoomSlider:
+            zoom_percentage = self.zoomSlider.value()
+            self.zoomSpinBox.blockSignals(True)
+            self.zoomSpinBox.setValue(zoom_percentage)
+            self.zoomSpinBox.blockSignals(False)
+        else:
+            zoom_percentage = self.zoomSpinBox.value()
+            self.zoomSlider.blockSignals(True)
+            self.zoomSlider.setValue(int(zoom_percentage))
+            self.zoomSlider.blockSignals(False)
+        
+        zoom_factor = zoom_percentage / 100.0
+        self.apply_synchronized_zoom(zoom_factor)
+    
+    def apply_synchronized_zoom(self, zoom_factor):
+        """Apply zoom factor to both curve plotter and stratigraphic column."""
+        self.curvePlotter.set_zoom_level(zoom_factor)
+        self.stratigraphicColumnView.set_zoom_level(zoom_factor)
+    
+    def load_data(self, dataframe):
+        """Load and display data in the editor."""
+        self.dataframe = dataframe
+        self.populate_editor_table(dataframe)
+        # TODO: Update curve plotter and strat column
+    
+    def populate_editor_table(self, dataframe):
+        """Populate the editor table with dataframe content."""
+        self.editorTable.clear()
+        if dataframe.empty:
+            self.editorTable.setRowCount(0)
+            self.editorTable.setColumnCount(0)
+            return
+        self.editorTable.setRowCount(dataframe.shape[0])
+        self.editorTable.setColumnCount(dataframe.shape[1])
+        self.editorTable.setHorizontalHeaderLabels(dataframe.columns.tolist())
+        for i in range(dataframe.shape[0]):
+            for j in range(dataframe.shape[1]):
+                item = QTableWidgetItem(str(dataframe.iloc[i, j]))
+                self.editorTable.setItem(i, j, item)
+    
+    def set_window_title(self, title):
+        """Set window title for MDI subwindow."""
+        if self.parent() and hasattr(self.parent(), 'setWindowTitle'):
+            self.parent().setWindowTitle(title)
+        else:
+            self.setWindowTitle(title)
+    
+    def set_file_path(self, file_path):
+        """Set the file path for this hole and update window title."""
+        self.file_path = file_path
+        if file_path:
+            filename = os.path.basename(file_path)
+            self.set_window_title(filename)
 
 
 class Worker(QObject):
@@ -198,8 +415,8 @@ class MainWindow(QMainWindow):
         self.gap_update_timer.setSingleShot(True)
         self.gap_update_timer.timeout.connect(self._perform_gap_visualization_update)
 
-        self.tab_widget = QTabWidget()
-        # Create central widget with vertical layout: control panel at top, tabs below
+        # MDI area will replace tab widget (1PD UI/UX Phase 1)
+        # Create central widget with vertical layout: control panel at top, MDI area below
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
@@ -236,7 +453,9 @@ class MainWindow(QMainWindow):
         # Tab widget for Settings and Editor (Editor will be the default)
         # Note: Settings tab will be created but not added to tab widget
         # It will be used in a dialog instead
-        self.tab_widget = QTabWidget()
+        # MDI area for multiple hole windows (1PD UI/UX Phase 1)
+        self.mdi_area = QMdiArea()
+        self.mdi_area.setViewMode(QMdiArea.ViewMode.SubWindowView)
         self.settings_tab = QWidget()
         self.settings_layout = QVBoxLayout(self.settings_tab)
         # Settings tab is NOT added to tab widget - will be used in dock widget instead
@@ -253,27 +472,70 @@ class MainWindow(QMainWindow):
         self.settings_dock.hide()  # Initially hidden
         self.settings_dock.visibilityChanged.connect(self.update_settings_button_text)
 
-        self.editor_tab = QWidget()
+        # Create dock widget for holes list (Phase 1, Task 2)
+        self.holes_dock = QDockWidget("Project Explorer", self)
+        self.holes_tree = QTreeView()
+        self.holes_model = QFileSystemModel()
+        self.holes_model.setRootPath(os.getcwd())  # Start at current directory
+        self.holes_model.setNameFilters(["*.csv", "*.xlsx", "*.las", "*.LAS"])
+        self.holes_model.setNameFilterDisables(False)
+        self.holes_tree.setModel(self.holes_model)
+        self.holes_tree.setRootIndex(self.holes_model.index(os.getcwd()))  # Show current directory initially
+        self.holes_tree.doubleClicked.connect(self.on_hole_double_clicked)
+        self.holes_dock.setWidget(self.holes_tree)
+        self.holes_dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
+        self.holes_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | 
+                                       QDockWidget.DockWidgetFeature.DockWidgetFloatable |
+                                       QDockWidget.DockWidgetFeature.DockWidgetClosable)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.holes_dock)
+        self.holes_dock.show()  # Show by default
 
-        # Create a single CurvePlotter widget
-        self.curvePlotter = CurvePlotter()
-
-        self.stratigraphicColumnView = StratigraphicColumn()
-        self.editorTable = LithologyTableWidget(coallog_data=self.coallog_data)
-        self.exportCsvButton = QPushButton("Export to CSV")
-
+        # Create first hole editor window
+        self.editor_hole = HoleEditorWindow(coallog_data=self.coallog_data)
+        self.editor_tab = self.editor_hole  # Backward compatibility
+        
+        # Create editor subwindow for the first hole
+        self.editor_subwindow = QMdiSubWindow()
+        self.editor_subwindow.setWidget(self.editor_hole)
+        self.editor_subwindow.setWindowTitle("Editor")
+        self.mdi_area.addSubWindow(self.editor_subwindow)
+        
+        # Keep references to widgets for backward compatibility with existing methods
+        self.curvePlotter = self.editor_hole.curvePlotter
+        self.stratigraphicColumnView = self.editor_hole.stratigraphicColumnView
+        self.editorTable = self.editor_hole.editorTable
+        self.exportCsvButton = self.editor_hole.exportCsvButton
+        
         # Connect table row selection to stratigraphic column highlighting
         self.editorTable.rowSelectionChangedSignal.connect(self._on_table_row_selected)
 
-        self.tab_widget.addTab(self.editor_tab, "Editor")
-        main_layout.addWidget(self.tab_widget)
+        main_layout.addWidget(self.mdi_area)
         
         self.connect_signals()
         self.load_default_lithology_rules()
         self.setup_settings_tab()
-        self.setup_editor_tab()
-        self.tab_widget.currentChanged.connect(self.on_tab_changed)
+        # self.setup_editor_tab()  # Not needed: hole editor has its own layout
+        # self.tab_widget.currentChanged.connect(self.on_tab_changed)  # MDI removes tabs
         self._synchronize_views()
+        self.create_window_menu()
+
+    def create_window_menu(self):
+        """Create Window menu with tile, cascade, close actions."""
+        window_menu = self.menuBar().addMenu("&Window")
+        
+        tile_action = QAction("Tile", self)
+        tile_action.triggered.connect(self.mdi_area.tileSubWindows)
+        window_menu.addAction(tile_action)
+        
+        cascade_action = QAction("Cascade", self)
+        cascade_action.triggered.connect(self.mdi_area.cascadeSubWindows)
+        window_menu.addAction(cascade_action)
+        
+        window_menu.addSeparator()
+        
+        close_all_action = QAction("Close All", self)
+        close_all_action.triggered.connect(self.mdi_area.closeAllSubWindows)
+        window_menu.addAction(close_all_action)
 
     def _synchronize_views(self):
         """Connects the two views to scroll in sync with perfect 1:1 depth alignment."""
@@ -419,7 +681,7 @@ class MainWindow(QMainWindow):
         self.runAnalysisButton.clicked.connect(self.run_analysis)
         self.settingsButton.clicked.connect(self.open_settings_dialog)
         self.exportCsvButton.clicked.connect(self.export_editor_data_to_csv)
-        self.tab_widget.currentChanged.connect(self.on_tab_changed)
+        # self.tab_widget.currentChanged.connect(self.on_tab_changed)  # MDI removes tabs
         # Connect stratigraphic column unit clicks
         if hasattr(self, 'stratigraphicColumnView'):
             self.stratigraphicColumnView.unitClicked.connect(self._on_unit_clicked)
@@ -432,12 +694,51 @@ class MainWindow(QMainWindow):
             self.settings_dock.show()
             self.settings_dock.raise_()  # Bring to front if floating
     
+    def open_advanced_settings_dialog(self):
+        """Open the advanced settings dialog (modal)."""
+        # Gather current settings from the dock panel
+        current_settings = self.get_current_settings()
+        dialog = SettingsDialog(parent=self, current_settings=current_settings)
+        dialog.settings_updated.connect(self.update_settings_from_dialog)
+        dialog.exec()
+    
     def update_settings_button_text(self):
         """Update settings button text based on dock visibility."""
         if self.settings_dock.isVisible():
             self.settingsButton.setText("Hide Settings")
         else:
             self.settingsButton.setText("Settings")
+
+    def on_hole_double_clicked(self, index):
+        """Handle double-click on a file in the project explorer tree."""
+        if self.holes_model.isDir(index):
+            return  # Don't open directories
+        file_path = self.holes_model.filePath(index)
+        # Check if it's a supported file type
+        if file_path.lower().endswith(('.csv', '.xlsx', '.las')):
+            self.open_hole(file_path)
+
+    def open_hole(self, file_path):
+        """Open a hole file in a new MDI subwindow (Phase 1, Task 2)."""
+        # Create a new hole editor window
+        hole_editor = HoleEditorWindow(coallog_data=self.coallog_data)
+        hole_editor.set_file_path(file_path)
+        
+        # Create MDI subwindow
+        subwindow = QMdiSubWindow()
+        subwindow.setWidget(hole_editor)
+        subwindow.setWindowTitle(os.path.basename(file_path))
+        
+        # Add to MDI area
+        self.mdi_area.addSubWindow(subwindow)
+        subwindow.show()
+        
+        # Optionally tile windows
+        # self.mdi_area.tileSubWindows()
+        
+        # For backward compatibility, still set global las_file_path?
+        # self.las_file_path = file_path
+        # But we should not call load_las_data() because it would affect the main window's widgets
 
     def load_las_file_dialog(self):
         file_dialog = QFileDialog()
@@ -505,194 +806,314 @@ class MainWindow(QMainWindow):
             self.save_settings_rules_from_table()
 
     def setup_settings_tab(self):
-        # Add data processing controls at the top
-        self.settings_layout.addWidget(QLabel("Data Processing Controls:"))
-        # Control panel now placed above tabs, not inside settings tab
-        # self.settings_layout.addLayout(self.control_panel_layout)
-
-        # Add a separator
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setFrameShadow(QFrame.Shadow.Sunken)
-        self.settings_layout.addWidget(separator)
-
+        # Clear existing layout (just in case)
+        while self.settings_layout.count():
+            item = self.settings_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        # Create scroll area for settings (in case panel is small)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        
+        # Container widget for all settings groups
+        container = QWidget()
+        container_layout = QVBoxLayout(container)
+        container_layout.setSpacing(10)
+        container_layout.setContentsMargins(8, 8, 8, 8)
+        
+        # 1. LITHOLOGY RULES GROUP
+        litho_group = QGroupBox("Lithology Rules")
+        litho_layout = QVBoxLayout(litho_group)
+        litho_layout.setSpacing(6)
+        
         self.settings_rules_table = QTableWidget()
         self.settings_rules_table.setColumnCount(9)
         self.settings_rules_table.setHorizontalHeaderLabels([
             "Name", "Code", "Qualifier", "Gamma Range", "Density Range",
             "Visual Props", "Background", "Preview", "Actions"
         ])
-        # Set column widths for compact layout
-        self.settings_rules_table.setColumnWidth(0, 140)  # Name
-        self.settings_rules_table.setColumnWidth(1, 60)   # Code
-        self.settings_rules_table.setColumnWidth(2, 100)  # Qualifier
-        self.settings_rules_table.setColumnWidth(3, 80)   # Gamma Range
-        self.settings_rules_table.setColumnWidth(4, 80)   # Density Range
-        self.settings_rules_table.setColumnWidth(5, 120)  # Visual Props
-        self.settings_rules_table.setColumnWidth(6, 60)   # Background
-        self.settings_rules_table.setColumnWidth(7, 60)   # Preview
-        self.settings_rules_table.setColumnWidth(8, 80)   # Actions
-        self.settings_rules_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
-        self.settings_layout.addWidget(self.settings_rules_table)
-        self.settings_button_layout = QHBoxLayout()
+        # Let columns resize to content, but set minimum widths
+        header = self.settings_rules_table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        header.setMinimumSectionSize(60)
+        header.setStretchLastSection(True)
+        self.settings_rules_table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        
+        litho_layout.addWidget(self.settings_rules_table)
+        
+        # Add/Remove buttons
+        rule_buttons_layout = QHBoxLayout()
+        rule_buttons_layout.setSpacing(6)
         self.addRuleButton = QPushButton("Add Rule")
         self.removeRuleButton = QPushButton("Remove Rule")
-        self.settings_button_layout.addWidget(self.addRuleButton)
-        self.settings_button_layout.addWidget(self.removeRuleButton)
-        self.settings_layout.addLayout(self.settings_button_layout)
-
-        # New controls for stratigraphic column separators
-        self.separator_settings_layout = QHBoxLayout()
-        self.separator_settings_layout.addWidget(QLabel("Separator Line Thickness:"))
+        rule_buttons_layout.addWidget(self.addRuleButton)
+        rule_buttons_layout.addWidget(self.removeRuleButton)
+        rule_buttons_layout.addStretch()
+        litho_layout.addLayout(rule_buttons_layout)
+        
+        container_layout.addWidget(litho_group)
+        
+        # 2. DISPLAY SETTINGS GROUP
+        display_group = QGroupBox("Display Settings")
+        display_layout = QGridLayout(display_group)
+        display_layout.setSpacing(8)
+        display_layout.setColumnStretch(1, 1)
+        
+        # Row 0: Separator thickness
+        display_layout.addWidget(QLabel("Separator Line Thickness:"), 0, 0)
         self.separatorThicknessSpinBox = QDoubleSpinBox()
         self.separatorThicknessSpinBox.setRange(0.0, 5.0)
         self.separatorThicknessSpinBox.setSingleStep(0.1)
-        self.separator_settings_layout.addWidget(self.separatorThicknessSpinBox)
-
+        self.separatorThicknessSpinBox.setMaximumWidth(100)
+        display_layout.addWidget(self.separatorThicknessSpinBox, 0, 1)
+        
+        # Row 1: Draw separators checkbox
         self.drawSeparatorsCheckBox = QCheckBox("Draw Separator Lines")
-        self.separator_settings_layout.addWidget(self.drawSeparatorsCheckBox)
-        self.settings_layout.addLayout(self.separator_settings_layout)
-
-        # New controls for curve line thickness
-        self.curve_thickness_layout = QHBoxLayout()
-        self.curve_thickness_layout.addWidget(QLabel("Curve Line Thickness:"))
+        display_layout.addWidget(self.drawSeparatorsCheckBox, 1, 0, 1, 2)
+        
+        # Row 2: Curve thickness
+        display_layout.addWidget(QLabel("Curve Line Thickness:"), 2, 0)
         self.curveThicknessSpinBox = QDoubleSpinBox()
         self.curveThicknessSpinBox.setRange(0.1, 5.0)
         self.curveThicknessSpinBox.setSingleStep(0.1)
-        self.curve_thickness_layout.addWidget(self.curveThicknessSpinBox)
-        self.settings_layout.addLayout(self.curve_thickness_layout)
-
-        # New controls for curve inversion
-        self.curve_inversion_layout = QHBoxLayout()
+        self.curveThicknessSpinBox.setMaximumWidth(100)
+        display_layout.addWidget(self.curveThicknessSpinBox, 2, 1)
+        
+        # Row 3: Curve inversion checkboxes
+        curve_inv_label = QLabel("Curve Inversion:")
+        display_layout.addWidget(curve_inv_label, 3, 0, Qt.AlignmentFlag.AlignTop)
+        
+        curve_inv_widget = QWidget()
+        curve_inv_layout = QVBoxLayout(curve_inv_widget)
+        curve_inv_layout.setSpacing(4)
+        curve_inv_layout.setContentsMargins(0, 0, 0, 0)
         self.invertGammaCheckBox = QCheckBox("Invert Gamma")
         self.invertShortSpaceDensityCheckBox = QCheckBox("Invert Short Space Density")
         self.invertLongSpaceDensityCheckBox = QCheckBox("Invert Long Space Density")
-        self.curve_inversion_layout.addWidget(self.invertGammaCheckBox)
-        self.curve_inversion_layout.addWidget(self.invertShortSpaceDensityCheckBox)
-        self.curve_inversion_layout.addWidget(self.invertLongSpaceDensityCheckBox)
-        self.settings_layout.addLayout(self.curve_inversion_layout)
-
-        # New buttons for saving/loading settings
-        self.settings_file_buttons_layout = QHBoxLayout()
-        self.saveAsSettingsButton = QPushButton("Save Settings As...")
-        self.updateSettingsButton = QPushButton("Update Settings")
-        self.loadSettingsButton = QPushButton("Load Settings...")
-        self.settings_file_buttons_layout.addWidget(self.saveAsSettingsButton)
-        self.settings_file_buttons_layout.addWidget(self.updateSettingsButton)
-        self.settings_file_buttons_layout.addWidget(self.loadSettingsButton)
+        curve_inv_layout.addWidget(self.invertGammaCheckBox)
+        curve_inv_layout.addWidget(self.invertShortSpaceDensityCheckBox)
+        curve_inv_layout.addWidget(self.invertLongSpaceDensityCheckBox)
+        display_layout.addWidget(curve_inv_widget, 3, 1)
         
-        # Add new controls for researched defaults
+        container_layout.addWidget(display_group)
+        
+        # 3. ANALYSIS SETTINGS GROUP
+        analysis_group = QGroupBox("Analysis Settings")
+        analysis_layout = QVBoxLayout(analysis_group)
+        analysis_layout.setSpacing(8)
+        
+        # Checkboxes in a grid
+        check_grid = QGridLayout()
+        check_grid.setSpacing(6)
         self.useResearchedDefaultsCheckBox = QCheckBox("Apply Researched Defaults for Missing Ranges")
         self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
-        self.settings_file_buttons_layout.addWidget(self.useResearchedDefaultsCheckBox)
-
-        # Add control for merging thin units
+        check_grid.addWidget(self.useResearchedDefaultsCheckBox, 0, 0, 1, 2)
+        
         self.mergeThinUnitsCheckBox = QCheckBox("Merge thin lithology units (< 5cm)")
         self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
-        self.settings_file_buttons_layout.addWidget(self.mergeThinUnitsCheckBox)
-
-        # Add control for smart interbedding
+        check_grid.addWidget(self.mergeThinUnitsCheckBox, 1, 0, 1, 2)
+        
         self.smartInterbeddingCheckBox = QCheckBox("Smart Interbedding")
         self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
-        self.settings_file_buttons_layout.addWidget(self.smartInterbeddingCheckBox)
-
-        # Add control for fallback classification
+        check_grid.addWidget(self.smartInterbeddingCheckBox, 2, 0, 1, 2)
+        
         self.fallbackClassificationCheckBox = QCheckBox("Enable Fallback Classification")
-        self.fallbackClassificationCheckBox.setChecked(False)  # Default to False
+        self.fallbackClassificationCheckBox.setChecked(False)
         self.fallbackClassificationCheckBox.setToolTip("Apply fallback classification to reduce 'NL' (Not Logged) results")
-        self.settings_file_buttons_layout.addWidget(self.fallbackClassificationCheckBox)
-
-        # Add controls for smart interbedding parameters
-        self.smartInterbeddingParamsLayout = QHBoxLayout()
-        self.smartInterbeddingParamsLayout.addWidget(QLabel("Max Sequence Length:"))
+        check_grid.addWidget(self.fallbackClassificationCheckBox, 3, 0, 1, 2)
+        
+        analysis_layout.addLayout(check_grid)
+        
+        # Smart interbedding parameters (only visible when smart interbedding is checked)
+        self.interbedding_params_widget = QWidget()
+        interbedding_params_layout = QHBoxLayout(self.interbedding_params_widget)
+        interbedding_params_layout.setSpacing(8)
+        interbedding_params_layout.addWidget(QLabel("Max Sequence Length:"))
         self.smartInterbeddingMaxSequenceSpinBox = QSpinBox()
         self.smartInterbeddingMaxSequenceSpinBox.setRange(5, 50)
         self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
-        self.smartInterbeddingParamsLayout.addWidget(self.smartInterbeddingMaxSequenceSpinBox)
-
-        self.smartInterbeddingParamsLayout.addWidget(QLabel("Thick Unit Threshold (m):"))
+        interbedding_params_layout.addWidget(self.smartInterbeddingMaxSequenceSpinBox)
+        
+        interbedding_params_layout.addWidget(QLabel("Thick Unit Threshold (m):"))
         self.smartInterbeddingThickUnitSpinBox = QDoubleSpinBox()
         self.smartInterbeddingThickUnitSpinBox.setRange(0.1, 5.0)
         self.smartInterbeddingThickUnitSpinBox.setSingleStep(0.1)
         self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
-        self.smartInterbeddingParamsLayout.addWidget(self.smartInterbeddingThickUnitSpinBox)
-        self.smartInterbeddingParamsLayout.addStretch()
-        self.settings_layout.addLayout(self.smartInterbeddingParamsLayout)
-
-        # Add analysis method selection
-        analysis_method_layout = QHBoxLayout()
-        analysis_method_label = QLabel("Analysis Method:")
+        interbedding_params_layout.addWidget(self.smartInterbeddingThickUnitSpinBox)
+        interbedding_params_layout.addStretch()
+        analysis_layout.addWidget(self.interbedding_params_widget)
+        # Hide initially if smart interbedding is off
+        self.interbedding_params_widget.setVisible(self.smart_interbedding)
+        
+        # Analysis method
+        method_layout = QHBoxLayout()
+        method_layout.setSpacing(8)
+        method_layout.addWidget(QLabel("Analysis Method:"))
         self.analysisMethodComboBox = QComboBox()
         self.analysisMethodComboBox.addItems(["Standard", "Simple"])
-        # Set current method based on settings
         if hasattr(self, 'analysis_method') and self.analysis_method == "simple":
             self.analysisMethodComboBox.setCurrentText("Simple")
         else:
             self.analysisMethodComboBox.setCurrentText("Standard")
-        analysis_method_layout.addWidget(analysis_method_label)
-        analysis_method_layout.addWidget(self.analysisMethodComboBox)
-        analysis_method_layout.addStretch()
-        self.settings_file_buttons_layout.addLayout(analysis_method_layout)
-        self.analysisMethodComboBox.currentTextChanged.connect(lambda: self.update_settings(auto_save=True))
-
-        # Add new button for researched defaults
-        self.researchedDefaultsButton = QPushButton("Researched Defaults")
-        self.settings_file_buttons_layout.addWidget(self.researchedDefaultsButton)
-
-        # Add lithology report export button
+        method_layout.addWidget(self.analysisMethodComboBox)
+        method_layout.addStretch()
+        analysis_layout.addLayout(method_layout)
+        
+        container_layout.addWidget(analysis_group)
+        
+        # 4. FILE OPERATIONS GROUP
+        file_group = QGroupBox("File Operations")
+        file_layout = QVBoxLayout(file_group)
+        file_layout.setSpacing(8)
+        
+        # Row 1: Save/Load/Update buttons
+        row1_layout = QHBoxLayout()
+        row1_layout.setSpacing(6)
+        self.saveAsSettingsButton = QPushButton("Save Settings As...")
+        self.updateSettingsButton = QPushButton("Update Settings")
+        self.loadSettingsButton = QPushButton("Load Settings...")
+        self.saveAsSettingsButton.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.updateSettingsButton.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.loadSettingsButton.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        row1_layout.addWidget(self.saveAsSettingsButton)
+        row1_layout.addWidget(self.updateSettingsButton)
+        row1_layout.addWidget(self.loadSettingsButton)
+        file_layout.addLayout(row1_layout)
+        
+        # Row 2: Researched defaults, export, reset buttons
+        row2_layout = QHBoxLayout()
+        row2_layout.setSpacing(6)
+        self.researchedDefaultsButton = QPushButton("Researched Defaults...")
         self.exportLithologyReportButton = QPushButton("Export Lithology Report")
-        self.settings_file_buttons_layout.addWidget(self.exportLithologyReportButton)
-
-        self.settings_layout.addLayout(self.settings_file_buttons_layout)
-
-        # Add range gap visualizer
-        self.range_gap_controls_layout = QHBoxLayout()
-        self.range_gap_controls_layout.addWidget(QLabel("Range Analysis:"))
-        self.refreshRangeAnalysisButton = QPushButton("Refresh Ranges")
+        self.resetDefaultsButton = QPushButton("Reset to Defaults")
+        self.researchedDefaultsButton.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.exportLithologyReportButton.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.resetDefaultsButton.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        row2_layout.addWidget(self.researchedDefaultsButton)
+        row2_layout.addWidget(self.exportLithologyReportButton)
+        row2_layout.addWidget(self.resetDefaultsButton)
+        file_layout.addLayout(row2_layout)
+        
+        # Row 3: Advanced settings button
+        row3_layout = QHBoxLayout()
+        row3_layout.setSpacing(6)
+        self.advancedSettingsButton = QPushButton("Advanced Settings...")
+        self.advancedSettingsButton.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        row3_layout.addWidget(self.advancedSettingsButton)
+        file_layout.addLayout(row3_layout)
+        
+        container_layout.addWidget(file_group)
+        
+        # 5. RANGE ANALYSIS GROUP
+        range_group = QGroupBox("Range Analysis")
+        range_layout = QVBoxLayout(range_group)
+        range_layout.setSpacing(8)
+        
+        self.refreshRangeAnalysisButton = QPushButton("Refresh Range Analysis")
         self.refreshRangeAnalysisButton.clicked.connect(self.refresh_range_visualization)
-        self.range_gap_controls_layout.addWidget(self.refreshRangeAnalysisButton)
-        self.range_gap_controls_layout.addStretch()
-        self.settings_layout.addLayout(self.range_gap_controls_layout)
-
-        self.settings_layout.addWidget(self.range_visualizer)
-
-        self.settings_layout.addStretch(1) # Add stretch to push controls to top
-
-        # Initialize range visualization
-        self.refresh_range_visualization()
-
+        range_layout.addWidget(self.refreshRangeAnalysisButton)
+        
+        range_layout.addWidget(self.range_visualizer)
+        
+        container_layout.addWidget(range_group)
+        
+        container_layout.addStretch()
+        
+        # Set container as scroll widget
+        scroll.setWidget(container)
+        self.settings_layout.addWidget(scroll)
+        
+        # Initialize connections
         self.addRuleButton.clicked.connect(self.add_settings_rule)
         self.removeRuleButton.clicked.connect(self.remove_settings_rule)
         
         self.saveAsSettingsButton.clicked.connect(self.save_settings_as_file)
         self.updateSettingsButton.clicked.connect(self.update_settings)
         self.loadSettingsButton.clicked.connect(self.load_settings_from_file)
-        self.researchedDefaultsButton.clicked.connect(self.open_researched_defaults_dialog) # Connect new button
-        self.exportLithologyReportButton.clicked.connect(self.export_lithology_report) # Connect report button
-
+        self.researchedDefaultsButton.clicked.connect(self.open_researched_defaults_dialog)
+        self.exportLithologyReportButton.clicked.connect(self.export_lithology_report)
+        self.resetDefaultsButton.clicked.connect(self.reset_settings_to_defaults)
+        self.advancedSettingsButton.clicked.connect(self.open_advanced_settings_dialog)
+        
+        # Connect smart interbedding checkbox to toggle parameters visibility
+        self.smartInterbeddingCheckBox.stateChanged.connect(self.toggle_interbedding_params_visibility)
+        
+        # Load current settings into controls
         self.load_settings_rules_to_table()
         self.load_separator_settings()
-        self.load_curve_thickness_settings() # Load new setting
+        self.load_curve_thickness_settings()
         self.load_curve_inversion_settings()
-        self._apply_researched_defaults_if_needed() # Call new method after loading settings
-        # Connect separator controls to update_settings, not save_all_settings directly
+        self._apply_researched_defaults_if_needed()
+        
+        # Connect value change signals to auto-save
         self.separatorThicknessSpinBox.valueChanged.connect(lambda: self.update_settings(auto_save=True))
         self.drawSeparatorsCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
-        # Connect curve thickness control to update_settings
         self.curveThicknessSpinBox.valueChanged.connect(lambda: self.update_settings(auto_save=True))
-        # Connect curve inversion checkboxes to update_settings
         self.invertGammaCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
         self.invertShortSpaceDensityCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
         self.invertLongSpaceDensityCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
-        # Connect researched defaults checkbox to update_settings
         self.useResearchedDefaultsCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
-        # Connect merge thin units checkbox to update_settings
         self.mergeThinUnitsCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
-        # Connect smart interbedding checkbox to update_settings
         self.smartInterbeddingCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
-        # Connect smart interbedding parameter spinboxes to update_settings
         self.smartInterbeddingMaxSequenceSpinBox.valueChanged.connect(lambda: self.update_settings(auto_save=True))
         self.smartInterbeddingThickUnitSpinBox.valueChanged.connect(lambda: self.update_settings(auto_save=True))
+        self.analysisMethodComboBox.currentTextChanged.connect(lambda: self.update_settings(auto_save=True))
+        self.fallbackClassificationCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
+        
+        # Initialize range visualization
+        self.refresh_range_visualization()
+    
+    def toggle_interbedding_params_visibility(self):
+        """Show/hide smart interbedding parameters based on checkbox state."""
+        visible = self.smartInterbeddingCheckBox.isChecked()
+        self.interbedding_params_widget.setVisible(visible)
+    
+    def reset_settings_to_defaults(self):
+        """Reset all settings to default values."""
+        reply = QMessageBox.question(self, "Reset Settings", 
+                                     "Are you sure you want to reset all settings to defaults?",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
+            # Reset lithology rules to default
+            self.lithology_rules = DEFAULT_LITHOLOGY_RULES.copy()
+            # Reset separator settings
+            self.initial_separator_thickness = DEFAULT_SEPARATOR_THICKNESS
+            self.initial_draw_separators = DRAW_SEPARATOR_LINES
+            # Reset curve thickness default
+            self.initial_curve_thickness = DEFAULT_CURVE_THICKNESS
+            # Reset curve inversion defaults
+            self.initial_curve_inversion_settings = {'gamma': False, 'short_space_density': False, 'long_space_density': False}
+            # Reset researched defaults
+            self.use_researched_defaults = False
+            # Reset analysis method
+            self.analysis_method = "standard"
+            # Reset merge settings
+            self.merge_thin_units = DEFAULT_MERGE_THIN_UNITS
+            self.merge_threshold = DEFAULT_MERGE_THRESHOLD
+            # Reset smart interbedding settings
+            self.smart_interbedding = DEFAULT_SMART_INTERBEDDING
+            self.smart_interbedding_max_sequence_length = DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH
+            self.smart_interbedding_thick_unit_threshold = DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD
+            # Update UI controls
+            self.load_settings_rules_to_table()
+            self.load_separator_settings()
+            self.load_curve_thickness_settings()
+            self.load_curve_inversion_settings()
+            self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
+            self.analysisMethodComboBox.setCurrentText("Standard")
+            self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
+            self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
+            self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
+            self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
+            self.fallbackClassificationCheckBox.setChecked(False)
+            # Hide interbedding params if needed
+            self.interbedding_params_widget.setVisible(self.smart_interbedding)
+            # Save defaults
+            self.update_settings(auto_save=True)
+            QMessageBox.information(self, "Settings Reset", "All settings have been reset to defaults.")
 
     def load_separator_settings(self):
         self.separatorThicknessSpinBox.setValue(self.initial_separator_thickness)
@@ -741,6 +1162,89 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "Settings Saved", f"Settings saved to {os.path.basename(file_path)}")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to save settings: {e}")
+
+    def get_current_settings(self):
+        """Return current settings as a dictionary compatible with SettingsDialog."""
+        # Ensure rules are saved from table
+        self.save_settings_rules_from_table(show_message=False)
+        
+        # Gather settings from UI controls
+        current_separator_thickness = self.separatorThicknessSpinBox.value()
+        current_draw_separators = self.drawSeparatorsCheckBox.isChecked()
+        current_curve_thickness = self.curveThicknessSpinBox.value()
+        current_curve_inversion_settings = {
+            'gamma': self.invertGammaCheckBox.isChecked(),
+            'short_space_density': self.invertShortSpaceDensityCheckBox.isChecked(),
+            'long_space_density': self.invertLongSpaceDensityCheckBox.isChecked()
+        }
+        
+        current_use_researched_defaults = self.useResearchedDefaultsCheckBox.isChecked()
+        current_analysis_method = self.analysisMethodComboBox.currentText().lower()
+        current_merge_thin_units = self.mergeThinUnitsCheckBox.isChecked()
+        current_merge_threshold = self.merge_threshold  # Keep the loaded threshold
+        current_smart_interbedding = self.smartInterbeddingCheckBox.isChecked()
+        current_smart_interbedding_max_sequence = self.smartInterbeddingMaxSequenceSpinBox.value()
+        current_smart_interbedding_thick_unit = self.smartInterbeddingThickUnitSpinBox.value()
+        current_fallback_classification = self.fallbackClassificationCheckBox.isChecked()
+        
+        # Build settings dict matching SettingsDialog expectations
+        settings = {
+            'lithology_rules': self.lithology_rules,
+            'separator_thickness': current_separator_thickness,
+            'draw_separators': current_draw_separators,
+            'curve_thickness': current_curve_thickness,
+            'invert_gamma': current_curve_inversion_settings['gamma'],
+            'invert_short_space_density': current_curve_inversion_settings['short_space_density'],
+            'invert_long_space_density': current_curve_inversion_settings['long_space_density'],
+            'use_researched_defaults': current_use_researched_defaults,
+            'analysis_method': current_analysis_method,
+            'merge_thin_units': current_merge_thin_units,
+            'smart_interbedding': current_smart_interbedding,
+            'fallback_classification': current_fallback_classification,
+            'smart_interbedding_max_sequence_length': current_smart_interbedding_max_sequence,
+            'smart_interbedding_thick_unit_threshold': current_smart_interbedding_thick_unit
+        }
+        return settings
+
+    def update_settings_from_dialog(self, settings):
+        """Update settings from a dictionary (e.g., from SettingsDialog)."""
+        # Update internal variables from settings dict
+        self.lithology_rules = settings.get('lithology_rules', self.lithology_rules)
+        self.initial_separator_thickness = settings.get('separator_thickness', self.initial_separator_thickness)
+        self.initial_draw_separators = settings.get('draw_separators', self.initial_draw_separators)
+        self.initial_curve_thickness = settings.get('curve_thickness', self.initial_curve_thickness)
+        self.initial_curve_inversion_settings = {
+            'gamma': settings.get('invert_gamma', False),
+            'short_space_density': settings.get('invert_short_space_density', False),
+            'long_space_density': settings.get('invert_long_space_density', False)
+        }
+        self.use_researched_defaults = settings.get('use_researched_defaults', self.use_researched_defaults)
+        self.analysis_method = settings.get('analysis_method', self.analysis_method)
+        self.merge_thin_units = settings.get('merge_thin_units', self.merge_thin_units)
+        self.smart_interbedding = settings.get('smart_interbedding', self.smart_interbedding)
+        self.smart_interbedding_max_sequence_length = settings.get('smart_interbedding_max_sequence_length', self.smart_interbedding_max_sequence_length)
+        self.smart_interbedding_thick_unit_threshold = settings.get('smart_interbedding_thick_unit_threshold', self.smart_interbedding_thick_unit_threshold)
+        self.use_fallback_classification = settings.get('fallback_classification', self.use_fallback_classification)
+        # Update UI controls
+        self.load_settings_rules_to_table()
+        self.load_separator_settings()
+        self.load_curve_thickness_settings()
+        self.load_curve_inversion_settings()
+        self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
+        if hasattr(self, 'analysisMethodComboBox'):
+            if self.analysis_method == "simple":
+                self.analysisMethodComboBox.setCurrentText("Simple")
+            else:
+                self.analysisMethodComboBox.setCurrentText("Standard")
+        self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
+        self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
+        self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
+        self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
+        self.fallbackClassificationCheckBox.setChecked(self.use_fallback_classification)
+        # Refresh range visualization
+        self.refresh_range_visualization()
+        # Save to disk
+        self.update_settings(auto_save=True)
 
     def update_settings(self, auto_save=False):
         # This method will be called when any setting changes or when "Update Settings" is clicked

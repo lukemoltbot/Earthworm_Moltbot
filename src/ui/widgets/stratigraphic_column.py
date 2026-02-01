@@ -35,28 +35,41 @@ class StratigraphicColumn(QGraphicsView):
         self.units_dataframe = None
         self.min_depth = 0.0
         self.max_depth = 100.0
+        
+        # Overview view attributes (Subtask 3.3)
+        self.overview_mode = False  # Whether this is showing entire hole (overview) or zoomed section
+        self.zoom_overlay_rect = None  # Rectangle showing current zoom region in plot view
+        self.current_zoom_min = 0.0
+        self.current_zoom_max = 100.0
 
     def draw_column(self, units_dataframe, min_overall_depth, max_overall_depth, separator_thickness=0.5, draw_separators=True):
         self.scene.clear()
         # Clear references to deleted items
         self.highlight_rect_item = None
+        self.zoom_overlay_rect = None
 
         # Store data for highlighting functionality
         self.units_dataframe = units_dataframe.copy() if units_dataframe is not None else None
-        self.min_depth = min_overall_depth
-        self.max_depth = max_overall_depth
+        
+        # In overview mode, use the entire hole range
+        if self.overview_mode:
+            self.min_depth = min_overall_depth
+            self.max_depth = max_overall_depth
+        else:
+            self.min_depth = min_overall_depth
+            self.max_depth = max_overall_depth
 
         # Use the overall min/max depths for scene scaling
         # If units_dataframe is empty, these will be used to set an empty but correctly scaled view
-        min_depth_for_scene = min_overall_depth
-        max_depth_for_scene = max_overall_depth
+        min_depth_for_scene = self.min_depth
+        max_depth_for_scene = self.max_depth
 
         # Adjust scene rect to include space for the Y-axis and X-axis (to match curve plotter height)
         scene_height = (max_depth_for_scene - min_depth_for_scene) * self.depth_scale + self.x_axis_height
         self.scene.setSceneRect(0, min_depth_for_scene * self.depth_scale, self.y_axis_width + self.column_width, scene_height)
 
         # Draw Y-axis scale
-        self._draw_y_axis(min_overall_depth, max_overall_depth)
+        self._draw_y_axis(min_depth_for_scene, max_depth_for_scene)
 
         # Draw stratigraphic units
         for index, unit in units_dataframe.iterrows():
@@ -272,3 +285,50 @@ class StratigraphicColumn(QGraphicsView):
         scroll_value = int(y - view_height / 2)
         scroll_value = max(0, min(scroll_value, self.verticalScrollBar().maximum()))
         self.verticalScrollBar().setValue(scroll_value)
+    
+    def set_overview_mode(self, enabled, hole_min_depth=0.0, hole_max_depth=500.0):
+        """Enable or disable overview mode (showing entire hole)."""
+        self.overview_mode = enabled
+        if enabled:
+            # In overview mode, we show the entire hole
+            self.min_depth = hole_min_depth
+            self.max_depth = hole_max_depth
+            # Use a smaller depth scale to fit entire hole
+            self.depth_scale = max(1, (self.viewport().height() - self.x_axis_height) / (hole_max_depth - hole_min_depth))
+    
+    def update_zoom_overlay(self, zoom_min_depth, zoom_max_depth):
+        """Update the zoom overlay rectangle showing current plot view region (Subtask 3.3)."""
+        self.current_zoom_min = zoom_min_depth
+        self.current_zoom_max = zoom_max_depth
+        
+        if not self.overview_mode:
+            return  # Only show overlay in overview mode
+            
+        # Remove existing overlay
+        if self.zoom_overlay_rect is not None:
+            self.scene.removeItem(self.zoom_overlay_rect)
+            self.zoom_overlay_rect = None
+            
+        # Calculate overlay position and size
+        y_start = (zoom_min_depth - self.min_depth) * self.depth_scale
+        overlay_height = (zoom_max_depth - zoom_min_depth) * self.depth_scale
+        
+        # Create semi-transparent overlay rectangle
+        self.zoom_overlay_rect = QGraphicsRectItem(
+            self.y_axis_width, y_start,
+            self.column_width, overlay_height
+        )
+        
+        # Set overlay style - semi-transparent blue with border
+        overlay_pen = QPen(QColor(0, 0, 255, 200))  # Semi-transparent blue
+        overlay_pen.setWidth(2)
+        self.zoom_overlay_rect.setPen(overlay_pen)
+        
+        overlay_brush = QBrush(QColor(0, 0, 255, 50))  # Very transparent blue fill
+        self.zoom_overlay_rect.setBrush(overlay_brush)
+        
+        # Add to scene
+        self.scene.addItem(self.zoom_overlay_rect)
+        
+        # Ensure overlay is on top of other items
+        self.zoom_overlay_rect.setZValue(100)
