@@ -212,3 +212,6 @@ poetry.lock
 .ruff_cache/
 
 # LSP
+# Clawdbot memory
+memory/
+ACTIVE_TASK.md
