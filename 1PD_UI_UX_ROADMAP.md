@@ -115,9 +115,9 @@ To make this performant in Python:
 | 3 | 5 | 5.3 | Completed | F3 key mapped to CodeSearchDialog with search across all categories |
 | 3 | 6 | 6.1 | Completed | Real-time validation engine with gap/overlap/TD checks and structured results |
 | 3 | 6 | 6.2 | Completed | ValidationDelegate paints error/warning cells; ValidationPanel for UI feedback |
-| 4 | 7 | 7.1 | Not Started | |
-| 4 | 7 | 7.2 | Not Started | |
-| 4 | 7 | 7.3 | Not Started | |
+| 4 | 7 | 7.1 | Completed | Boundary lines added to PyQtGraphCurvePlotter with movable=True, distinct colors for top/bottom, and mapping to row indices |
+| 4 | 7 | 7.2 | Completed | Dragging enabled with constraints, snapping, visual feedback, and tooltips |
+| 4 | 7 | 7.3 | Completed | Roof and floor correction logic implemented, data updates on drag, validation integration |
 | 5 | 8 | 8.1 | Not Started | |
 | 5 | 8 | 8.2 | Not Started | |
 | 5 | 8 | 8.3 | Not Started | |
