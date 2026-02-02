@@ -121,9 +121,21 @@ To make this performant in Python:
 | 5 | 8 | 8.1 | Completed | MapWindow class created with PyQtGraph scatter plot, integrated into MDI framework with Window menu |
 | 5 | 8 | 8.2 | Completed | Enhanced coordinate extraction from CSV/LAS/Excel files, added point labels, tooltips, and color coding |
 | 5 | 8 | 8.3 | Completed | Lasso selection with visual feedback, integrated with Holes List sidebar for bidirectional synchronization |
-| 5 | 9 | 9.1 | Not Started | |
+| 5 | 9 | 9.1 | In Progress | CrossSectionWindow class created, integrated with main_window.py |
 | 5 | 9 | 9.2 | Not Started | |
 | 5 | 9 | 9.3 | Not Started | |
+| 6 | 10 | 10.1 | In Progress | LASLoaderWorker class created for background LAS loading |
+| 6 | 10 | 10.2 | In Progress | ValidationWorker class created for background validation |
+| 6 | 10 | 10.3 | Not Started | |
+| 6 | 11 | 11.1 | Completed | PandasModel class implemented (QAbstractTableModel wrapper for pandas DataFrame) |
+| 6 | 11 | 11.2 | Not Started | |
+| 6 | 11 | 11.3 | Not Started | |
+| 6 | 12 | 12.1 | Not Started | |
+| 6 | 12 | 12.2 | Not Started | |
+| 6 | 12 | 12.3 | Not Started | |
+| 6 | 13 | 13.1 | Not Started | |
+| 6 | 13 | 13.2 | Not Started | |
+| 6 | 13 | 13.3 | Not Started | |
 
 ---
 

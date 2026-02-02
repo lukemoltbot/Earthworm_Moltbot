@@ -34,6 +34,7 @@ from .widgets.multi_attribute_widget import MultiAttributeWidget
 from .widgets.enhanced_pattern_preview import EnhancedPatternPreview
 from .widgets.lithology_table import LithologyTableWidget
 from .widgets.map_window import MapWindow # Import MapWindow for Phase 5
+from .widgets.cross_section_window import CrossSectionWindow # Import CrossSectionWindow for Phase 5
 
 class SvgPreviewWidget(QGraphicsView):
     def __init__(self, parent=None):
@@ -592,6 +593,10 @@ class MainWindow(QMainWindow):
         new_map_action.triggered.connect(self.open_map_window)
         window_menu.addAction(new_map_action)
         
+        new_cross_section_action = QAction("New Cross-Section Window", self)
+        new_cross_section_action.triggered.connect(self.open_cross_section_window)
+        window_menu.addAction(new_cross_section_action)
+        
         window_menu.addSeparator()
         
         # Window arrangement actions
@@ -894,6 +899,39 @@ class MainWindow(QMainWindow):
             if first_index.isValid():
                 self.holes_tree.scrollTo(first_index)
                 
+    def open_cross_section_window(self, hole_file_paths=None):
+        \"\"\"Open a new cross-section window (Phase 5, Task 9).\"\"\"
+        # Get selected holes if not provided
+        if hole_file_paths is None:
+            # Get selected files from holes tree
+            selected_indexes = self.holes_tree.selectionModel().selectedIndexes()
+            hole_file_paths = []
+            for index in selected_indexes:
+                if index.column() == 0:
+                    file_path = self.holes_model.filePath(index)
+                    if file_path.lower().endswith(('.csv', '.xlsx', '.las')):
+                        hole_file_paths.append(file_path)
+        
+        # Need at least 2 holes for a cross-section, but 3+ is better
+        if len(hole_file_paths) < 2:
+            QMessageBox.warning(self, \"Insufficient Holes\", 
+                              \"Please select at least 2 holes for a cross-section.\")
+            return
+        
+        # Create cross-section window
+        cross_section = CrossSectionWindow(hole_file_paths)
+        
+        # Create MDI subwindow
+        subwindow = QMdiSubWindow()
+        subwindow.setWidget(cross_section)
+        subwindow.setWindowTitle(\"Cross-Section\")
+        
+        # Add to MDI area
+        self.mdi_area.addSubWindow(subwindow)
+        subwindow.show()
+        
+        return cross_section
+
     def on_holes_tree_selection_changed(self, selected, deselected):
         """Handle holes tree selection changes to sync with map window."""
         # Find active map window
