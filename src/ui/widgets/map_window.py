@@ -104,6 +104,9 @@ class MapWindow(QWidget):
         self.plot_widget.scene().sigMouseClicked.connect(self.on_plot_clicked)
         self.plot_widget.scene().sigMouseMoved.connect(self.on_plot_mouse_move)
         
+        # Connect view range changes to update scale bar
+        self.plot_widget.sigRangeChanged.connect(self.on_view_range_changed)
+        
         # Create scatter plot item with hover events
         self.scatter_plot = pg.ScatterPlotItem(
             size=self.point_size, 
@@ -131,6 +134,19 @@ class MapWindow(QWidget):
         )
         self.plot_widget.addItem(self.lasso_fill)
         self.lasso_fill.hide()
+        
+        # Create scale bar item
+        self.scale_bar = pg.PlotCurveItem(
+            pen=pg.mkPen(QColor(0, 0, 0), width=3),
+            brush=pg.mkBrush(QColor(0, 0, 0, 100))
+        )
+        self.plot_widget.addItem(self.scale_bar)
+        self.scale_bar.hide()
+        
+        # Create scale text item
+        self.scale_text = pg.TextItem("", color=(0, 0, 0), anchor=(0.5, 1.5))
+        self.plot_widget.addItem(self.scale_text)
+        self.scale_text.hide()
         
         main_layout.addWidget(self.plot_widget)
         
@@ -238,6 +254,8 @@ class MapWindow(QWidget):
         # Auto-range if needed
         if eastings and northings:
             self.plot_widget.autoRange()
+            # Update scale bar after auto-ranging
+            self.update_scale_bar()
             
     def get_color_for_hole(self, hole_info, color_by):
         """Get color for a hole based on the color_by setting."""
@@ -765,3 +783,65 @@ class MapWindow(QWidget):
                     break
                     
         return hole_info
+    
+    def on_view_range_changed(self):
+        """Handle view range changes (zooming/panning)."""
+        self.update_scale_bar()
+        
+    def update_scale_bar(self):
+        """Update the scale bar based on current view range."""
+        # Get current view range
+        view_range = self.plot_widget.viewRange()
+        if not view_range:
+            return
+            
+        x_range = view_range[0]  # [x_min, x_max]
+        y_range = view_range[1]  # [y_min, y_max]
+        
+        # Calculate 10% of the x-range for scale bar length
+        x_span = x_range[1] - x_range[0]
+        scale_length = x_span * 0.1  # 10% of visible x-range
+        
+        # Round to nice value (10, 25, 50, 100, 250, 500, etc.)
+        nice_length = self._round_to_nice_value(scale_length)
+        
+        # Position scale bar at bottom-left with some margin
+        margin_x = x_range[0] + x_span * 0.05  # 5% from left
+        margin_y = y_range[0] + (y_range[1] - y_range[0]) * 0.05  # 5% from bottom
+        
+        # Create scale bar line
+        scale_x = [margin_x, margin_x + nice_length]
+        scale_y = [margin_y, margin_y]
+        
+        self.scale_bar.setData(scale_x, scale_y)
+        self.scale_bar.show()
+        
+        # Add scale text
+        scale_text = f"{nice_length:.0f} m"
+        self.scale_text.setText(scale_text)
+        self.scale_text.setPos(margin_x + nice_length / 2, margin_y)
+        self.scale_text.show()
+        
+    def _round_to_nice_value(self, value):
+        """Round a value to a nice round number for scale bar."""
+        if value <= 0:
+            return 10
+            
+        # Find order of magnitude
+        import numpy as np
+        magnitude = 10 ** np.floor(np.log10(value))
+        
+        # Normalize to 1-10 range
+        normalized = value / magnitude
+        
+        # Round to 1, 2, 5, or 10
+        if normalized < 1.5:
+            nice = 1
+        elif normalized < 3:
+            nice = 2
+        elif normalized < 7:
+            nice = 5
+        else:
+            nice = 10
+            
+        return nice * magnitude
