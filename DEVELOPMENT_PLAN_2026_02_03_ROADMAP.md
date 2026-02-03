@@ -3,8 +3,8 @@
 
 **Purpose:** Implement the 5-phase development plan outlined in the attached RTF document, transforming Earthworm Moltbot into a professional-grade geological analysis tool with enhanced settings, data schema, plotting, masking, and bug fixes.
 
-**Status:** 🟡 In Progress (0% complete)  
-**Last Updated:** 2026-02-03 20:38 AEDT  
+**Status:** 🟡 In Progress (11% complete)  
+**Last Updated:** 2026-02-03 20:51 AEDT  
 **Total Phases:** 5 | **Total Tasks:** 9 | **Total Subtasks:** 22  
 **GitHub Repository:** https://github.com/lukemoltbot/Earthworm_Moltbot  
 **Continuous Monitoring:** 15-minute progress updates via Discord (User ID: 1465989240746934410)
@@ -21,9 +21,9 @@
 | Phase 5 | 0/2 | 2 | 0% |
 | **Overall** | **1/9** | **9** | **11%** |
 
-**Active Sub-agents:** 1 (Progress Monitor)  
-**Last Commit:** beeac0c (Fix AttributeError: 'MainWindow' object has no attribute 'tab_widget')  
-**Next Update:** 20:53 AEDT (15-minute interval)
+**Active Sub-agents:** 2 (Progress Monitor, Phase1_Task1_2)  
+**Last Commit:** Updated by DevPlan Phase 1.1.1  
+**Next Update:** 21:05 AEDT (15-minute interval)
 
 ---
 
@@ -44,7 +44,7 @@
 - [x] **1.1.5:** Test vertical scrolling functionality and ensure no horizontal scrollbars appear
 
 ### Task 1.2: Externalizing "Lithology Rules" to a Modal Dialog
-**Status:** ⏳ Not Started  
+**Status:** 🔄 In Progress  
 **Priority:** High  
 **Estimated Complexity:** Medium  
 **Files to Modify:** `src/ui/main_window.py`, new `src/ui/dialogs/lithology_rules_dialog.py`
