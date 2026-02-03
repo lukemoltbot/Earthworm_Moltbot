@@ -5,7 +5,12 @@ import os
 import shutil
 import logging
 
-from .config import DEPTH_COLUMN, LITHOLOGY_COLUMN, ANALYSIS_COLUMNS, RESEARCHED_LITHOLOGY_DEFAULTS, INVALID_DATA_VALUE, DEFAULT_MERGE_THRESHOLD
+from .config import (
+    DEPTH_COLUMN, LITHOLOGY_COLUMN, ANALYSIS_COLUMNS, RESEARCHED_LITHOLOGY_DEFAULTS, 
+    INVALID_DATA_VALUE, DEFAULT_MERGE_THRESHOLD, COALLOG_V31_COLUMNS, DEFAULT_COLUMN_VALUES,
+    COLUMN_NAME_MAPPING, LITHOLOGY_COLUMN_NEW, RECOVERED_THICKNESS_COLUMN,
+    RECORD_SEQUENCE_FLAG_COLUMN, INTERRELATIONSHIP_COLUMN, LITHOLOGY_PERCENT_COLUMN
+)
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -25,10 +30,11 @@ class Analyzer:
                                  (e.g., {'gamma': 'GR', 'density': 'RHOB', 'short_space_density': 'DENS', 'long_space_density': 'LSD'}).
 
         Returns:
-            pandas.DataFrame: The DataFrame with a new 'LITHOLOGY_CODE' column.
+            pandas.DataFrame: The DataFrame with lithology classification columns.
         """
         classified_df = dataframe.copy()
-        classified_df[LITHOLOGY_COLUMN] = 'NL'
+        classified_df[LITHOLOGY_COLUMN] = 'NL'  # Old column for backward compatibility
+        classified_df[LITHOLOGY_COLUMN_NEW] = 'NL'  # New column for 37-column schema
 
         # Determine which columns to use for gamma and density based on mnemonic_map
         gamma_col_name = 'gamma' # Standardized name for gamma
@@ -101,6 +107,7 @@ class Analyzer:
 
             # Apply the rule only to unclassified rows that match the rule criteria
             classified_df.loc[unclassified_mask & rule_mask, LITHOLOGY_COLUMN] = code
+            classified_df.loc[unclassified_mask & rule_mask, LITHOLOGY_COLUMN_NEW] = code
 
         # Apply fallback classification for remaining 'NL' rows if enabled
         if use_fallback_classification:
@@ -145,6 +152,7 @@ class Analyzer:
 
             if best_match:
                 fallback_classified_df.loc[idx, LITHOLOGY_COLUMN] = best_match
+                fallback_classified_df.loc[idx, LITHOLOGY_COLUMN_NEW] = best_match
                 logger.debug(f"Fallback classified row {idx}: gamma={gamma_val:.1f}, density={density_val:.3f} -> {best_match}")
 
         # Apply extreme value rules for any remaining 'NL' rows
@@ -217,25 +225,30 @@ class Analyzer:
             # Extreme low density (gas, organic-rich)
             if density_val < 1.0:
                 classified_df.loc[idx, LITHOLOGY_COLUMN] = 'CO'  # Coal
+                classified_df.loc[idx, LITHOLOGY_COLUMN_NEW] = 'CO'  # Coal
                 logger.debug(f"Extreme low density fallback: row {idx}, density={density_val:.3f} -> CO")
 
             # Extreme high density (metamorphic, dense igneous)
             elif density_val > 3.5:
                 classified_df.loc[idx, LITHOLOGY_COLUMN] = 'IG'  # Igneous (would need to add this rule)
+                classified_df.loc[idx, LITHOLOGY_COLUMN_NEW] = 'IG'  # Igneous (would need to add this rule)
                 logger.debug(f"Extreme high density fallback: row {idx}, density={density_val:.3f} -> IG")
 
             # Extreme high gamma (very shaly, radioactive)
             elif gamma_val > 200:
                 classified_df.loc[idx, LITHOLOGY_COLUMN] = 'SH'  # Shale
+                classified_df.loc[idx, LITHOLOGY_COLUMN_NEW] = 'SH'  # Shale
                 logger.debug(f"Extreme high gamma fallback: row {idx}, gamma={gamma_val:.1f} -> SH")
 
             # Very low gamma, moderate density (clean sandstones or carbonates)
             elif gamma_val < 10 and 2.0 <= density_val <= 3.0:
                 if density_val < 2.7:
                     classified_df.loc[idx, LITHOLOGY_COLUMN] = 'SS'  # Sandstone
+                    classified_df.loc[idx, LITHOLOGY_COLUMN_NEW] = 'SS'  # Sandstone
                     logger.debug(f"Clean sandstone fallback: row {idx}, gamma={gamma_val:.1f}, density={density_val:.3f} -> SS")
                 else:
                     classified_df.loc[idx, LITHOLOGY_COLUMN] = 'LS'  # Limestone (would need to add this rule)
+                    classified_df.loc[idx, LITHOLOGY_COLUMN_NEW] = 'LS'  # Limestone (would need to add this rule)
                     logger.debug(f"Carbonate fallback: row {idx}, gamma={gamma_val:.1f}, density={density_val:.3f} -> LS")
 
         return classified_df
@@ -250,10 +263,11 @@ class Analyzer:
             mnemonic_map (dict): A dictionary mapping standardized names to original mnemonics.
 
         Returns:
-            pandas.DataFrame: The DataFrame with a new 'LITHOLOGY_CODE' column.
+            pandas.DataFrame: The DataFrame with lithology classification columns.
         """
         classified_df = dataframe.copy()
-        classified_df[LITHOLOGY_COLUMN] = 'NL'
+        classified_df[LITHOLOGY_COLUMN] = 'NL'  # Old column for backward compatibility
+        classified_df[LITHOLOGY_COLUMN_NEW] = 'NL'  # New column for 37-column schema
 
         # Determine which columns to use for gamma and density based on mnemonic_map
         gamma_col_name = 'gamma' # Standardized name for gamma
@@ -440,7 +454,7 @@ class Analyzer:
             return None
 
         # Calculate metrics for the sequence
-        total_thickness = sum(unit['thickness'] for unit in sequence)
+        total_thickness = sum(unit.get(RECOVERED_THICKNESS_COLUMN, unit.get('thickness', 0)) for unit in sequence)
         print(f"DEBUG: Total thickness of sequence: {total_thickness}")
 
         # Calculate average layer thickness (total thickness ÷ number of layers)
@@ -467,7 +481,8 @@ class Analyzer:
             # NL units are excluded from percentage calculations
             if code == 'NL':
                 continue
-            lithology_thicknesses[code] = lithology_thicknesses.get(code, 0) + unit['thickness']
+            thickness = unit.get(RECOVERED_THICKNESS_COLUMN, unit.get('thickness', 0))
+            lithology_thicknesses[code] = lithology_thicknesses.get(code, 0) + thickness
 
         print(f"DEBUG: Lithology thicknesses (NL excluded): {lithology_thicknesses}")
 
@@ -589,7 +604,7 @@ class Analyzer:
         for i in range(start_idx, min(start_idx + max_sequence_length, len(units_df))):
             unit = units_df.iloc[i]
             unit_code = unit[LITHOLOGY_COLUMN]
-            unit_thickness = unit['thickness']
+            unit_thickness = unit.get(RECOVERED_THICKNESS_COLUMN, unit.get('thickness', 0))
 
             print(f"DEBUG: Checking unit at index {i}: code={unit_code}, thickness={unit_thickness}")
 
@@ -611,7 +626,7 @@ class Analyzer:
             # Forward-looking: check if next unit would break the sequence
             if i + 1 < len(units_df):
                 next_unit = units_df.iloc[i + 1]
-                next_unit_thickness = next_unit['thickness']
+                next_unit_thickness = next_unit.get(RECOVERED_THICKNESS_COLUMN, next_unit.get('thickness', 0))
                 next_unit_code = next_unit[LITHOLOGY_COLUMN]
                 
                 # Stop if next unit is too thick (>500mm)
@@ -749,14 +764,12 @@ class Analyzer:
         # Convert back to DataFrame
         result_df = pd.DataFrame(updated_units)
 
-        # Ensure proper column ordering
+        # Ensure proper column ordering - use 37-column schema
         if not result_df.empty:
-            result_df = result_df[[
-                'from_depth', 'to_depth', 'thickness', LITHOLOGY_COLUMN,
-                'lithology_qualifier', 'shade', 'hue', 'colour',
-                'weathering', 'estimated_strength', 'background_color', 'svg_path',
-                'record_sequence', 'inter_relationship', 'percentage'
-            ]]
+            # First ensure all columns are present
+            result_df = self._ensure_all_columns(result_df)
+            # Then reorder to match CoalLog v3.1 schema
+            result_df = result_df[COALLOG_V31_COLUMNS]
 
         # Apply post-processing: merge adjacent interbedded sections with same dominant lithology
         result_df = self.merge_adjacent_interbedded_sections(result_df)
@@ -786,10 +799,10 @@ class Analyzer:
         while i < len(sorted_units):
             current_unit = sorted_units.iloc[i].copy()
 
-            # Check if this is an interbedded unit (has record_sequence)
-            current_is_interbedded = (pd.notna(current_unit.get('record_sequence')) and
-                                    str(current_unit.get('record_sequence', '')).strip() != '' and
-                                    current_unit.get('record_sequence') != '')
+            # Check if this is an interbedded unit (has record_sequence_flag)
+            current_is_interbedded = (pd.notna(current_unit.get(RECORD_SEQUENCE_FLAG_COLUMN)) and
+                                    str(current_unit.get(RECORD_SEQUENCE_FLAG_COLUMN, '')).strip() != '' and
+                                    current_unit.get(RECORD_SEQUENCE_FLAG_COLUMN) != '')
 
             if not current_is_interbedded:
                 # Not an interbedded unit, add as-is
@@ -805,9 +818,9 @@ class Analyzer:
                 next_unit = sorted_units.iloc[j]
 
                 # Check if next unit is interbedded
-                next_is_interbedded = (pd.notna(next_unit.get('record_sequence')) and
-                                     str(next_unit.get('record_sequence', '')).strip() != '' and
-                                     next_unit.get('record_sequence') != '')
+                next_is_interbedded = (pd.notna(next_unit.get(RECORD_SEQUENCE_FLAG_COLUMN)) and
+                                     str(next_unit.get(RECORD_SEQUENCE_FLAG_COLUMN, '')).strip() != '' and
+                                     next_unit.get(RECORD_SEQUENCE_FLAG_COLUMN) != '')
 
                 if not next_is_interbedded:
                     # Next unit is not interbedded, stop looking
@@ -827,12 +840,12 @@ class Analyzer:
                 # Find dominant lithology in current merged group
                 current_lithologies = []
                 for unit in merge_candidates:
-                    if unit.get('record_sequence') == 1:
+                    if unit.get(RECORD_SEQUENCE_FLAG_COLUMN) == 1:
                         current_dominant = unit[LITHOLOGY_COLUMN]
                         break
 
                 # Check next unit's dominant lithology
-                if next_unit.get('record_sequence') == 1:
+                if next_unit.get(RECORD_SEQUENCE_FLAG_COLUMN) == 1:
                     next_dominant = next_unit[LITHOLOGY_COLUMN]
 
                 # Only merge if dominant lithologies match
@@ -866,14 +879,12 @@ class Analyzer:
         # Convert back to DataFrame
         result_df = pd.DataFrame(merged_units)
 
-        # Ensure proper column ordering
+        # Ensure proper column ordering - use 37-column schema
         if not result_df.empty:
-            result_df = result_df[[
-                'from_depth', 'to_depth', 'thickness', LITHOLOGY_COLUMN,
-                'lithology_qualifier', 'shade', 'hue', 'colour',
-                'weathering', 'estimated_strength', 'background_color', 'svg_path',
-                'record_sequence', 'inter_relationship', 'percentage'
-            ]]
+            # First ensure all columns are present
+            result_df = self._ensure_all_columns(result_df)
+            # Then reorder to match CoalLog v3.1 schema
+            result_df = result_df[COALLOG_V31_COLUMNS]
 
         return result_df
 
@@ -897,7 +908,7 @@ class Analyzer:
 
         for unit in merge_candidates:
             lith_code = unit[LITHOLOGY_COLUMN]
-            unit_thickness = unit['thickness']
+            unit_thickness = unit.get(RECOVERED_THICKNESS_COLUMN, unit.get('thickness', 0))
 
             if lith_code not in lithology_data:
                 lithology_data[lith_code] = {
@@ -924,12 +935,12 @@ class Analyzer:
             merged_unit.update({
                 'from_depth': from_depth,
                 'to_depth': to_depth,
-                'thickness': 0.0 if seq_num > 1 else total_thickness,  # Only dominant gets full thickness
-                'record_sequence': seq_num,
-                'percentage': round(percentage, 2)
+                RECOVERED_THICKNESS_COLUMN: total_thickness,
+                RECORD_SEQUENCE_FLAG_COLUMN: seq_num,
+                LITHOLOGY_PERCENT_COLUMN: round(percentage, 2)
             })
 
-            # Only the dominant lithology gets inter_relationship code
+            # Only the dominant lithology gets interrelationship code
             if seq_num == 1:
                 # Recalculate interrelationship code based on merged section
                 avg_layer_thickness = total_thickness / len(merge_candidates)
@@ -941,9 +952,9 @@ class Analyzer:
                     inter_code = 'TB'  # Thinly Interbedded
                 else:
                     inter_code = 'CB'  # Coarsely Interbedded
-                merged_unit['inter_relationship'] = inter_code
+                merged_unit[INTERRELATIONSHIP_COLUMN] = inter_code
             else:
-                merged_unit['inter_relationship'] = ''
+                merged_unit[INTERRELATIONSHIP_COLUMN] = ''
 
             merged_units.append(merged_unit)
 
@@ -977,8 +988,8 @@ class Analyzer:
             merged_unit = {
                 'from_depth': from_depth,
                 'to_depth': to_depth,
-                'thickness': total_thickness,  # All rows have full thickness
-                LITHOLOGY_COLUMN: lithology['code'],
+                RECOVERED_THICKNESS_COLUMN: total_thickness,  # All rows have full thickness
+                LITHOLOGY_COLUMN_NEW: lithology['code'],
                 'lithology_qualifier': rule.get('qualifier', ''),
                 'shade': rule.get('shade', ''),
                 'hue': rule.get('hue', ''),
@@ -987,16 +998,16 @@ class Analyzer:
                 'estimated_strength': rule.get('strength', ''),
                 'background_color': rule.get('background_color', '#FFFFFF'),
                 'svg_path': rule.get('svg_path'),
-                'record_sequence': lithology['sequence'],
-                'inter_relationship': candidate['interrelationship_code'] if lithology['sequence'] == 1 else '',
-                'percentage': lithology['percentage']
+                RECORD_SEQUENCE_FLAG_COLUMN: lithology['sequence'],
+                INTERRELATIONSHIP_COLUMN: candidate['interrelationship_code'] if lithology['sequence'] == 1 else '',
+                LITHOLOGY_PERCENT_COLUMN: lithology['percentage']
             }
             merged_units.append(merged_unit)
 
         return merged_units
 
     def _group_standard_units(self, sorted_df, rules_map):
-        """Standard unit grouping without interbedding detection."""
+        """Standard unit grouping without interbedding detection using 37-column schema."""
         units = []
         current_unit = None
 
@@ -1006,25 +1017,9 @@ class Analyzer:
             rule = rules_map.get(lithology_code, {})
 
             if current_unit is None:
-                # Start a new unit
-                current_unit = {
-                    'from_depth': current_depth,
-                    'to_depth': current_depth,
-                    LITHOLOGY_COLUMN: lithology_code,
-                    'lithology_qualifier': rule.get('qualifier', ''),
-                    'shade': rule.get('shade', ''),
-                    'hue': rule.get('hue', ''),
-                    'colour': rule.get('colour', ''),
-                    'weathering': rule.get('weathering', ''),
-                    'estimated_strength': rule.get('strength', ''),
-                    'background_color': rule.get('background_color', '#FFFFFF'),
-                    'svg_path': rule.get('svg_path'),
-                    'record_sequence': '',  # New column for interbedding
-                    'inter_relationship': '',  # New column for interbedding
-                    'percentage': 0.0,  # New column for interbedding
-                    'bed_spacing': ''  # Bed spacing attribute
-                }
-            elif lithology_code == current_unit[LITHOLOGY_COLUMN]:
+                # Start a new unit with all 37 columns
+                current_unit = self._create_unit_template(current_depth, lithology_code, rule)
+            elif lithology_code == current_unit[LITHOLOGY_COLUMN_NEW]:
                 # Continue the current unit
                 current_unit['to_depth'] = current_depth
             else:
@@ -1033,23 +1028,7 @@ class Analyzer:
                 units.append(current_unit)
 
                 # Start a new unit
-                current_unit = {
-                    'from_depth': current_depth,
-                    'to_depth': current_depth,
-                    LITHOLOGY_COLUMN: lithology_code,
-                    'lithology_qualifier': rule.get('qualifier', ''),
-                    'shade': rule.get('shade', ''),
-                    'hue': rule.get('hue', ''),
-                    'colour': rule.get('colour', ''),
-                    'weathering': rule.get('weathering', ''),
-                    'estimated_strength': rule.get('strength', ''),
-                    'background_color': rule.get('background_color', '#FFFFFF'),
-                    'svg_path': rule.get('svg_path'),
-                    'record_sequence': '',  # New column for interbedding
-                    'inter_relationship': '',  # New column for interbedding
-                    'percentage': 0.0,  # New column for interbedding
-                    'bed_spacing': ''  # Bed spacing attribute
-                }
+                current_unit = self._create_unit_template(current_depth, lithology_code, rule)
 
         # Add the last unit
         if current_unit is not None:
@@ -1059,27 +1038,69 @@ class Analyzer:
         # Convert to DataFrame
         units_df = pd.DataFrame(units)
 
-        # Calculate thickness and reorder columns
+        # Calculate recovered thickness and ensure all columns are present
         if not units_df.empty:
-            units_df.loc[:, 'thickness'] = units_df['to_depth'] - units_df['from_depth']
-            units_df = units_df[[
-                'from_depth', 'to_depth', 'thickness', LITHOLOGY_COLUMN,
-                'lithology_qualifier', 'shade', 'hue', 'colour',
-                'weathering', 'estimated_strength', 'background_color', 'svg_path',
-                'record_sequence', 'inter_relationship', 'percentage', 'bed_spacing'
-            ]]
+            units_df.loc[:, RECOVERED_THICKNESS_COLUMN] = units_df['to_depth'] - units_df['from_depth']
+            
+            # Ensure all 37 columns are present (add missing ones with defaults)
+            units_df = self._ensure_all_columns(units_df)
+            
+            # Reorder columns to match CoalLog v3.1 schema order
+            units_df = units_df[COALLOG_V31_COLUMNS]
         else:
-            units_df = pd.DataFrame(columns=[
-                'from_depth', 'to_depth', 'thickness', LITHOLOGY_COLUMN,
-                'lithology_qualifier', 'shade', 'hue', 'colour',
-                'weathering', 'estimated_strength', 'background_color', 'svg_path',
-                'record_sequence', 'inter_relationship', 'percentage', 'bed_spacing'
-            ])
+            # Create empty DataFrame with all 37 columns
+            units_df = pd.DataFrame(columns=COALLOG_V31_COLUMNS)
 
         return units_df
+    
+    def _create_unit_template(self, depth, lithology_code, rule):
+        """Create a unit dictionary with all 37 columns initialized."""
+        # Start with default values for all columns
+        unit = {col: DEFAULT_COLUMN_VALUES.get(col, '') for col in COALLOG_V31_COLUMNS}
+        
+        # Set depth columns
+        unit['from_depth'] = depth
+        unit['to_depth'] = depth
+        
+        # Set lithology information (using new column name)
+        unit[LITHOLOGY_COLUMN_NEW] = lithology_code
+        
+        # Set rule-based properties
+        unit['lithology_qualifier'] = rule.get('qualifier', '')
+        unit['shade'] = rule.get('shade', '')
+        unit['hue'] = rule.get('hue', '')
+        unit['colour'] = rule.get('colour', '')
+        unit['weathering'] = rule.get('weathering', '')
+        unit['estimated_strength'] = rule.get('strength', '')
+        unit['bed_spacing'] = rule.get('bed_spacing', '')
+        
+        # Set visualization properties (not part of 37-column schema but needed for display)
+        unit['background_color'] = rule.get('background_color', '#FFFFFF')
+        unit['svg_path'] = rule.get('svg_path', '')
+        
+        # Initialize interbedding-related columns
+        unit[RECORD_SEQUENCE_FLAG_COLUMN] = ''
+        unit[INTERRELATIONSHIP_COLUMN] = ''
+        unit[LITHOLOGY_PERCENT_COLUMN] = 0.0
+        
+        return unit
+    
+    def _ensure_all_columns(self, dataframe):
+        """Ensure dataframe has all 37 columns, adding missing ones with defaults."""
+        for column in COALLOG_V31_COLUMNS:
+            if column not in dataframe.columns:
+                dataframe[column] = DEFAULT_COLUMN_VALUES.get(column, '')
+        
+        # Handle backward compatibility: rename old columns to new names
+        for old_name, new_name in COLUMN_NAME_MAPPING.items():
+            if old_name in dataframe.columns and new_name not in dataframe.columns:
+                dataframe[new_name] = dataframe[old_name]
+                # Don't drop old column yet to maintain compatibility
+        
+        return dataframe
 
     def _group_with_smart_interbedding(self, sorted_df, rules_map, max_sequence_length=10, thick_unit_threshold=0.5):
-        """Group units with smart interbedding detection."""
+        """Group units with smart interbedding detection using 37-column schema."""
         units = []
 
         logger.debug(f"Starting smart interbedding detection on {len(sorted_df)} rows")
@@ -1111,22 +1132,18 @@ class Analyzer:
         # Convert to DataFrame
         units_df = pd.DataFrame(units)
 
-        # Calculate thickness and reorder columns
+        # Calculate recovered thickness and ensure all columns are present
         if not units_df.empty:
-            units_df.loc[:, 'thickness'] = units_df['to_depth'] - units_df['from_depth']
-            units_df = units_df[[
-                'from_depth', 'to_depth', 'thickness', LITHOLOGY_COLUMN,
-                'lithology_qualifier', 'shade', 'hue', 'colour',
-                'weathering', 'estimated_strength', 'background_color', 'svg_path',
-                'record_sequence', 'inter_relationship', 'percentage', 'bed_spacing'
-            ]]
+            units_df.loc[:, RECOVERED_THICKNESS_COLUMN] = units_df['to_depth'] - units_df['from_depth']
+            
+            # Ensure all 37 columns are present (add missing ones with defaults)
+            units_df = self._ensure_all_columns(units_df)
+            
+            # Reorder columns to match CoalLog v3.1 schema order
+            units_df = units_df[COALLOG_V31_COLUMNS]
         else:
-            units_df = pd.DataFrame(columns=[
-                'from_depth', 'to_depth', 'thickness', LITHOLOGY_COLUMN,
-                'lithology_qualifier', 'shade', 'hue', 'colour',
-                'weathering', 'estimated_strength', 'background_color', 'svg_path',
-                'record_sequence', 'inter_relationship', 'percentage', 'bed_spacing'
-            ])
+            # Create empty DataFrame with all 37 columns
+            units_df = pd.DataFrame(columns=COALLOG_V31_COLUMNS)
 
         return units_df
 
@@ -1230,7 +1247,7 @@ class Analyzer:
         return codes == expected_pattern_ab or codes == expected_pattern_ba
 
     def _process_interbedded_sequence(self, sorted_df, sequence, rules_map):
-        """Process an interbedded sequence into multiple unit rows."""
+        """Process an interbedded sequence into multiple unit rows using 37-column schema."""
         units = []
 
         # Calculate total thickness of interbedded section
@@ -1269,49 +1286,30 @@ class Analyzer:
                 continue
 
             rule = rules_map.get(code, {})
-
-            unit = {
-                'from_depth': from_depth,
-                'to_depth': to_depth,
-                LITHOLOGY_COLUMN: code,
-                'lithology_qualifier': rule.get('qualifier', ''),
-                'shade': rule.get('shade', ''),
-                'hue': rule.get('hue', ''),
-                'colour': rule.get('colour', ''),
-                'weathering': rule.get('weathering', ''),
-                'estimated_strength': rule.get('strength', ''),
-                'background_color': rule.get('background_color', '#FFFFFF'),
-                'svg_path': rule.get('svg_path'),
-                'record_sequence': seq_num,
-                'inter_relationship': inter_code if seq_num == 1 else '',
-                'percentage': round(percentage, 2)
-            }
+            
+            # Create unit using template
+            unit = self._create_unit_template(from_depth, code, rule)
+            unit['to_depth'] = to_depth
+            unit[RECOVERED_THICKNESS_COLUMN] = total_thickness
+            unit[RECORD_SEQUENCE_FLAG_COLUMN] = seq_num
+            unit[INTERRELATIONSHIP_COLUMN] = inter_code if seq_num == 1 else ''
+            unit[LITHOLOGY_PERCENT_COLUMN] = round(percentage, 2)
+            
             units.append(unit)
 
         return units
 
     def _create_regular_unit(self, sorted_df, idx, rules_map):
-        """Create a regular (non-interbedded) unit."""
+        """Create a regular (non-interbedded) unit using 37-column schema."""
         row = sorted_df.iloc[idx]
         lithology_code = row[LITHOLOGY_COLUMN]
         rule = rules_map.get(lithology_code, {})
-
-        return {
-            'from_depth': row[DEPTH_COLUMN],
-            'to_depth': row[DEPTH_COLUMN],
-            LITHOLOGY_COLUMN: lithology_code,
-            'lithology_qualifier': rule.get('qualifier', ''),
-            'shade': rule.get('shade', ''),
-            'hue': rule.get('hue', ''),
-            'colour': rule.get('colour', ''),
-            'weathering': rule.get('weathering', ''),
-            'estimated_strength': rule.get('strength', ''),
-            'background_color': rule.get('background_color', '#FFFFFF'),
-            'svg_path': rule.get('svg_path'),
-            'record_sequence': '',
-            'inter_relationship': '',
-            'percentage': 0.0
-        }
+        
+        # Create unit using template method
+        unit = self._create_unit_template(row[DEPTH_COLUMN], lithology_code, rule)
+        unit['to_depth'] = row[DEPTH_COLUMN]  # Will be updated when unit ends
+        
+        return unit
 
     def merge_thin_units(self, units_df, threshold=DEFAULT_MERGE_THRESHOLD):
         """
@@ -1338,19 +1336,21 @@ class Analyzer:
             current_unit = merged_units.iloc[i].copy()
 
             # Check if this unit is thin and if there are more units to potentially merge
-            while (current_unit['thickness'] < threshold and
+            # Use recovered_thickness instead of thickness
+            while (current_unit.get(RECOVERED_THICKNESS_COLUMN, 0) < threshold and
                    i + 1 < len(merged_units)):
 
                 next_unit = merged_units.iloc[i + 1]
 
                 # Check if next unit has same lithology (code and qualifier)
-                same_lithology = (current_unit[LITHOLOGY_COLUMN] == next_unit[LITHOLOGY_COLUMN] and
+                # Use new lithology column name
+                same_lithology = (current_unit.get(LITHOLOGY_COLUMN_NEW, '') == next_unit.get(LITHOLOGY_COLUMN_NEW, '') and
                                 current_unit.get('lithology_qualifier', '') == next_unit.get('lithology_qualifier', ''))
 
                 if same_lithology:
                     # Merge: extend current unit to include next unit
                     current_unit['to_depth'] = next_unit['to_depth']
-                    current_unit['thickness'] = current_unit['to_depth'] - current_unit['from_depth']
+                    current_unit[RECOVERED_THICKNESS_COLUMN] = current_unit['to_depth'] - current_unit['from_depth']
                     i += 1  # Skip the merged unit
                 else:
                     # Cannot merge, break the inner loop
@@ -1363,14 +1363,11 @@ class Analyzer:
         # Convert back to DataFrame
         result_df = pd.DataFrame(final_units)
 
-        # Ensure proper column ordering
+        # Ensure all 37 columns are present
         if not result_df.empty:
-            result_df = result_df[[
-                'from_depth', 'to_depth', 'thickness', LITHOLOGY_COLUMN,
-                'lithology_qualifier', 'shade', 'hue', 'colour',
-                'weathering', 'estimated_strength', 'background_color', 'svg_path',
-                'record_sequence', 'inter_relationship', 'percentage'
-            ]]
+            result_df = self._ensure_all_columns(result_df)
+            # Reorder columns to match CoalLog v3.1 schema order
+            result_df = result_df[COALLOG_V31_COLUMNS]
 
         return result_df
 
@@ -1439,21 +1436,23 @@ class Analyzer:
             # Define starting row for data insertion (row 5 as specified)
             start_row = 5
             
-            # Column mapping as specified
+            # Column mapping as specified - updated for 37-column schema
+            # Note: This maps to the TEMPLATE.xlsx columns which may not have all 37 columns
+            # We'll write the core columns that exist in the template
             column_mapping = {
                 'from_depth': 'A',
                 'to_depth': 'B',
-                'thickness': 'D',
-                LITHOLOGY_COLUMN: 'L',
-                'lithology_qualifier': 'M', # Add lithology_qualifier to column mapping
+                'recovered_thickness': 'D',  # Updated column name
+                'lithology': 'L',  # Updated column name (was LITHOLOGY_COLUMN)
+                'lithology_qualifier': 'M',
                 'shade': 'N',
                 'hue': 'O',
                 'colour': 'P',
                 'weathering': 'Q',
                 'estimated_strength': 'R',
-                'record_sequence': 'S',  # New column for interbedding
-                'inter_relationship': 'T',  # New column for interbedding
-                'percentage': 'U'  # New column for interbedding
+                'record_sequence_flag': 'S',  # Updated column name
+                'interrelationship': 'T',  # Updated column name
+                'lithology_percent': 'U'  # Updated column name
             }
             
             # Function to safely write to a cell, handling merged cells
@@ -1491,16 +1490,16 @@ class Analyzer:
                     row_num = start_row + i
 
                     # Write from depth in column A
-                    safe_write_cell(sheet, f'{column_mapping["from_depth"]}{row_num}', unit['from_depth'])
+                    safe_write_cell(sheet, f'{column_mapping["from_depth"]}{row_num}', unit.get('from_depth', ''))
                     
                     # Write to depth in column B
-                    safe_write_cell(sheet, f'{column_mapping["to_depth"]}{row_num}', unit['to_depth'])
+                    safe_write_cell(sheet, f'{column_mapping["to_depth"]}{row_num}', unit.get('to_depth', ''))
                     
-                    # Write thickness in column D
-                    safe_write_cell(sheet, f'{column_mapping["thickness"]}{row_num}', unit['thickness'])
+                    # Write recovered thickness in column D
+                    safe_write_cell(sheet, f'{column_mapping["recovered_thickness"]}{row_num}', unit.get('recovered_thickness', ''))
                     
-                    # Write lithology code in column L
-                    safe_write_cell(sheet, f'{column_mapping[LITHOLOGY_COLUMN]}{row_num}', unit[LITHOLOGY_COLUMN])
+                    # Write lithology code in column L (using new column name)
+                    safe_write_cell(sheet, f'{column_mapping["lithology"]}{row_num}', unit.get('lithology', unit.get(LITHOLOGY_COLUMN, '')))
                     
                     # Write lithology qualifier in column M if available
                     if 'lithology_qualifier' in unit and unit['lithology_qualifier']:
@@ -1526,17 +1525,17 @@ class Analyzer:
                     if 'estimated_strength' in unit and unit['estimated_strength']:
                         safe_write_cell(sheet, f'{column_mapping["estimated_strength"]}{row_num}', unit['estimated_strength'])
 
-                    # Write record sequence in column S if available
-                    if 'record_sequence' in unit and unit['record_sequence']:
-                        safe_write_cell(sheet, f'{column_mapping["record_sequence"]}{row_num}', unit['record_sequence'])
+                    # Write record sequence flag in column S if available
+                    if 'record_sequence_flag' in unit and unit['record_sequence_flag']:
+                        safe_write_cell(sheet, f'{column_mapping["record_sequence_flag"]}{row_num}', unit['record_sequence_flag'])
 
-                    # Write inter-relationship in column T if available
-                    if 'inter_relationship' in unit and unit['inter_relationship']:
-                        safe_write_cell(sheet, f'{column_mapping["inter_relationship"]}{row_num}', unit['inter_relationship'])
+                    # Write interrelationship in column T if available
+                    if 'interrelationship' in unit and unit['interrelationship']:
+                        safe_write_cell(sheet, f'{column_mapping["interrelationship"]}{row_num}', unit['interrelationship'])
 
-                    # Write percentage in column U if available
-                    if 'percentage' in unit and unit['percentage'] > 0:
-                        safe_write_cell(sheet, f'{column_mapping["percentage"]}{row_num}', unit['percentage'])
+                    # Write lithology percent in column U if available
+                    if 'lithology_percent' in unit and unit['lithology_percent'] > 0:
+                        safe_write_cell(sheet, f'{column_mapping["lithology_percent"]}{row_num}', unit['lithology_percent'])
 
                     # Update progress every 100 units
                     if i % 100 == 0 and callback and i > 0:

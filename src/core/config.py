@@ -2,9 +2,82 @@
 
 # Column names used in the DataFrame
 DEPTH_COLUMN = 'DEPT'
-LITHOLOGY_COLUMN = 'LITHOLOGY_CODE' # Column for classified lithology
+LITHOLOGY_COLUMN = 'LITHOLOGY_CODE' # Column for classified lithology (old name, maintained for backward compatibility)
 LITHOQUAL_COLUMN = 'LITHO_QUALITY' # Placeholder for original lithology quality if present
 LITHOLOGY_QUAL_COLUMN = 'LITHOLOGY_QUALITY_COMBINED' # Placeholder for combined lithology and quality
+
+# New 37-column CoalLog v3.1 schema column names
+# Primary column names (new schema uses snake_case)
+LITHOLOGY_COLUMN_NEW = 'lithology'  # New column name for lithology
+RECOVERED_THICKNESS_COLUMN = 'recovered_thickness'  # New column name for thickness
+RECORD_SEQUENCE_FLAG_COLUMN = 'record_sequence_flag'  # New column name for record sequence
+INTERRELATIONSHIP_COLUMN = 'interrelationship'  # New column name for interrelationship
+LITHOLOGY_PERCENT_COLUMN = 'lithology_percent'  # New column name for percentage
+
+# Column mapping for backward compatibility
+COLUMN_NAME_MAPPING = {
+    # Old column names -> New column names
+    'LITHOLOGY_CODE': 'lithology',
+    'thickness': 'recovered_thickness',
+    'record_sequence': 'record_sequence_flag',
+    'inter_relationship': 'interrelationship',
+    'percentage': 'lithology_percent',
+    # New columns that don't have old equivalents will be added with defaults
+}
+
+# Reverse mapping for migration
+REVERSE_COLUMN_MAPPING = {v: k for k, v in COLUMN_NAME_MAPPING.items()}
+
+# Complete list of 37 columns in CoalLog v3.1 schema
+COALLOG_V31_COLUMNS = [
+    # Depth/Thickness (3 columns)
+    'from_depth', 'to_depth', 'recovered_thickness',
+    # Identification (7 columns)
+    'record_sequence_flag', 'seam', 'ply', 'horizon',
+    'sample_purpose', 'lithology_sample_number', 'interval_status',
+    # Lithology description (12 columns)
+    'lithology', 'lithology_qualifier', 'lithology_percent',
+    'shade', 'hue', 'colour',
+    'adjective_1', 'adjective_2', 'adjective_3', 'adjective_4',
+    'interrelationship', 'lithology_descriptor',
+    # Geotechnical properties (6 columns)
+    'weathering', 'estimated_strength', 'bed_spacing',
+    'core_state', 'mechanical_state', 'texture',
+    # Structural features (5 columns)
+    'defect_type', 'intact', 'defect_spacing', 'defect_dip', 'bedding_dip',
+    # Sedimentology (2 columns)
+    'basal_contact', 'sedimentary_feature',
+    # Mineralogy (2 columns)
+    'mineral_fossil', 'abundance'
+]
+
+# Default values for new columns when loading old data
+DEFAULT_COLUMN_VALUES = {
+    'record_sequence_flag': '',
+    'seam': '',
+    'ply': '',
+    'horizon': '',
+    'sample_purpose': '',
+    'lithology_sample_number': '',
+    'interval_status': '',
+    'adjective_1': '',
+    'adjective_2': '',
+    'adjective_3': '',
+    'adjective_4': '',
+    'lithology_descriptor': '',
+    'core_state': '',
+    'mechanical_state': '',
+    'texture': '',
+    'defect_type': '',
+    'intact': '',
+    'defect_spacing': '',
+    'defect_dip': '',
+    'bedding_dip': '',
+    'basal_contact': '',
+    'sedimentary_feature': '',
+    'mineral_fossil': '',
+    'abundance': ''
+}
 
 # Columns used for lithology analysis (e.g., for classification rules)
 ANALYSIS_COLUMNS = ['gamma', 'density']

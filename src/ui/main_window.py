@@ -19,7 +19,7 @@ import traceback
 from ..core.data_processor import DataProcessor
 from ..core.analyzer import Analyzer
 from ..core.workers import LASLoaderWorker, ValidationWorker
-from ..core.config import DEFAULT_LITHOLOGY_RULES, DEPTH_COLUMN, DEFAULT_SEPARATOR_THICKNESS, DRAW_SEPARATOR_LINES, DEFAULT_CURVE_THICKNESS, CURVE_RANGES, INVALID_DATA_VALUE, DEFAULT_MERGE_THIN_UNITS, DEFAULT_MERGE_THRESHOLD, DEFAULT_SMART_INTERBEDDING, DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH, DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD
+from ..core.config import DEFAULT_LITHOLOGY_RULES, DEPTH_COLUMN, DEFAULT_SEPARATOR_THICKNESS, DRAW_SEPARATOR_LINES, DEFAULT_CURVE_THICKNESS, CURVE_RANGES, INVALID_DATA_VALUE, DEFAULT_MERGE_THIN_UNITS, DEFAULT_MERGE_THRESHOLD, DEFAULT_SMART_INTERBEDDING, DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH, DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD, LITHOLOGY_COLUMN, LITHOLOGY_COLUMN_NEW, RECOVERED_THICKNESS_COLUMN, RECORD_SEQUENCE_FLAG_COLUMN, INTERRELATIONSHIP_COLUMN, LITHOLOGY_PERCENT_COLUMN, COALLOG_V31_COLUMNS
 from ..core.coallog_utils import load_coallog_dictionaries
 from .widgets.stratigraphic_column import StratigraphicColumn
 from .widgets.svg_renderer import SvgRenderer
@@ -2765,7 +2765,7 @@ class MainWindow(QMainWindow):
                     matching_units = units_df[mask]
                     if not matching_units.empty:
                         # Calculate total thickness for this rule combination
-                        thickness_col = 'thickness' if 'thickness' in matching_units.columns else None
+                        thickness_col = RECOVERED_THICKNESS_COLUMN if RECOVERED_THICKNESS_COLUMN in matching_units.columns else ('thickness' if 'thickness' in matching_units.columns else None)
                         classification_count = matching_units.shape[0]  # Count of units, not rows
                     else:
                         # Fallback: check classified dataframe
@@ -3106,9 +3106,9 @@ class MainWindow(QMainWindow):
                 'estimated_strength': rule.get('strength', ''),
                 'background_color': rule.get('background_color', '#FFFFFF'),
                 'svg_path': rule.get('svg_path', self.find_svg_file(lith['code'], '')),
-                'record_sequence': lith['sequence'],
-                'inter_relationship': interbedding_data['interrelationship_code'] if lith['sequence'] == 1 else '',
-                'percentage': lith['percentage']
+                RECORD_SEQUENCE_FLAG_COLUMN: lith['sequence'],
+                INTERRELATIONSHIP_COLUMN: interbedding_data['interrelationship_code'] if lith['sequence'] == 1 else '',
+                LITHOLOGY_PERCENT_COLUMN: lith['percentage']
             }
             new_rows.append(new_row)
 
@@ -3127,17 +3127,14 @@ class MainWindow(QMainWindow):
         # Update the stored dataframe
         self.last_units_dataframe = updated_df
 
-        # Refresh the display
-        editor_columns = [
-            'from_depth', 'to_depth', 'thickness', 'LITHOLOGY_CODE',
-            'lithology_qualifier', 'shade', 'hue', 'colour',
-            'weathering', 'estimated_strength', 'record_sequence',
-            'inter_relationship', 'percentage', 'bed_spacing'
-        ]
-        if 'background_color' in updated_df.columns:
-            editor_columns.append('background_color')
-
-        editor_dataframe = updated_df[[col for col in editor_columns if col in updated_df.columns]]
+        # Refresh the display - use 37-column schema
+        # First ensure all columns are present
+        for col in COALLOG_V31_COLUMNS:
+            if col not in updated_df.columns:
+                updated_df[col] = ''
+        
+        # Use the full 37-column schema
+        editor_dataframe = updated_df[COALLOG_V31_COLUMNS]
         self.editorTable.load_data(editor_dataframe)
         
         # Update curve plotter with lithology data for boundary lines (Phase 4)
@@ -3290,16 +3287,14 @@ class MainWindow(QMainWindow):
         self.curvePlotter.set_data(classified_dataframe)
         self.curvePlotter.set_depth_range(min_overall_depth, max_overall_depth)
 
-        editor_columns = [
-            'from_depth', 'to_depth', 'thickness', 'LITHOLOGY_CODE',
-            'lithology_qualifier', 'shade', 'hue', 'colour',
-            'weathering', 'estimated_strength', 'record_sequence',
-            'inter_relationship', 'percentage', 'bed_spacing'
-        ]
-        if 'background_color' in units_dataframe.columns:
-            editor_columns.append('background_color')
-
-        editor_dataframe = units_dataframe[[col for col in editor_columns if col in units_dataframe.columns]]
+        # Use 37-column schema for editor display
+        # First ensure all columns are present
+        for col in COALLOG_V31_COLUMNS:
+            if col not in units_dataframe.columns:
+                units_dataframe[col] = ''
+        
+        # Use the full 37-column schema
+        editor_dataframe = units_dataframe[COALLOG_V31_COLUMNS]
         self.editorTable.load_data(editor_dataframe)
         
         # Set lithology data on curve plotter for boundary lines (Phase 4)
