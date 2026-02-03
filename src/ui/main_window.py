@@ -75,7 +75,7 @@ class HoleEditorWindow(QWidget):
         # Create widgets - using PyQtGraphCurvePlotter for better performance
         self.curvePlotter = PyQtGraphCurvePlotter()
         self.stratigraphicColumnView = StratigraphicColumn()
-        self.editorTable = LithologyTableWidget(coallog_data=self.coallog_data)
+        self.editorTable = LithologyTableWidget()
         self.exportCsvButton = QPushButton("Export to CSV")
         
         # Add loading indicator
