@@ -194,9 +194,10 @@ class LithologyTableWidget(QTableView):
         self.current_dataframe = self.model.dataframe()
         
         # Skip validation if change is only for background/tooltip/font (i.e., validation updates)
-        # If roles list is empty, it means all roles changed (including display), so run validation
+        # If roles is None or empty list, it means all roles changed (including display), so run validation
         if roles:
-            # Check if DisplayRole or EditRole is among changed roles
+            # Check if DisplayRole or EditRole are among changed roles
+            # Note: roles is a list of Qt.ItemDataRole values
             display_role_changed = Qt.ItemDataRole.DisplayRole in roles
             edit_role_changed = Qt.ItemDataRole.EditRole in roles
             if not (display_role_changed or edit_role_changed):
@@ -204,6 +205,9 @@ class LithologyTableWidget(QTableView):
                 # Emit data changed signal but skip validation to avoid infinite loop
                 self.dataChangedSignal.emit(self.current_dataframe)
                 return
+        elif roles is None:
+            # roles is None, treat as all roles changed
+            pass  # Continue to run validation
         
         # Run validation
         self.run_validation()
