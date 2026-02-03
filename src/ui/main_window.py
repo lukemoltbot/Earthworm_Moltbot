@@ -745,7 +745,7 @@ class MainWindow(QMainWindow):
         
         # Load LAS file action (existing functionality)
         load_las_action = QAction("Load LAS File...", self)
-        load_las_action.triggered.connect(self.load_las_file)
+        load_las_action.triggered.connect(self.load_las_file_dialog)
         load_las_action.setShortcut("Ctrl+O")
         file_menu.addAction(load_las_action)
         
