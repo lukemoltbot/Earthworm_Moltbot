@@ -911,6 +911,16 @@ class MainWindow(QMainWindow):
     def _synchronize_views(self):
         """Connects the two views to scroll in sync with perfect 1:1 depth alignment."""
         self._is_syncing = False # A flag to prevent recursive sync
+        
+        # Check if both views have verticalScrollBar method (required for synchronization)
+        has_curve_scrollbar = hasattr(self.curvePlotter, 'verticalScrollBar')
+        has_strat_scrollbar = hasattr(self.stratigraphicColumnView, 'verticalScrollBar')
+        
+        if not (has_curve_scrollbar and has_strat_scrollbar):
+            # One or both views don't support scrollbar synchronization
+            # This can happen with PyQtGraphCurvePlotter which uses a different scrolling mechanism
+            print("Warning: Skipping view synchronization - missing verticalScrollBar on one or both views")
+            return
 
         def sync_from(source_view, target_view, include_table=False):
             def on_scroll():
