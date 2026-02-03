@@ -1659,7 +1659,20 @@ class MainWindow(QMainWindow):
         
         container_layout.addWidget(analysis_group)
         
-        # 4. FILE OPERATIONS GROUP
+        # 4. TABLE SETTINGS GROUP
+        table_group = QGroupBox("Table Settings")
+        table_layout = QVBoxLayout(table_group)
+        table_layout.setSpacing(8)
+        
+        # Column Configurator button
+        self.columnConfiguratorButton = QPushButton("⚙️ Column Configurator")
+        self.columnConfiguratorButton.setToolTip("Configure visible columns in the lithology table")
+        self.columnConfiguratorButton.clicked.connect(self.open_column_configurator_dialog)
+        table_layout.addWidget(self.columnConfiguratorButton)
+        
+        container_layout.addWidget(table_group)
+        
+        # 5. FILE OPERATIONS GROUP
         file_group = QGroupBox("File Operations")
         file_layout = QVBoxLayout(file_group)
         file_layout.setSpacing(8)
@@ -1702,7 +1715,7 @@ class MainWindow(QMainWindow):
         
         container_layout.addWidget(file_group)
         
-        # 5. RANGE ANALYSIS GROUP
+        # 6. RANGE ANALYSIS GROUP
         range_group = QGroupBox("Range Analysis")
         range_layout = QVBoxLayout(range_group)
         range_layout.setSpacing(8)
@@ -2681,6 +2694,13 @@ class MainWindow(QMainWindow):
         """Opens a dialog to display researched default lithology ranges."""
         dialog = ResearchedDefaultsDialog(self)
         dialog.exec()
+
+    def open_column_configurator_dialog(self):
+        """Open the column configurator dialog (placeholder for now)."""
+        QMessageBox.information(self, "Column Configurator", 
+                               "Column configurator dialog coming soon.\n\n"
+                               "This dialog will allow you to hide/show any of the 37 columns "
+                               "in the lithology table.")
 
     def refresh_range_visualization(self):
         """Refresh the range gap visualization with current lithology rules"""

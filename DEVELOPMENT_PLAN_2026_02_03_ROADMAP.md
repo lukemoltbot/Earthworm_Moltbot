@@ -3,7 +3,7 @@
 
 **Purpose:** Implement the 5-phase development plan outlined in the attached RTF document, transforming Earthworm Moltbot into a professional-grade geological analysis tool with enhanced settings, data schema, plotting, masking, and bug fixes.
 
-**Status:** 🟡 In Progress (22% complete)  
+**Status:** 🟡 In Progress (33% complete)  
 **Last Updated:** 2026-02-03 21:43 AEDT  
 **Total Phases:** 5 | **Total Tasks:** 9 | **Total Subtasks:** 22  
 **GitHub Repository:** https://github.com/lukemoltbot/Earthworm_Moltbot  
@@ -15,14 +15,14 @@
 | Phase | Tasks Completed | Total Tasks | Completion |
 |-------|----------------|-------------|------------|
 | Phase 1 | 2/2 | 2 | 100% |
-| Phase 2 | 0/2 | 2 | 0% |
+| Phase 2 | 1/2 | 2 | 50% |
 | Phase 3 | 0/2 | 2 | 0% |
 | Phase 4 | 0/2 | 2 | 0% |
 | Phase 5 | 0/2 | 2 | 0% |
-| **Overall** | **2/9** | **9** | **22%** |
+| **Overall** | **3/9** | **9** | **33%** |
 
 **Active Sub-agents:** 1 (Progress Monitor)  
-**Last Commit:** DevPlan Phase 1.2  
+**Last Commit:** DevPlan Phase 2.1.4  
 **Next Update:** 21:45 AEDT (15-minute interval)
 
 ---
@@ -62,7 +62,7 @@
 **Purpose:** Ensure the logging sheet is 1:1 compliant with industry standards.
 
 ### Task 2.1: Full Column Implementation
-**Status:** 🔄 In Progress  
+**Status:** ✅ Completed  
 **Priority:** High  
 **Estimated Complexity:** High  
 **Files to Modify:** `src/ui/widgets/lithology_table.py`, `src/ui/models/pandas_model.py`
@@ -74,13 +74,13 @@
 - [x] **2.1.4:** Test data import/export with new column schema
 
 ### Task 2.2: Visibility Toggle System
-**Status:** ⏳ Not Started  
+**Status:** 🔄 In Progress  
 **Priority:** Medium  
 **Estimated Complexity:** Medium  
 **Files to Modify:** `src/ui/main_window.py`, new `src/ui/dialogs/column_configurator_dialog.py`
 
 #### Subtasks:
-- [ ] **2.2.1:** Add "Column Configurator" button in Settings pane
+- [x] **2.2.1:** Add "Column Configurator" button in Settings pane
 - [ ] **2.2.2:** Create dialog with checklist to hide/show any of the 37 columns
 - [ ] **2.2.3:** Implement column visibility persistence in settings
 - [ ] **2.2.4:** Apply visibility changes dynamically to the table view
