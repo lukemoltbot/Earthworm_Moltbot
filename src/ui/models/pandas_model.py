@@ -83,7 +83,7 @@ class PandasModel(QAbstractTableModel):
         
         elif role == Qt.ItemDataRole.TextAlignmentRole:
             # Align numeric columns to the right
-            if pd.api.types.is_numeric_dtype(self._dataframe.dtypes[col]):
+            if pd.api.types.is_numeric_dtype(self._dataframe.dtypes.iloc[col]):
                 return Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         
@@ -164,7 +164,7 @@ class PandasModel(QAbstractTableModel):
         try:
             # Convert value to appropriate type
             old_value = self._dataframe.iat[row, col]
-            dtype = self._dataframe.dtypes[col]
+            dtype = self._dataframe.dtypes.iloc[col]
             
             if pd.api.types.is_numeric_dtype(dtype):
                 # Handle numeric columns
