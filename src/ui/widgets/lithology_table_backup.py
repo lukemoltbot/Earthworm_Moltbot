@@ -1,8 +1,7 @@
 from PyQt6.QtWidgets import (
-    QTableView, QStyledItemDelegate,
+    QTableWidget, QTableWidgetItem, QStyledItemDelegate,
     QComboBox, QHeaderView, QAbstractItemView, QApplication
 )
-from ...ui.models.pandas_model import PandasModel
 from PyQt6.QtCore import Qt, pyqtSignal, QModelIndex, QEvent, QThread, QObject
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen, QKeyEvent
 from typing import Optional, Dict, List, Tuple
@@ -111,7 +110,7 @@ class ValidationDelegate(QStyledItemDelegate):
         super().paint(painter, option, index)
 
 
-class LithologyTableWidget(QTableView):
+class LithologyTableWidget(QTableWidget):
     dataChangedSignal = pyqtSignal(object)  # Signal to notify main window to redraw graphics
     rowSelectionChangedSignal = pyqtSignal(int)  # Signal emitted when row selection changes
     validationChangedSignal = pyqtSignal(object)  # Signal with validation results
@@ -123,127 +122,80 @@ class LithologyTableWidget(QTableView):
         self.current_dataframe: Optional[pd.DataFrame] = None
         self.total_depth: Optional[float] = None
         
-        # Create PandasModel
-        self.model = PandasModel()
-        self.setModel(self.model)
-        
         # Background validation
         self.validation_worker: Optional[ValidationWorker] = None
         self.validation_thread: Optional[QThread] = None
         self.is_validating = False
         
-        # CoalLog v3.1 standard 37-column layout
+        # 1point Desktop standard column layout with new interbedding columns
         self.headers = [
-            'From Depth', 'To Depth', 'Recovered Thickness',
-            'Record Sequence Flag', 'Seam', 'Ply', 'Horizon',
-            'Sample Purpose', 'Lithology Sample Number', 'Interval Status',
-            'Lithology', 'Lithology Qualifier', 'Lithology %',
-            'Shade', 'Hue', 'Colour',
-            'Adjective 1', 'Adjective 2', 'Adjective 3', 'Adjective 4',
-            'Interrelationship', 'Lithology Descriptor',
-            'Weathering', 'Estimated Strength', 'Bed Spacing',
-            'Core State', 'Mechanical State', 'Texture',
-            'Defect Type', 'Intact', 'Defect Spacing', 'Defect Dip',
-            'Bedding Dip', 'Basal Contact', 'Sedimentary Feature',
-            'Mineral / Fossil', 'Abundance'
+            'From', 'To', 'Thick', 'Litho', 'Qual',
+            'Shade', 'Hue', 'Colour', 'Weath', 'Str',
+            'Rec Seq', 'Inter-rel', 'Percent', 'Bed Sp'
         ]
         
-        # Map internal DF columns to Table Indices (0-36 for 37 columns)
+        # Map internal DF columns to Table Indices
         self.col_map = {
-            'from_depth': 0, 'to_depth': 1, 'recovered_thickness': 2,
-            'record_sequence_flag': 3, 'seam': 4, 'ply': 5, 'horizon': 6,
-            'sample_purpose': 7, 'lithology_sample_number': 8, 'interval_status': 9,
-            'lithology': 10, 'lithology_qualifier': 11, 'lithology_percent': 12,
-            'shade': 13, 'hue': 14, 'colour': 15,
-            'adjective_1': 16, 'adjective_2': 17, 'adjective_3': 18, 'adjective_4': 19,
-            'interrelationship': 20, 'lithology_descriptor': 21,
-            'weathering': 22, 'estimated_strength': 23, 'bed_spacing': 24,
-            'core_state': 25, 'mechanical_state': 26, 'texture': 27,
-            'defect_type': 28, 'intact': 29, 'defect_spacing': 30, 'defect_dip': 31,
-            'bedding_dip': 32, 'basal_contact': 33, 'sedimentary_feature': 34,
-            'mineral_fossil': 35, 'abundance': 36
+            'from_depth': 0, 'to_depth': 1, 'thickness': 2,
+            'LITHOLOGY_CODE': 3, 'lithology_qualifier': 4,
+            'shade': 5, 'hue': 6, 'colour': 7,
+            'weathering': 8, 'estimated_strength': 9,
+            'record_sequence': 10, 'inter_relationship': 11, 
+            'percentage': 12, 'bed_spacing': 13
         }
         
         # Reverse mapping for validation
         self.index_to_col = {v: k for k, v in self.col_map.items()}
         
-        # Dictionary column mappings for CoalLog v3.1 standard columns
-        # Based on CoalLog v3.1 dictionary standards
+        # Dictionary column mappings
         self.dict_mappings = {
-            10: 'Litho_Type',        # Lithology
-            11: 'Litho_Qual',        # Lithology Qualifier
-            13: 'Shade',             # Shade
-            14: 'Hue',               # Hue
-            15: 'Colour',            # Colour
-            20: 'Litho_Interrel',    # Interrelationship
-            22: 'Weathering',        # Weathering
-            23: 'Est_Strength',      # Estimated Strength
-            24: 'Bed_Spacing',       # Bed Spacing
-            # Note: Additional dictionary columns in CoalLog v3.1 that may need mapping:
-            # 25: 'Core_State',      # Core State (if dictionary exists)
-            # 26: 'Mech_State',      # Mechanical State (if dictionary exists)
-            # 27: 'Texture',         # Texture (if dictionary exists)
-            # 28: 'Defect_Type',     # Defect Type (if dictionary exists)
-            # 33: 'Basal_Contact',   # Basal Contact (if dictionary exists)
-            # 34: 'Sed_Feature',     # Sedimentary Feature (if dictionary exists)
-            # 35: 'Mineral_Fossil',  # Mineral / Fossil (if dictionary exists)
+            3: 'Litho_Type', 4: 'Litho_Qual', 5: 'Shade',
+            6: 'Hue', 7: 'Colour', 8: 'Weathering', 9: 'Est_Strength',
+            11: 'Litho_Interrel', 13: 'Bed_Spacing'
         }
         
-        # Set up view properties
+        self.setColumnCount(len(self.headers))
+        self.setHorizontalHeaderLabels(self.headers)
+        
+        # Set column tooltips
+        tooltips = {
+            0: "From depth (meters)",
+            1: "To depth (meters)",
+            2: "Thickness (meters)",
+            3: "Lithology type code",
+            4: "Lithology qualifier",
+            5: "Shade (light, medium, dark)",
+            6: "Hue (color tint)",
+            7: "Colour (primary color)",
+            8: "Weathering degree",
+            9: "Estimated strength",
+            10: "Record sequence for interbedding",
+            11: "Inter-relationship code",
+            12: "Percentage in interbedded unit",
+            13: "Bed spacing (CoalLog standard)"
+        }
+        for col, tip in tooltips.items():
+            header_item = self.horizontalHeaderItem(col)
+            if header_item:
+                header_item.setToolTip(tip)
+        
         self.verticalHeader().setVisible(True)  # Show Row Numbers
         self.setAlternatingRowColors(True)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         
         # Apply dictionary delegates
         self._apply_dictionary_delegates()
         
-        # Note: Validation highlighting is now handled by PandasModel
-        # No separate validation delegate needed
+        # Apply validation delegate
+        self.validation_delegate = ValidationDelegate(self.validation_issues, self)
+        self.setItemDelegate(self.validation_delegate)
         
         # Connect signals
-        self.selectionModel().selectionChanged.connect(self._handle_selection_changed)
-        self.model.dataChanged.connect(self._handle_data_changed)
+        self.itemChanged.connect(self._handle_item_changed)
+        self.itemSelectionChanged.connect(self._handle_selection_changed)
         
         # Install event filter for F3 key
         self.installEventFilter(self)
-        
-        # Set editable columns in model
-        self._update_editable_columns()
-    
-    def _update_editable_columns(self):
-        """Update editable columns in the PandasModel."""
-        if self.current_dataframe is not None:
-            # All columns are editable by default
-            editable_columns = list(self.current_dataframe.columns)
-            self.model.set_editable_columns(editable_columns)
-    
-    def _handle_data_changed(self, top_left, bottom_right, roles):
-        """Handle data changes from the model."""
-        # Update dataframe from model
-        self.current_dataframe = self.model.dataframe()
-        
-        # Skip validation if change is only for background/tooltip/font (i.e., validation updates)
-        # If roles is None or empty list, it means all roles changed (including display), so run validation
-        if roles:
-            # Check if DisplayRole or EditRole are among changed roles
-            # Note: roles is a list of Qt.ItemDataRole values
-            display_role_changed = Qt.ItemDataRole.DisplayRole in roles
-            edit_role_changed = Qt.ItemDataRole.EditRole in roles
-            if not (display_role_changed or edit_role_changed):
-                # Only background/tooltip/font changed (e.g., validation highlights)
-                # Emit data changed signal but skip validation to avoid infinite loop
-                self.dataChangedSignal.emit(self.current_dataframe)
-                return
-        elif roles is None:
-            # roles is None, treat as all roles changed
-            pass  # Continue to run validation
-        
-        # Run validation
-        self.run_validation()
-        
-        # Emit data changed signal
-        self.dataChangedSignal.emit(self.current_dataframe)
     
     def _apply_dictionary_delegates(self):
         """Apply dictionary delegates to appropriate columns."""
@@ -278,7 +230,7 @@ class LithologyTableWidget(QTableView):
                     self.current_dataframe.loc[row_index - 1, 'to_depth'] = new_depth
                     # Update thickness for previous row
                     prev_thickness = new_depth - self.current_dataframe.loc[row_index - 1, 'from_depth']
-                    self.current_dataframe.loc[row_index - 1, 'recovered_thickness'] = prev_thickness
+                    self.current_dataframe.loc[row_index - 1, 'thickness'] = prev_thickness
                     
             else:  # 'bottom'
                 column_name = 'to_depth'
@@ -290,43 +242,47 @@ class LithologyTableWidget(QTableView):
                     self.current_dataframe.loc[row_index + 1, 'from_depth'] = new_depth
                     # Update thickness for next row
                     next_thickness = self.current_dataframe.loc[row_index + 1, 'to_depth'] - new_depth
-                    self.current_dataframe.loc[row_index + 1, 'recovered_thickness'] = next_thickness
+                    self.current_dataframe.loc[row_index + 1, 'thickness'] = next_thickness
             
             # Update thickness for current row
             if boundary_type == 'top':
                 current_thickness = self.current_dataframe.loc[row_index, 'to_depth'] - new_depth
             else:
                 current_thickness = new_depth - self.current_dataframe.loc[row_index, 'from_depth']
-            self.current_dataframe.loc[row_index, 'recovered_thickness'] = current_thickness
+            self.current_dataframe.loc[row_index, 'thickness'] = current_thickness
             
-            # Update the model with new dataframe
-            self.model.set_dataframe(self.current_dataframe)
-            
-            # Emit data changed for affected cells
+            # Update the table UI
             col_idx = self.col_map[column_name]
-            thickness_col_idx = self.col_map['recovered_thickness']
+            item = QTableWidgetItem(f"{new_depth:.3f}")
+            self.setItem(row_index, col_idx, item)
             
-            # Emit data changed for current row
-            top_left = self.model.index(row_index, min(col_idx, thickness_col_idx))
-            bottom_right = self.model.index(row_index, max(col_idx, thickness_col_idx))
-            self.model.dataChanged.emit(top_left, bottom_right, [])
+            # Update thickness column
+            thickness_col_idx = self.col_map['thickness']
+            thickness_item = QTableWidgetItem(f"{current_thickness:.3f}")
+            self.setItem(row_index, thickness_col_idx, thickness_item)
             
             # Update adjacent rows if needed
             if boundary_type == 'top' and row_index > 0:
-                # Emit data changed for previous row
+                # Update previous row's To_Depth in UI
                 prev_to_col_idx = self.col_map['to_depth']
-                prev_thickness_col_idx = self.col_map['recovered_thickness']
-                prev_top_left = self.model.index(row_index - 1, min(prev_to_col_idx, prev_thickness_col_idx))
-                prev_bottom_right = self.model.index(row_index - 1, max(prev_to_col_idx, prev_thickness_col_idx))
-                self.model.dataChanged.emit(prev_top_left, prev_bottom_right, [])
+                prev_to_item = QTableWidgetItem(f"{new_depth:.3f}")
+                self.setItem(row_index - 1, prev_to_col_idx, prev_to_item)
+                
+                # Update previous row's thickness
+                prev_thickness_col_idx = self.col_map['thickness']
+                prev_thickness_item = QTableWidgetItem(f"{prev_thickness:.3f}")
+                self.setItem(row_index - 1, prev_thickness_col_idx, prev_thickness_item)
                 
             elif boundary_type == 'bottom' and row_index < len(self.current_dataframe) - 1:
-                # Emit data changed for next row
+                # Update next row's From_Depth in UI
                 next_from_col_idx = self.col_map['from_depth']
-                next_thickness_col_idx = self.col_map['recovered_thickness']
-                next_top_left = self.model.index(row_index + 1, min(next_from_col_idx, next_thickness_col_idx))
-                next_bottom_right = self.model.index(row_index + 1, max(next_from_col_idx, next_thickness_col_idx))
-                self.model.dataChanged.emit(next_top_left, next_bottom_right, [])
+                next_from_item = QTableWidgetItem(f"{new_depth:.3f}")
+                self.setItem(row_index + 1, next_from_col_idx, next_from_item)
+                
+                # Update next row's thickness
+                next_thickness_col_idx = self.col_map['thickness']
+                next_thickness_item = QTableWidgetItem(f"{next_thickness:.3f}")
+                self.setItem(row_index + 1, next_thickness_col_idx, next_thickness_item)
             
             # Run validation on affected rows
             affected_rows = [row_index]
@@ -351,11 +307,17 @@ class LithologyTableWidget(QTableView):
         self.current_dataframe = dataframe.copy()
         self.total_depth = total_depth
         
-        # Set dataframe in model
-        self.model.set_dataframe(self.current_dataframe)
+        self.setRowCount(0)
+        self.setRowCount(len(dataframe))
         
-        # Update editable columns
-        self._update_editable_columns()
+        for row_idx, row_data in dataframe.iterrows():
+            for col_name, col_idx in self.col_map.items():
+                if col_name in dataframe.columns:
+                    val = row_data[col_name]
+                    # Format floats to 3 decimals
+                    if isinstance(val, (float, int)) and col_idx <= 2:
+                        val = f"{val:.3f}"
+                    self.setItem(row_idx, col_idx, QTableWidgetItem(str(val) if val is not None else ""))
         
         self.blockSignals(False)
         
@@ -366,8 +328,8 @@ class LithologyTableWidget(QTableView):
         """Run validation in background thread."""
         if self.current_dataframe is None or self.current_dataframe.empty:
             self.validation_issues.clear()
-            # Update PandasModel with empty validation issues
-            self.model.set_validation_issues({})
+            self.validation_delegate.set_validation_issues(self.validation_issues)
+            self.viewport().update()
             return
         
         # Cancel any ongoing validation
@@ -421,26 +383,14 @@ class LithologyTableWidget(QTableView):
                     self.validation_issues[issue.row_index] = []
                 self.validation_issues[issue.row_index].append(issue)
         
-        # Note: Validation delegate removed - highlighting handled by PandasModel
-        
-        # Update PandasModel with validation issues
-        # Convert ValidationIssue objects to simple dicts with severity and column
-        pandas_model_issues = {}
-        for row_idx, issues in self.validation_issues.items():
-            pandas_model_issues[row_idx] = []
-            for issue in issues:
-                # Convert ValidationSeverity enum to string
-                severity_str = issue.severity.value if hasattr(issue.severity, 'value') else str(issue.severity)
-                pandas_model_issues[row_idx].append({
-                    'severity': severity_str.upper(),
-                    'column': issue.column,
-                    'message': issue.message
-                })
-        
-        self.model.set_validation_issues(pandas_model_issues)
+        # Update validation delegate
+        self.validation_delegate.set_validation_issues(self.validation_issues)
         
         # Emit signal with validation results
         self.validationChangedSignal.emit(result)
+        
+        # Trigger repaint
+        self.viewport().update()
     
     def _on_validation_error(self, error_msg: str):
         """Handle validation errors."""
@@ -454,30 +404,57 @@ class LithologyTableWidget(QTableView):
         # This ensures UI doesn't freeze while providing validation feedback
         self.run_validation()
     
-    # Note: _handle_item_changed method removed - not needed for QTableView
-    # Data changes are handled via model's dataChanged signal connected to _handle_data_changed
+    def _handle_item_changed(self, item):
+        """Handle item changes and update validation."""
+        row = item.row()
+        col = item.column()
+        
+        # Update dataframe
+        if self.current_dataframe is not None and row < len(self.current_dataframe):
+            col_name = self.index_to_col.get(col)
+            if col_name:
+                try:
+                    text = item.text()
+                    if col <= 2:  # Depth columns
+                        value = float(text) if text else None
+                    else:
+                        value = text if text else None
+                    
+                    self.current_dataframe.at[row, col_name] = value
+                    
+                    # Auto-calc thickness
+                    if col in [0, 1]:  # From or To changed
+                        self._update_thickness(row)
+                    
+                except ValueError:
+                    pass
+        
+        # Run validation
+        self.run_validation()
+        
+        # Notify Main Window that data changed
+        self.dataChangedSignal.emit(None)
     
     def _update_thickness(self, row: int):
         """Update thickness for a row based on From and To depths."""
-        if self.current_dataframe is None or row >= len(self.current_dataframe):
+        if self.current_dataframe is None:
             return
         
         try:
-            # Get from and to depths from dataframe
-            from_depth = self.current_dataframe.at[row, 'from_depth']
-            to_depth = self.current_dataframe.at[row, 'to_depth']
-            
-            if pd.notna(from_depth) and pd.notna(to_depth):
-                thickness = to_depth - from_depth
+            from_item = self.item(row, 0)
+            to_item = self.item(row, 1)
+            if from_item and to_item and from_item.text() and to_item.text():
+                start = float(from_item.text())
+                end = float(to_item.text())
+                thickness = end - start
+                
+                self.blockSignals(True)
+                self.setItem(row, 2, QTableWidgetItem(f"{thickness:.3f}"))
+                self.blockSignals(False)
                 
                 # Update dataframe
-                self.current_dataframe.at[row, 'recovered_thickness'] = thickness
-                
-                # Update model
-                thickness_col_idx = self.col_map['recovered_thickness']
-                index = self.model.index(row, thickness_col_idx)
-                self.model.setData(index, thickness, Qt.ItemDataRole.EditRole)
-        except (ValueError, KeyError):
+                self.current_dataframe.at[row, 'thickness'] = thickness
+        except ValueError:
             pass
     
     def _handle_selection_changed(self):
@@ -514,17 +491,17 @@ class LithologyTableWidget(QTableView):
     
     def _insert_code_from_search(self, category: str, code: str):
         """Insert code from search dialog into current cell."""
-        current_index = self.currentIndex()
-        if not current_index.isValid():
+        current_item = self.currentItem()
+        if not current_item:
             return
         
         # Check if current column matches the category
-        current_col = current_index.column()
+        current_col = current_item.column()
         expected_category = self.dict_mappings.get(current_col)
         
         if expected_category == category:
             # Direct match - just insert the code
-            self.model.setData(current_index, code, Qt.ItemDataRole.EditRole)
+            current_item.setText(code)
         else:
             # Show message about category mismatch
             from PyQt6.QtWidgets import QMessageBox

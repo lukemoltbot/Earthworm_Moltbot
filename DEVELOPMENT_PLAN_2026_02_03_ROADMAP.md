@@ -70,7 +70,7 @@
 #### Subtasks:
 - [x] **2.1.1:** Initialize `QTableWidget` (or Pandas model) with exact 37 columns in specified order
 - [x] **2.1.2:** Update data model to handle all 37 columns
-- [ ] **2.1.3:** Ensure column headers match industry standard naming
+- [x] **2.1.3:** Ensure column headers match industry standard naming
 - [ ] **2.1.4:** Test data import/export with new column schema
 
 ### Task 2.2: Visibility Toggle System
