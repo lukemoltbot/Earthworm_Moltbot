@@ -14,12 +14,12 @@
 ## 📊 Progress Summary
 | Phase | Tasks Completed | Total Tasks | Completion |
 |-------|----------------|-------------|------------|
-| Phase 1 | 0/2 | 2 | 40% |
+| Phase 1 | 1/2 | 2 | 50% |
 | Phase 2 | 0/2 | 2 | 0% |
 | Phase 3 | 0/2 | 2 | 0% |
 | Phase 4 | 0/2 | 2 | 0% |
 | Phase 5 | 0/2 | 2 | 0% |
-| **Overall** | **0/9** | **9** | **4%** |
+| **Overall** | **1/9** | **9** | **11%** |
 
 **Active Sub-agents:** 1 (Progress Monitor)  
 **Last Commit:** beeac0c (Fix AttributeError: 'MainWindow' object has no attribute 'tab_widget')  
@@ -31,7 +31,7 @@
 **Purpose:** Transform the settings pane from a cramped horizontal layout into a clean, vertically-scrolling panel that maximizes usability.
 
 ### Task 1.1: Vertical Layout Overhaul & Anti-Horizontal Scroll
-**Status:** 🔄 In Progress (80% complete)  
+**Status:** ✅ Completed  
 **Priority:** High  
 **Estimated Complexity:** Medium  
 **Files to Modify:** `src/ui/main_window.py`, `src/ui/dialogs/settings_dialog.py`
@@ -41,7 +41,7 @@
 - [x] **1.1.2:** Set scroll area policy to `setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)`
 - [x] **1.1.3:** Use `QFormLayout` for setting rows (Label on top/left, Input on right)
 - [x] **1.1.4:** Group related settings into `QGroupBox` containers (e.g., "Analysis Specs", "Plot Controls")
-- [ ] **1.1.5:** Test vertical scrolling functionality and ensure no horizontal scrollbars appear
+- [x] **1.1.5:** Test vertical scrolling functionality and ensure no horizontal scrollbars appear
 
 ### Task 1.2: Externalizing "Lithology Rules" to a Modal Dialog
 **Status:** ⏳ Not Started  
