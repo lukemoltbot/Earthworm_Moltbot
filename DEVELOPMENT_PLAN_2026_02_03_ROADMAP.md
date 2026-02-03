@@ -14,16 +14,16 @@
 ## 📊 Progress Summary
 | Phase | Tasks Completed | Total Tasks | Completion |
 |-------|----------------|-------------|------------|
-| Phase 1 | 1/2 | 2 | 50% |
+| Phase 1 | 2/2 | 2 | 100% |
 | Phase 2 | 0/2 | 2 | 0% |
 | Phase 3 | 0/2 | 2 | 0% |
 | Phase 4 | 0/2 | 2 | 0% |
 | Phase 5 | 0/2 | 2 | 0% |
-| **Overall** | **1/9** | **9** | **11%** |
+| **Overall** | **2/9** | **9** | **22%** |
 
-**Active Sub-agents:** 2 (Progress Monitor, Phase1_Task1_2)  
-**Last Commit:** Updated by DevPlan Phase 1.1.1  
-**Next Update:** 21:05 AEDT (15-minute interval)
+**Active Sub-agents:** 1 (Progress Monitor)  
+**Last Commit:** DevPlan Phase 1.2  
+**Next Update:** 21:45 AEDT (15-minute interval)
 
 ---
 
@@ -44,17 +44,17 @@
 - [x] **1.1.5:** Test vertical scrolling functionality and ensure no horizontal scrollbars appear
 
 ### Task 1.2: Externalizing "Lithology Rules" to a Modal Dialog
-**Status:** 🔄 In Progress  
+**Status:** ✅ Completed  
 **Priority:** High  
 **Estimated Complexity:** Medium  
 **Files to Modify:** `src/ui/main_window.py`, new `src/ui/dialogs/lithology_rules_dialog.py`
 
 #### Subtasks:
-- [ ] **1.2.1:** Remove "Lithology Rules" table from settings sidebar
-- [ ] **1.2.2:** Create new class `LithologyRulesDialog(QDialog)` with full-size rules table
-- [ ] **1.2.3:** Add prominent button/icon in Settings Pane labeled "✏️ Edit Lithology Rules"
-- [ ] **1.2.4:** Ensure dialog pulls from main settings dictionary on open and pushes changes back on "Save"
-- [ ] **1.2.5:** Maintain compatibility with existing Save/Load project functionality
+- [x] **1.2.1:** Remove "Lithology Rules" table from settings sidebar
+- [x] **1.2.2:** Create new class `LithologyRulesDialog(QDialog)` with full-size rules table
+- [x] **1.2.3:** Add prominent button/icon in Settings Pane labeled "✏️ Edit Lithology Rules"
+- [x] **1.2.4:** Ensure dialog pulls from main settings dictionary on open and pushes changes back on "Save"
+- [x] **1.2.5:** Maintain compatibility with existing Save/Load project functionality
 
 ---
 
