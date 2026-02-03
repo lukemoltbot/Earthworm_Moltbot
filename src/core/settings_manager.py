@@ -1,5 +1,7 @@
 import json
 import os
+import base64
+from PyQt6.QtCore import QByteArray
 from .config import DEFAULT_LITHOLOGY_RULES, DEFAULT_SEPARATOR_THICKNESS, DRAW_SEPARATOR_LINES, CURVE_INVERSION_DEFAULTS, DEFAULT_CURVE_THICKNESS, DEFAULT_MERGE_THIN_UNITS, DEFAULT_MERGE_THRESHOLD, DEFAULT_SMART_INTERBEDDING, DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH, DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD, DEFAULT_FALLBACK_CLASSIFICATION
 
 USE_RESEARCHED_DEFAULTS_DEFAULT = True  # Default to maintaining backward compatibility
@@ -24,7 +26,9 @@ def load_settings(file_path=None):
         "smart_interbedding": DEFAULT_SMART_INTERBEDDING,
         "smart_interbedding_max_sequence_length": DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH,
         "smart_interbedding_thick_unit_threshold": DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD,
-        "fallback_classification": DEFAULT_FALLBACK_CLASSIFICATION
+        "fallback_classification": DEFAULT_FALLBACK_CLASSIFICATION,
+        "workspace": None,  # Default to no workspace state
+        "theme": "dark"  # Default theme (dark/light)
     }
     if os.path.exists(file_path):
         try:
@@ -42,7 +46,7 @@ def load_settings(file_path=None):
             print(f"Warning: Error loading settings from {file_path}: {e}. Using default settings.")
     return settings
 
-def save_settings(lithology_rules, separator_thickness, draw_separator_lines, curve_inversion_settings, curve_thickness, use_researched_defaults, analysis_method="standard", merge_thin_units=False, merge_threshold=0.05, smart_interbedding=False, smart_interbedding_max_sequence_length=10, smart_interbedding_thick_unit_threshold=0.5, fallback_classification=DEFAULT_FALLBACK_CLASSIFICATION, file_path=None):
+def save_settings(lithology_rules, separator_thickness, draw_separator_lines, curve_inversion_settings, curve_thickness, use_researched_defaults, analysis_method="standard", merge_thin_units=False, merge_threshold=0.05, smart_interbedding=False, smart_interbedding_max_sequence_length=10, smart_interbedding_thick_unit_threshold=0.5, fallback_classification=DEFAULT_FALLBACK_CLASSIFICATION, workspace_state=None, theme="dark", file_path=None):
     """Saves application settings to a JSON file."""
     if file_path is None:
         file_path = DEFAULT_SETTINGS_FILE
@@ -60,7 +64,9 @@ def save_settings(lithology_rules, separator_thickness, draw_separator_lines, cu
         "smart_interbedding": smart_interbedding,
         "smart_interbedding_max_sequence_length": smart_interbedding_max_sequence_length,
         "smart_interbedding_thick_unit_threshold": smart_interbedding_thick_unit_threshold,
-        "fallback_classification": fallback_classification
+        "fallback_classification": fallback_classification,
+        "workspace": workspace_state,  # Save workspace state
+        "theme": theme  # Save theme preference
     }
     try:
         # Ensure the directory exists before writing
@@ -69,3 +75,45 @@ def save_settings(lithology_rules, separator_thickness, draw_separator_lines, cu
             json.dump(settings, f, indent=4)
     except Exception as e:
         print(f"Error: Could not save settings to {file_path}: {e}")
+
+
+# Workspace serialization helper functions
+
+def serialize_qbytearray(qbytearray):
+    """Convert QByteArray to base64 string for JSON serialization."""
+    if qbytearray is None:
+        return None
+    return base64.b64encode(qbytearray.data()).decode('utf-8')
+
+def deserialize_qbytearray(base64_str):
+    """Convert base64 string back to QByteArray."""
+    if base64_str is None:
+        return QByteArray()
+    data = base64.b64decode(base64_str)
+    return QByteArray(data)
+
+def serialize_window_geometry(window):
+    """Serialize window geometry to dict."""
+    geometry = window.geometry()
+    return {
+        'x': geometry.x(),
+        'y': geometry.y(),
+        'width': geometry.width(),
+        'height': geometry.height(),
+        'maximized': window.isMaximized()
+    }
+
+def deserialize_window_geometry(geometry_dict, window):
+    """Apply saved geometry to window."""
+    if not geometry_dict:
+        return
+    
+    x = geometry_dict.get('x', 50)
+    y = geometry_dict.get('y', 50)
+    width = geometry_dict.get('width', 800)
+    height = geometry_dict.get('height', 600)
+    maximized = geometry_dict.get('maximized', False)
+    
+    window.setGeometry(x, y, width, height)
+    if maximized:
+        window.showMaximized()

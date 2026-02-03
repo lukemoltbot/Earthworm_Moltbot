@@ -211,6 +211,26 @@ poetry.lock
 # ruff
 .ruff_cache/
 
+# Temporary test files and backups
+*.backup
+*.bak
+test_*.py
+continuous_*.py
+*_settings_tab.py
+progress_updater.py
+send_updates.py
+analyze_las_columns.py
+quick_test.py
+replace_settings_tab.py
+*.csv
+*.xlsx
+*.las
+*.log
+*_design.md
+*_summary.md
+*_update.md
+*.sh
+
 # LSP
 # Clawdbot memory
 memory/

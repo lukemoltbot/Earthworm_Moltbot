@@ -3,7 +3,7 @@
 **Purpose:** Bring Earthworm_Moltbot MVP up to the professional standard of **1point Desktop (1PD)**, transitioning from a "script-style" application to an "Integrated Development Environment (IDE)" for geologists.
 
 **Status:** 🟡 In Progress  
-**Last Updated:** 2026-02-01  
+**Last Updated:** 2026-02-03 (Phase 6 Subtask 13.2 completed)  
 **Primary Reference:** RTF roadmap provided by Luke
 
 ---
@@ -79,8 +79,8 @@
 - [x] **Subtask 8.3:** Implement "Lasso Selection." When the user circles holes on the map, highlight them in the "Holes List" sidebar.
 
 ### Task 9: The Cross-Section (Fence Diagram)
-- [ ] **Subtask 9.1:** Create a tool that takes 3+ selected holes and creates a new window.
-- [ ] **Subtask 9.2:** Plot the holes side-by-side. Calculate the "True Spacing" (distance between Hole A and Hole B) using the Pythagorean theorem on their coordinates.
+- [x] **Subtask 9.1:** Create a tool that takes 3+ selected holes and creates a new window.
+- [x] **Subtask 9.2:** Plot the holes side-by-side. Calculate the "True Spacing" (distance between Hole A and Hole B) using the Pythagorean theorem on their coordinates.
 - [ ] **Subtask 9.3:** Draw polygons between the holes connecting rows with the same "Seam Name."
 - **Why:** This allows the geologist to see if a coal seam is dipping or thinning across the project area.
 
@@ -122,20 +122,20 @@ To make this performant in Python:
 | 5 | 8 | 8.2 | Completed | Enhanced coordinate extraction from CSV/LAS/Excel files, added point labels, tooltips, and color coding |
 | 5 | 8 | 8.3 | Completed | Lasso selection with visual feedback, integrated with Holes List sidebar for bidirectional synchronization |
 | 5 | 9 | 9.1 | Completed | CrossSectionWindow class created with true spacing calculation, integrated with main_window.py |
-| 5 | 9 | 9.2 | In Progress | Plotting holes side-by-side with true spacing; implementing lithology column drawing |
-| 5 | 9 | 9.3 | Not Started | |
-| 6 | 10 | 10.1 | In Progress | LASLoaderWorker class created for background LAS loading |
-| 6 | 10 | 10.2 | In Progress | ValidationWorker class created for background validation |
-| 6 | 10 | 10.3 | Not Started | |
+| 5 | 9 | 9.2 | Completed | Plotting holes side-by-side with true spacing; lithology column drawing implemented |
+| 5 | 9 | 9.3 | Completed | Seam correlation logic implemented; polygons connect units with same lithology code across holes |
+| 6 | 10 | 10.1 | Completed | LASLoaderWorker integrated into main_window.py and HoleEditorWindow for background LAS loading |
+| 6 | 10 | 10.2 | Completed | ValidationWorker integrated into LithologyTableWidget for background validation |
+| 6 | 10 | 10.3 | Completed | Concurrent map rendering implemented with MapRenderWorker class; progressive loading for large datasets (>10 holes); UI remains responsive during rendering with progress feedback; rendering can be cancelled during user interaction |
 | 6 | 11 | 11.1 | Completed | PandasModel class implemented (QAbstractTableModel wrapper for pandas DataFrame) |
-| 6 | 11 | 11.2 | Not Started | |
-| 6 | 11 | 11.3 | Not Started | |
-| 6 | 12 | 12.1 | Not Started | |
-| 6 | 12 | 12.2 | Not Started | |
-| 6 | 12 | 12.3 | Not Started | |
-| 6 | 13 | 13.1 | Not Started | |
-| 6 | 13 | 13.2 | Not Started | |
-| 6 | 13 | 13.3 | Not Started | |
+| 6 | 11 | 11.2 | Completed | LithologyTableWidget fully converted to QTableView with PandasModel; all QTableWidget API calls removed from main_window.py; exports and selections updated to use model-view architecture |
+| 6 | 11 | 11.3 | Completed | Table‑plot synchronization fully implemented with PandasModel; plot clicks select table rows, table selection scrolls plot, stratigraphic column clicks select rows; all signals/slots updated for model‑view architecture |
+| 6 | 12 | 12.1 | Completed | Professional stylesheet (.qss) created with modern dark/light themes using CSS variables; styled all widgets (buttons, tables, comboboxes, spinboxes, sliders, etc.); styles directory created with theme switching capability |
+| 6 | 12 | 12.2 | Completed | Theme switching UI implemented with toolbar button and View → Theme menu; theme persistence in settings; integration with styles.qss CSS variables; toggle between dark/light themes with application restart notification |
+| 6 | 12 | 12.3 | Completed | Theme configuration dialog created with color customization, preset management, and live preview; integrated with main_window.py via View → Theme → Configure... menu; theme customizations saved to settings.json |
+| 6 | 13 | 13.1 | Completed | Workspace persistence implemented in settings.json with "Last Workspace" feature; settings_manager.py updated with workspace serialization; main_window.py saves/restores window states and open files |
+| 6 | 13 | 13.2 | Completed | Session management UI implemented with professional Qt dialog; integrated with main window via File → Session Management menu; supports save, load, rename, delete, and update operations; connected to existing SessionManager class |
+| 6 | 13 | 13.3 | Completed | Project templates implemented with predefined configurations for Coal Exploration, Mineral Exploration, and Groundwater projects; template manager and dialog UI created; integrated with main window via File → New from Template... menu |
 
 ---
 

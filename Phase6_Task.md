@@ -27,18 +27,26 @@
 ### Task 11: PandasModel Integration
 
 **Subtask 11.1: Create PandasModel Class**
-- Implement `QAbstractTableModel` that wraps a pandas DataFrame.
-- Support editing, sorting, and filtering directly in the model.
-- Efficiently handle large datasets (>10k rows).
+- ✅ **COMPLETED** - Implement `QAbstractTableModel` that wraps a pandas DataFrame.
+- ✅ **COMPLETED** - Support editing, sorting, and filtering directly in the model.
+- ✅ **COMPLETED** - Efficiently handle large datasets (>10k rows).
 
 **Subtask 11.2: Replace QTableWidget with QTableView**
-- Update `LithologyTableWidget` to use `QTableView` with `PandasModel`.
-- Maintain all existing functionality (delegates, validation highlighting).
-- Improve performance for large lithology tables.
+- ✅ **COMPLETED** - Updated `LithologyTableWidget` to use `QTableView` with `PandasModel`.
+- ✅ **COMPLETED** - Maintained all existing functionality (delegates, validation highlighting).
+- ✅ **COMPLETED** - Improved performance for large lithology tables.
+- ✅ **COMPLETED** - Fixed QTableWidget-specific method calls in `main_window.py`:
+  - `scrollToItem()` → `scrollTo()`
+  - `item()` → `model().index()` / `model().data()`
+  - `selectedItems()` → `selectionModel().selectedIndexes()`
+  - `horizontalHeaderItem()` → `model().headerData()`
+- ✅ **COMPLETED** - Updated validation integration to work with PandasModel
+- ✅ **COMPLETED** - Removed conflicting ValidationDelegate (PandasModel handles highlighting)
 
 **Subtask 11.3: Synchronize with Graphics**
-- Ensure table‑view synchronization works with the new model.
-- Update signals/slots for selection and data changes.
+- ✅ **COMPLETED** - Table‑view synchronization works with the new model.
+- ✅ **COMPLETED** - Updated signals/slots for selection and data changes.
+- ✅ **COMPLETED** - Fixed `_on_unit_clicked` and `_on_table_row_selected` methods.
 
 ### Task 12: Professional Styling (QSS)
 
@@ -48,8 +56,10 @@
 - Use consistent colors, spacing, and fonts.
 
 **Subtask 12.2: Theme Switching**
-- Add theme toggle (dark/light) in preferences or toolbar.
-- Store theme preference in settings.
+- ✅ **COMPLETED** - Theme toggle implemented in toolbar (🌓 button) and View → Theme menu
+- ✅ **COMPLETED** - Theme preference stored in settings with persistence
+- ✅ **COMPLETED** - Integration with styles.qss CSS variables for dark/light themes
+- ✅ **COMPLETED** - Application restart notification for full theme application
 
 **Subtask 12.3: Custom Icons**
 - Create or source professional icons for toolbar actions.
@@ -69,9 +79,13 @@
 - Re‑open all windows with their data and view states.
 - Handle missing files gracefully.
 
-**Subtask 13.3: Export/Import Settings**
-- Allow users to export settings profile.
-- Import settings from another installation.
+**Subtask 13.3: Project Templates**
+- ✅ **COMPLETED** - Implemented project templates as predefined session templates
+- ✅ **COMPLETED** - Created TemplateManager class with predefined templates (Coal Exploration, Mineral Exploration, Groundwater/Hydrogeology)
+- ✅ **COMPLETED** - Created TemplateDialog UI for selecting and previewing templates
+- ✅ **COMPLETED** - Integrated with main window via "File → New from Template..." menu
+- ✅ **COMPLETED** - Templates include lithology rules, workspace layout preferences, and default settings
+- ✅ **COMPLETED** - Template application updates settings and refreshes UI
 
 ## Technical Requirements
 

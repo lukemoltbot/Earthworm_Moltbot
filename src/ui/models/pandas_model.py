@@ -94,10 +94,14 @@ class PandasModel(QAbstractTableModel):
                 # Check if any issue is for this column
                 # In practice, we'd need better column mapping
                 for issue in issues:
-                    if issue.column == col_name or issue.column is None:
-                        if issue.severity == "ERROR":
+                    # Handle both dictionary and object formats
+                    column = issue.get('column') if isinstance(issue, dict) else issue.column
+                    severity = issue.get('severity') if isinstance(issue, dict) else issue.severity
+                    
+                    if column == col_name or column is None:
+                        if severity == "ERROR":
                             return QBrush(QColor(255, 200, 200))  # Light red
-                        elif issue.severity == "WARNING":
+                        elif severity == "WARNING":
                             return QBrush(QColor(255, 255, 200))  # Light yellow
             
             # Check for custom background color
@@ -114,8 +118,13 @@ class PandasModel(QAbstractTableModel):
                 issues = self._validation_issues[row]
                 tooltips = []
                 for issue in issues:
-                    if issue.column == col_name or issue.column is None:
-                        tooltips.append(f"{issue.severity}: {issue.message}")
+                    # Handle both dictionary and object formats
+                    column = issue.get('column') if isinstance(issue, dict) else issue.column
+                    severity = issue.get('severity') if isinstance(issue, dict) else issue.severity
+                    message = issue.get('message') if isinstance(issue, dict) else issue.message
+                    
+                    if column == col_name or column is None:
+                        tooltips.append(f"{severity}: {message}")
                 if tooltips:
                     return "\n".join(tooltips)
         
@@ -124,7 +133,11 @@ class PandasModel(QAbstractTableModel):
             if row in self._validation_issues:
                 issues = self._validation_issues[row]
                 for issue in issues:
-                    if (issue.column == col_name or issue.column is None) and issue.severity == "ERROR":
+                    # Handle both dictionary and object formats
+                    column = issue.get('column') if isinstance(issue, dict) else issue.column
+                    severity = issue.get('severity') if isinstance(issue, dict) else issue.severity
+                    
+                    if (column == col_name or column is None) and severity == "ERROR":
                         from PyQt6.QtGui import QFont
                         font = QFont()
                         font.setBold(True)

@@ -10,11 +10,14 @@ import re
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QToolButton, 
     QComboBox, QSpinBox, QDoubleSpinBox, QCheckBox, QGroupBox, QFrame,
-    QSizePolicy, QMessageBox, QToolTip
+    QSizePolicy, QMessageBox, QToolTip, QProgressBar
 )
 from PyQt6.QtGui import QColor, QPen, QFont, QBrush, QPainter, QPainterPath
 from PyQt6.QtCore import Qt, pyqtSignal, QPointF, QRectF, QTimer
 import pyqtgraph as pg
+
+# Import the worker
+from .map_render_worker import MapRenderWorker
 
 class MapWindow(QWidget):
     """
@@ -51,8 +54,38 @@ class MapWindow(QWidget):
         # Point labels
         self.point_labels = []
         
+        # Rendering worker
+        self.render_worker = None
+        self.is_rendering = False
+        self.pending_update = False
+        
+        # Progressive rendering state
+        self.progressive_data = {
+            'eastings': [],
+            'northings': [],
+            'sizes': [],
+            'brushes': [],
+            'symbols': [],
+            'labels': []
+        }
+        
         # Initialize UI
         self.setup_ui()
+    
+    def __del__(self):
+        """Clean up worker thread."""
+        self._cleanup_worker()
+    
+    def closeEvent(self, event):
+        """Handle window close event."""
+        self._cleanup_worker()
+        super().closeEvent(event)
+    
+    def _cleanup_worker(self):
+        """Clean up the rendering worker."""
+        if self.render_worker and self.render_worker.isRunning():
+            self.render_worker.cancel()
+            self.render_worker.wait()
         
     def setup_ui(self):
         """Setup the map window UI."""
@@ -157,6 +190,14 @@ class MapWindow(QWidget):
         status_layout.addWidget(self.status_label)
         status_layout.addStretch()
         
+        # Progress bar for rendering
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setFixedWidth(150)
+        self.progress_bar.hide()
+        status_layout.addWidget(self.progress_bar)
+        
         self.hole_count_label = QLabel("Holes: 0")
         status_layout.addWidget(self.hole_count_label)
         
@@ -195,8 +236,35 @@ class MapWindow(QWidget):
         self.selected_holes.clear()
         self.update_plot()
         
-    def update_plot(self):
-        """Update the scatter plot with current hole data."""
+    def update_plot(self, force_sync=False):
+        """
+        Update the scatter plot with current hole data.
+        
+        Args:
+            force_sync: If True, force synchronous rendering (for small datasets or testing)
+        """
+        if not self.hole_data:
+            self.scatter_plot.setData([], [])
+            self.hole_count_label.setText("Holes: 0")
+            self.selected_count_label.setText("Selected: 0")
+            self.progress_bar.hide()
+            return
+        
+        # For very small datasets or when forced, use synchronous rendering
+        if force_sync or len(self.hole_data) <= 10:
+            self._update_plot_sync()
+            return
+            
+        # Check if we're already rendering
+        if self.is_rendering:
+            self.pending_update = True
+            return
+            
+        # Start rendering in background
+        self._start_render_worker()
+    
+    def _update_plot_sync(self):
+        """Synchronous version of update_plot for small datasets."""
         if not self.hole_data:
             self.scatter_plot.setData([], [])
             self.hole_count_label.setText("Holes: 0")
@@ -256,6 +324,148 @@ class MapWindow(QWidget):
             self.plot_widget.autoRange()
             # Update scale bar after auto-ranging
             self.update_scale_bar()
+    
+    def _start_render_worker(self):
+        """Start the background rendering worker."""
+        # Cancel any existing worker
+        if self.render_worker and self.render_worker.isRunning():
+            self.render_worker.cancel()
+            self.render_worker.wait()
+        
+        # Reset progressive data
+        self.progressive_data = {
+            'eastings': [],
+            'northings': [],
+            'sizes': [],
+            'brushes': [],
+            'symbols': [],
+            'labels': []
+        }
+        
+        # Create new worker
+        self.render_worker = MapRenderWorker(
+            hole_data=self.hole_data,
+            selected_holes=self.selected_holes,
+            color_by=self.color_combo.currentText(),
+            point_size=self.point_size,
+            selected_point_size=self.selected_point_size,
+            point_color=self.point_color,
+            selected_point_color=self.selected_point_color,
+            batch_size=50  # Render 50 points at a time
+        )
+        
+        # Connect signals
+        self.render_worker.progress.connect(self._on_render_progress)
+        self.render_worker.batch_ready.connect(self._on_batch_ready)
+        self.render_worker.data_ready.connect(self._on_data_ready)
+        self.render_worker.finished.connect(self._on_render_finished)
+        self.render_worker.error.connect(self._on_render_error)
+        
+        # Update UI state
+        self.is_rendering = True
+        self.pending_update = False
+        self.status_label.setText("Rendering map...")
+        self.progress_bar.show()
+        self.progress_bar.setValue(0)
+        
+        # Start worker
+        self.render_worker.start()
+    
+    def _on_render_progress(self, progress):
+        """Handle progress updates from the worker."""
+        self.progress_bar.setValue(progress)
+        
+    def _on_batch_ready(self, eastings, northings, sizes, brushes, symbols, labels):
+        """Handle batch data from the worker (progressive loading)."""
+        # Append batch data
+        self.progressive_data['eastings'].extend(eastings)
+        self.progressive_data['northings'].extend(northings)
+        self.progressive_data['sizes'].extend(sizes)
+        self.progressive_data['brushes'].extend(brushes)
+        self.progressive_data['symbols'].extend(symbols)
+        self.progressive_data['labels'].extend(labels)
+        
+        # Update plot with current data
+        self._update_plot_from_data(self.progressive_data, is_final=False)
+        
+    def _on_data_ready(self, eastings, northings, sizes, brushes, symbols, labels):
+        """Handle complete data from the worker."""
+        # Update progressive data
+        self.progressive_data = {
+            'eastings': eastings,
+            'northings': northings,
+            'sizes': sizes,
+            'brushes': brushes,
+            'symbols': symbols,
+            'labels': labels
+        }
+        
+        # Update plot with final data
+        self._update_plot_from_data(self.progressive_data, is_final=True)
+        
+    def _update_plot_from_data(self, data, is_final=False):
+        """
+        Update the scatter plot from prepared data.
+        
+        Args:
+            data: Dict with 'eastings', 'northings', 'sizes', 'brushes', 'symbols', 'labels'
+            is_final: Whether this is the final update
+        """
+        eastings = data['eastings']
+        northings = data['northings']
+        sizes = data['sizes']
+        brushes = data['brushes']
+        symbols = data['symbols']
+        labels = data['labels']
+        
+        # Convert brush tuples back to QBrush objects
+        brush_objects = []
+        for brush_tuple in brushes:
+            if isinstance(brush_tuple, tuple):
+                # Convert (r, g, b, a) tuple to QBrush
+                brush_objects.append(pg.mkBrush(brush_tuple))
+            else:
+                brush_objects.append(brush_tuple)
+        
+        # Update scatter plot
+        self.scatter_plot.setData(x=eastings, y=northings, size=sizes, brush=brush_objects, symbol=symbols)
+        
+        # Add labels if there are not too many points (only on final update)
+        if is_final and len(eastings) <= 50:
+            self.add_point_labels(eastings, northings, labels)
+        elif is_final:
+            self.clear_point_labels()
+        
+        # Update labels
+        self.hole_count_label.setText(f"Holes: {len(self.hole_data)}")
+        self.selected_count_label.setText(f"Selected: {len(self.selected_holes)}")
+        
+        # Auto-range if needed (only on final update to avoid constant re-ranging)
+        if is_final and eastings and northings:
+            self.plot_widget.autoRange()
+            self.update_scale_bar()
+        
+    def _on_render_finished(self):
+        """Handle worker finished signal."""
+        self.is_rendering = False
+        self.progress_bar.hide()
+        self.progress_bar.setValue(0)
+        
+        # Check if we have a pending update
+        if self.pending_update:
+            self.pending_update = False
+            self.update_plot()
+        else:
+            self.status_label.setText("Ready")
+    
+    def _on_render_error(self, error_message):
+        """Handle worker error signal."""
+        self.is_rendering = False
+        self.progress_bar.hide()
+        self.status_label.setText(f"Error: {error_message}")
+        
+        # Fall back to synchronous rendering
+        self._update_plot_sync()
             
     def get_color_for_hole(self, hole_info, color_by):
         """Get color for a hole based on the color_by setting."""
@@ -786,6 +996,11 @@ class MapWindow(QWidget):
     
     def on_view_range_changed(self):
         """Handle view range changes (zooming/panning)."""
+        # Cancel any ongoing rendering if user is interacting with the map
+        if self.is_rendering and self.render_worker:
+            self.render_worker.cancel()
+            self.status_label.setText("Rendering cancelled (user interaction)")
+        
         self.update_scale_bar()
         
     def update_scale_bar(self):

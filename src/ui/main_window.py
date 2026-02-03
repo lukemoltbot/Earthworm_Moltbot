@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView, QColorDialog, QGraphicsScene, QDoubleSpinBox, QCheckBox, QSlider, QSpinBox, QFrame, QSplitter, QAbstractItemView,
     QGroupBox, QGridLayout, QSizePolicy,
     QMdiArea, QMdiSubWindow, QMenu,
-    QTreeView
+    QTreeView, QProgressBar, QApplication, QToolBar
 )
 from PyQt6.QtGui import QPainter, QPixmap, QColor, QFont, QBrush, QFileSystemModel, QAction
 from PyQt6.QtSvg import QSvgRenderer
@@ -18,6 +18,7 @@ import traceback
 
 from ..core.data_processor import DataProcessor
 from ..core.analyzer import Analyzer
+from ..core.workers import LASLoaderWorker, ValidationWorker
 from ..core.config import DEFAULT_LITHOLOGY_RULES, DEPTH_COLUMN, DEFAULT_SEPARATOR_THICKNESS, DRAW_SEPARATOR_LINES, DEFAULT_CURVE_THICKNESS, CURVE_RANGES, INVALID_DATA_VALUE, DEFAULT_MERGE_THIN_UNITS, DEFAULT_MERGE_THRESHOLD, DEFAULT_SMART_INTERBEDDING, DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH, DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD
 from ..core.coallog_utils import load_coallog_dictionaries
 from .widgets.stratigraphic_column import StratigraphicColumn
@@ -28,6 +29,8 @@ from .widgets.enhanced_range_gap_visualizer import EnhancedRangeGapVisualizer # 
 from ..core.settings_manager import load_settings, save_settings
 from .dialogs.researched_defaults_dialog import ResearchedDefaultsDialog # Import new dialog
 from .dialogs.settings_dialog import SettingsDialog # Import settings dialog
+from .dialogs.session_dialog import SessionDialog # Import session dialog
+from .dialogs.template_dialog import TemplateDialog # Import template dialog
 from ..utils.range_analyzer import RangeAnalyzer # Import range analyzer
 from .widgets.compact_range_widget import CompactRangeWidget # Import compact widgets
 from .widgets.multi_attribute_widget import MultiAttributeWidget
@@ -67,12 +70,19 @@ class HoleEditorWindow(QWidget):
         self.coallog_data = coallog_data
         self.file_path = file_path
         self.dataframe = None
+        self.file_metadata = None
         
         # Create widgets - using PyQtGraphCurvePlotter for better performance
         self.curvePlotter = PyQtGraphCurvePlotter()
         self.stratigraphicColumnView = StratigraphicColumn()
         self.editorTable = LithologyTableWidget(coallog_data=self.coallog_data)
         self.exportCsvButton = QPushButton("Export to CSV")
+        
+        # Add loading indicator
+        self.loadingProgressBar = QProgressBar()
+        self.loadingProgressBar.setVisible(False)
+        self.loadingLabel = QLabel("Loading...")
+        self.loadingLabel.setVisible(False)
         
         # Connect table row selection to stratigraphic column highlighting
         self.editorTable.rowSelectionChangedSignal.connect(self._on_table_row_selected)
@@ -95,13 +105,20 @@ class HoleEditorWindow(QWidget):
         self.setup_ui()
         
         if file_path:
-            # Load data in background (TODO)
-            pass
+            # Load data in background
+            self.load_file_background(file_path)
     
     def setup_ui(self):
         """Create the 3-pane layout with zoom controls according to roadmap: [Plot View | Data Table | Overview View]."""
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Add loading indicator at the top (hidden by default)
+        loading_layout = QHBoxLayout()
+        loading_layout.addWidget(self.loadingLabel)
+        loading_layout.addWidget(self.loadingProgressBar)
+        loading_layout.addStretch()
+        main_layout.addLayout(loading_layout)
         
         # 1. Create the Splitter
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -183,7 +200,8 @@ class HoleEditorWindow(QWidget):
         self.zoomSpinBox.valueChanged.connect(self.on_zoom_changed)
         
         # Initialize empty table
-        self.editorTable.setRowCount(0)
+        # Note: setRowCount is not needed for QTableView with PandasModel
+        # The model will handle row count automatically
         self.editorTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
     
     def _on_table_row_selected(self, row):
@@ -196,24 +214,34 @@ class HoleEditorWindow(QWidget):
             self.stratigraphicColumnView.highlight_unit(row)
             
             # Scroll plot view to the selected unit's depth (Subtask 4.1)
-            if hasattr(self.stratigraphicColumnView, 'units_dataframe') and self.stratigraphicColumnView.units_dataframe is not None:
-                if 0 <= row < len(self.stratigraphicColumnView.units_dataframe):
-                    unit = self.stratigraphicColumnView.units_dataframe.iloc[row]
-                    center_depth = (unit['from_depth'] + unit['to_depth']) / 2
-                    self.curvePlotter.scroll_to_depth(center_depth)
+            # Get depth information from the table's dataframe
+            if hasattr(self, 'editorTable') and self.editorTable is not None:
+                dataframe = self.editorTable.current_dataframe
+                if dataframe is not None and 'from_depth' in dataframe.columns and 'to_depth' in dataframe.columns:
+                    if 0 <= row < len(dataframe):
+                        unit = dataframe.iloc[row]
+                        center_depth = (unit['from_depth'] + unit['to_depth']) / 2
+                        self.curvePlotter.scroll_to_depth(center_depth)
     
     def _on_plot_point_clicked(self, depth):
         """Handle plot point clicks to select corresponding table row (Subtask 4.2)."""
         if hasattr(self, 'editorTable') and self.editorTable is not None:
             # Find the row in the table that corresponds to this depth
-            # This assumes the table has depth information
-            # For now, we'll implement a simple search
-            # In a real implementation, we would need to map depth to table row
-            
-            # TODO: Implement proper depth-to-row mapping
-            # For now, just emit a signal or print for debugging
-            print(f"Plot clicked at depth: {depth}")
-            # In the future: self.editorTable.selectRow(row_index)
+            dataframe = self.editorTable.current_dataframe
+            if dataframe is not None and 'from_depth' in dataframe.columns and 'to_depth' in dataframe.columns:
+                # Find the row where depth is between from_depth and to_depth
+                for idx, row in dataframe.iterrows():
+                    if row['from_depth'] <= depth <= row['to_depth']:
+                        # Select the corresponding row in the table
+                        self.editorTable.selectRow(idx)
+                        # Scroll to make the selected row visible
+                        self.editorTable.scrollTo(self.editorTable.model().index(idx, 0))
+                        print(f"Plot clicked at depth: {depth}m -> Selected table row {idx}")
+                        return
+                
+                print(f"Plot clicked at depth: {depth}m -> No matching lithology unit found")
+            else:
+                print(f"Plot clicked at depth: {depth}m -> No lithology data available")
     
     def _on_plot_view_range_changed(self, min_depth, max_depth):
         """Handle plot view range changes to update overview overlay (Subtask 3.3)."""
@@ -304,18 +332,8 @@ class HoleEditorWindow(QWidget):
     
     def populate_editor_table(self, dataframe):
         """Populate the editor table with dataframe content."""
-        self.editorTable.clear()
-        if dataframe.empty:
-            self.editorTable.setRowCount(0)
-            self.editorTable.setColumnCount(0)
-            return
-        self.editorTable.setRowCount(dataframe.shape[0])
-        self.editorTable.setColumnCount(dataframe.shape[1])
-        self.editorTable.setHorizontalHeaderLabels(dataframe.columns.tolist())
-        for i in range(dataframe.shape[0]):
-            for j in range(dataframe.shape[1]):
-                item = QTableWidgetItem(str(dataframe.iloc[i, j]))
-                self.editorTable.setItem(i, j, item)
+        # Use the LithologyTableWidget's load_data method which now uses PandasModel
+        self.editorTable.load_data(dataframe)
     
     def set_window_title(self, title):
         """Set window title for MDI subwindow."""
@@ -330,6 +348,122 @@ class HoleEditorWindow(QWidget):
         if file_path:
             filename = os.path.basename(file_path)
             self.set_window_title(filename)
+    
+    def load_file_background(self, file_path: str):
+        """Load file in background thread using appropriate worker."""
+        self.file_path = file_path
+        filename = os.path.basename(file_path)
+        self.set_window_title(f"Loading {filename}...")
+        
+        # Show loading indicator
+        self.loadingProgressBar.setVisible(True)
+        self.loadingLabel.setVisible(True)
+        self.loadingProgressBar.setValue(0)
+        
+        # Determine file type and use appropriate worker
+        if file_path.lower().endswith('.las'):
+            self._load_las_file_background(file_path)
+        elif file_path.lower().endswith('.csv') or file_path.lower().endswith('.xlsx'):
+            # For CSV/Excel files, we can load directly since they're usually smaller
+            # But we should still do it in background for consistency
+            self._load_csv_excel_background(file_path)
+        else:
+            QMessageBox.warning(self, "Unsupported Format", 
+                               f"Cannot load {filename}: Unsupported file format.")
+    
+    def _load_las_file_background(self, file_path: str):
+        """Load LAS file using background worker."""
+        # Create worker and thread
+        self.las_worker = LASLoaderWorker(file_path)
+        self.las_thread = QThread()
+        
+        # Move worker to thread
+        self.las_worker.moveToThread(self.las_thread)
+        
+        # Connect signals
+        self.las_thread.started.connect(self.las_worker.run)
+        self.las_worker.progress.connect(self._on_file_loading_progress)
+        self.las_worker.finished.connect(self._on_las_loading_complete)
+        self.las_worker.error.connect(self._on_file_loading_error)
+        
+        # Cleanup connections
+        self.las_worker.finished.connect(self.las_thread.quit)
+        self.las_worker.finished.connect(self.las_worker.deleteLater)
+        self.las_thread.finished.connect(self.las_thread.deleteLater)
+        
+        # Start thread
+        self.las_thread.start()
+    
+    def _load_csv_excel_background(self, file_path: str):
+        """Load CSV or Excel file in background (simplified version)."""
+        # For simplicity, we'll use a QTimer to simulate background loading
+        # In a real implementation, we'd use a proper worker thread
+        self.loadingProgressBar.setValue(50)
+        self.loadingLabel.setText(f"Loading {os.path.basename(file_path)}...")
+        
+        # Use QTimer to load in next event loop iteration (non-blocking)
+        QTimer.singleShot(100, lambda: self._load_csv_excel_direct(file_path))
+    
+    def _load_csv_excel_direct(self, file_path: str):
+        """Load CSV or Excel file directly (called from timer)."""
+        try:
+            if file_path.lower().endswith('.csv'):
+                dataframe = pd.read_csv(file_path)
+            else:  # .xlsx
+                dataframe = pd.read_excel(file_path)
+            
+            # Update UI
+            self.loadingProgressBar.setValue(100)
+            self._on_file_loading_complete(dataframe, {}, file_path)
+            
+        except Exception as e:
+            self._on_file_loading_error(f"Failed to load file: {str(e)}", file_path)
+    
+    def _on_file_loading_progress(self, percent: int, message: str):
+        """Handle file loading progress updates."""
+        self.loadingProgressBar.setValue(percent)
+        self.loadingLabel.setText(message)
+    
+    def _on_las_loading_complete(self, dataframe: pd.DataFrame, metadata: dict, file_path: str):
+        """Handle successful LAS file loading."""
+        self._on_file_loading_complete(dataframe, metadata, file_path)
+    
+    def _on_file_loading_complete(self, dataframe: pd.DataFrame, metadata: dict, file_path: str):
+        """Handle successful file loading."""
+        # Hide loading indicator
+        self.loadingProgressBar.setVisible(False)
+        self.loadingLabel.setVisible(False)
+        
+        # Store data
+        self.dataframe = dataframe
+        self.file_metadata = metadata
+        
+        # Update window title
+        filename = os.path.basename(file_path)
+        self.set_window_title(filename)
+        
+        # Load data into table
+        self.editorTable.load_data(dataframe)
+        
+        # TODO: Update curve plotter and stratigraphic column with data
+        print(f"File loaded successfully: {filename} ({len(dataframe)} rows)")
+        
+        # Run initial validation in background
+        self.editorTable.run_validation()
+    
+    def _on_file_loading_error(self, error_msg: str, file_path: str):
+        """Handle file loading errors."""
+        # Hide loading indicator
+        self.loadingProgressBar.setVisible(False)
+        self.loadingLabel.setVisible(False)
+        
+        # Show error
+        filename = os.path.basename(file_path)
+        QMessageBox.critical(self, "Error Loading File", 
+                            f"Failed to load {filename}:\n\n{error_msg}")
+        
+        # Reset window title
+        self.set_window_title("Untitled Hole")
 
 
 class Worker(QObject):
@@ -392,6 +526,7 @@ class MainWindow(QMainWindow):
         # Load window geometry from settings or use defaults
         self.load_window_geometry()
         self.las_file_path = None
+        self.las_metadata = None
 
     def load_window_geometry(self):
         """Load window size and position from settings or set reasonable defaults based on screen size."""
@@ -458,6 +593,7 @@ class MainWindow(QMainWindow):
         self.smart_interbedding = app_settings.get("smart_interbedding", False)
         self.smart_interbedding_max_sequence_length = app_settings.get("smart_interbedding_max_sequence_length", 10)
         self.smart_interbedding_thick_unit_threshold = app_settings.get("smart_interbedding_thick_unit_threshold", 0.5)
+        self.current_theme = app_settings.get("theme", "dark")  # Load theme preference
 
         self.lithology_qualifier_map = self.load_lithology_qualifier_map()
         self.coallog_data = self.load_coallog_data()
@@ -582,7 +718,44 @@ class MainWindow(QMainWindow):
         # self.setup_editor_tab()  # Not needed: hole editor has its own layout
         # self.tab_widget.currentChanged.connect(self.on_tab_changed)  # MDI removes tabs
         self._synchronize_views()
+        self.create_file_menu()
         self.create_window_menu()
+        self.create_view_menu()
+        self.create_toolbar()
+
+    def create_file_menu(self):
+        """Create File menu with session management and file operations."""
+        file_menu = self.menuBar().addMenu("&File")
+        
+        # New from template action
+        new_from_template_action = QAction("New from Template...", self)
+        new_from_template_action.triggered.connect(self.open_template_dialog)
+        new_from_template_action.setShortcut("Ctrl+N")
+        file_menu.addAction(new_from_template_action)
+        
+        file_menu.addSeparator()
+        
+        # Session management actions
+        session_management_action = QAction("Session Management...", self)
+        session_management_action.triggered.connect(self.open_session_dialog)
+        session_management_action.setShortcut("Ctrl+S")
+        file_menu.addAction(session_management_action)
+        
+        file_menu.addSeparator()
+        
+        # Load LAS file action (existing functionality)
+        load_las_action = QAction("Load LAS File...", self)
+        load_las_action.triggered.connect(self.load_las_file)
+        load_las_action.setShortcut("Ctrl+O")
+        file_menu.addAction(load_las_action)
+        
+        file_menu.addSeparator()
+        
+        # Exit action
+        exit_action = QAction("Exit", self)
+        exit_action.triggered.connect(self.close)
+        exit_action.setShortcut("Ctrl+Q")
+        file_menu.addAction(exit_action)
 
     def create_window_menu(self):
         """Create Window menu with tile, cascade, close actions."""
@@ -613,6 +786,127 @@ class MainWindow(QMainWindow):
         close_all_action = QAction("Close All", self)
         close_all_action.triggered.connect(self.mdi_area.closeAllSubWindows)
         window_menu.addAction(close_all_action)
+
+    def create_view_menu(self):
+        """Create View menu with theme toggle and other view options."""
+        view_menu = self.menuBar().addMenu("&View")
+        
+        # Theme submenu
+        theme_menu = QMenu("Theme", self)
+        view_menu.addMenu(theme_menu)
+        
+        # Dark theme action
+        dark_theme_action = QAction("Dark", self)
+        dark_theme_action.setCheckable(True)
+        dark_theme_action.setChecked(self.current_theme == "dark")
+        dark_theme_action.triggered.connect(lambda: self.set_theme("dark"))
+        theme_menu.addAction(dark_theme_action)
+        
+        # Light theme action
+        light_theme_action = QAction("Light", self)
+        light_theme_action.setCheckable(True)
+        light_theme_action.setChecked(self.current_theme == "light")
+        light_theme_action.triggered.connect(lambda: self.set_theme("light"))
+        theme_menu.addAction(light_theme_action)
+        
+        # Add separator
+        theme_menu.addSeparator()
+        
+        # Toggle theme action (quick toggle)
+        toggle_theme_action = QAction("Toggle Theme", self)
+        toggle_theme_action.triggered.connect(self.toggle_theme)
+        theme_menu.addAction(toggle_theme_action)
+        
+        # Theme preview dialog
+        theme_menu.addSeparator()
+        preview_action = QAction("Preview Theme...", self)
+        preview_action.triggered.connect(self.show_theme_preview)
+        theme_menu.addAction(preview_action)
+        
+        # Add separator in main view menu
+        view_menu.addSeparator()
+        
+        # Show/Hide docks
+        show_settings_action = QAction("Show/Hide Settings", self)
+        show_settings_action.triggered.connect(self.open_settings_dialog)
+        view_menu.addAction(show_settings_action)
+        
+        show_explorer_action = QAction("Show/Hide Project Explorer", self)
+        show_explorer_action.triggered.connect(self.toggle_project_explorer)
+        view_menu.addAction(show_explorer_action)
+
+    def set_theme(self, theme_name):
+        """Set a specific theme."""
+        if theme_name not in ["dark", "light"]:
+            return
+        
+        self.current_theme = theme_name
+        
+        # Update application property for CSS class
+        app = QApplication.instance()
+        if app:
+            if self.current_theme == "light":
+                app.setProperty("class", "light-theme")
+            else:
+                app.setProperty("class", "")  # Default to dark theme
+        
+        # Save theme preference
+        self.save_theme_preference()
+        
+        # Update menu check states
+        self.update_theme_menu_states()
+        
+        # Show theme change notification
+        QMessageBox.information(self, "Theme Changed", 
+                               f"Switched to {self.current_theme} theme. Restart the application for full effect.")
+    
+    def show_theme_preview(self):
+        """Show theme preview dialog."""
+        from .dialogs.theme_preview_dialog import ThemePreviewDialog
+        
+        dialog = ThemePreviewDialog(self, self.current_theme)
+        dialog.themeChanged.connect(self.set_theme)
+        dialog.exec()
+
+    def update_theme_menu_states(self):
+        """Update theme menu item check states."""
+        # This would update menu check states if we had references to them
+        # For now, we'll just print a message
+        print(f"Theme updated to {self.current_theme}")
+
+    def toggle_project_explorer(self):
+        """Toggle visibility of project explorer dock."""
+        if self.holes_dock.isVisible():
+            self.holes_dock.hide()
+        else:
+            self.holes_dock.show()
+            self.holes_dock.raise_()
+
+    def create_toolbar(self):
+        """Create main toolbar with common actions."""
+        toolbar = QToolBar("Main Toolbar", self)
+        toolbar.setMovable(True)
+        self.addToolBar(toolbar)
+        
+        # Add theme toggle button
+        theme_action = QAction("🌓", self)  # Using emoji for theme icon
+        theme_action.setToolTip("Toggle Dark/Light Theme")
+        theme_action.triggered.connect(self.toggle_theme)
+        toolbar.addAction(theme_action)
+        
+        # Add separator
+        toolbar.addSeparator()
+        
+        # Add other common actions
+        load_action = QAction("📂", self)
+        load_action.setToolTip("Load LAS File")
+        load_action.triggered.connect(self.load_las_file_dialog)
+        toolbar.addAction(load_action)
+        
+        settings_action = QAction("⚙️", self)
+        settings_action.setToolTip("Settings")
+        settings_action.triggered.connect(self.open_settings_dialog)
+        toolbar.addAction(settings_action)
 
     def _synchronize_views(self):
         """Connects the two views to scroll in sync with perfect 1:1 depth alignment."""
@@ -685,8 +979,9 @@ class MainWindow(QMainWindow):
             # Get the index of the first matching unit
             row_index = containing_units.index[0]
             # Scroll to make this row visible
-            self.editorTable.scrollToItem(
-                self.editorTable.item(row_index, 0),
+            index = self.editorTable.model().index(row_index, 0)
+            self.editorTable.scrollTo(
+                index,
                 QAbstractItemView.ScrollHint.PositionAtCenter
             )
 
@@ -710,14 +1005,16 @@ class MainWindow(QMainWindow):
         """Handle click on a stratigraphic column unit."""
         # Select the corresponding row in the editor table
         if hasattr(self, 'editorTable') and self.editorTable is not None:
-            # Ensure the row exists
-            if 0 <= unit_index < self.editorTable.rowCount():
-                # Block signals to prevent recursive selection
-                self.editorTable.blockSignals(True)
+            # Get the model
+            model = self.editorTable.model()
+            if model and 0 <= unit_index < model.rowCount():
+                # Select the row in the table
                 self.editorTable.selectRow(unit_index)
-                self.editorTable.blockSignals(False)
                 # Scroll the table to make the row visible
-                self.editorTable.scrollToItem(self.editorTable.item(unit_index, 0))
+                index = model.index(unit_index, 0)
+                self.editorTable.scrollTo(index)
+                # Note: The selectionChanged signal will be emitted automatically,
+                # which will trigger _on_table_row_selected to scroll the plot
 
     def find_svg_file(self, lithology_code, lithology_qualifier=''):
         svg_dir = os.path.join(os.getcwd(), 'src', 'assets', 'svg')
@@ -763,6 +1060,86 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'stratigraphicColumnView'):
             self.stratigraphicColumnView.unitClicked.connect(self._on_unit_clicked)
 
+        # Load and apply stylesheet with current theme
+        self.load_stylesheet()
+
+    def load_stylesheet(self):
+        """Load and apply the QSS stylesheet with current theme."""
+        try:
+            # Get the path to the styles.qss file
+            styles_dir = os.path.join(os.path.dirname(__file__), "styles")
+            stylesheet_path = os.path.join(styles_dir, "styles.qss")
+            
+            if os.path.exists(stylesheet_path):
+                with open(stylesheet_path, 'r') as f:
+                    stylesheet = f.read()
+                
+                # Apply the stylesheet
+                self.setStyleSheet(stylesheet)
+                
+                # Apply theme class to the application
+                app = QApplication.instance()
+                if app:
+                    if self.current_theme == "light":
+                        app.setProperty("class", "light-theme")
+                    else:
+                        app.setProperty("class", "")  # Default to dark theme
+                
+                print(f"Stylesheet loaded successfully with {self.current_theme} theme")
+            else:
+                print(f"Warning: Stylesheet not found at {stylesheet_path}")
+        except Exception as e:
+            print(f"Error loading stylesheet: {e}")
+
+    def toggle_theme(self):
+        """Toggle between dark and light themes."""
+        if self.current_theme == "dark":
+            self.current_theme = "light"
+        else:
+            self.current_theme = "dark"
+        
+        # Update application property for CSS class
+        app = QApplication.instance()
+        if app:
+            if self.current_theme == "light":
+                app.setProperty("class", "light-theme")
+            else:
+                app.setProperty("class", "")  # Default to dark theme
+        
+        # Save theme preference
+        self.save_theme_preference()
+        
+        # Show theme change notification
+        QMessageBox.information(self, "Theme Changed", 
+                               f"Switched to {self.current_theme} theme. Restart the application for full effect.")
+
+    def save_theme_preference(self):
+        """Save theme preference to settings."""
+        # Load current settings
+        app_settings = load_settings()
+        
+        # Update theme in settings
+        app_settings["theme"] = self.current_theme
+        
+        # Save all settings
+        save_settings(
+            lithology_rules=app_settings["lithology_rules"],
+            separator_thickness=app_settings["separator_thickness"],
+            draw_separator_lines=app_settings["draw_separator_lines"],
+            curve_inversion_settings=app_settings["curve_inversion_settings"],
+            curve_thickness=app_settings.get("curve_thickness", 2),
+            use_researched_defaults=app_settings.get("use_researched_defaults", True),
+            analysis_method=app_settings.get("analysis_method", "standard"),
+            merge_thin_units=app_settings.get("merge_thin_units", False),
+            merge_threshold=app_settings.get("merge_threshold", 0.05),
+            smart_interbedding=app_settings.get("smart_interbedding", False),
+            smart_interbedding_max_sequence_length=app_settings.get("smart_interbedding_max_sequence_length", 10),
+            smart_interbedding_thick_unit_threshold=app_settings.get("smart_interbedding_thick_unit_threshold", 0.5),
+            fallback_classification=app_settings.get("fallback_classification", "Unknown"),
+            workspace_state=app_settings.get("workspace"),
+            theme=self.current_theme
+        )
+
     def open_settings_dialog(self):
         """Toggle visibility of settings dock widget."""
         if self.settings_dock.isVisible():
@@ -770,6 +1147,39 @@ class MainWindow(QMainWindow):
         else:
             self.settings_dock.show()
             self.settings_dock.raise_()  # Bring to front if floating
+    
+    def open_session_dialog(self):
+        """Open the session management dialog."""
+        dialog = SessionDialog(parent=self, main_window=self)
+        dialog.session_selected.connect(self.on_session_loaded)
+        dialog.exec()
+    
+    def on_session_loaded(self, session_name):
+        """Handle session loaded signal."""
+        print(f"Session '{session_name}' loaded successfully")
+        # Additional session loading logic can be added here if needed
+    
+    def open_template_dialog(self):
+        """Open the template selection dialog."""
+        dialog = TemplateDialog(parent=self, main_window=self)
+        dialog.template_selected.connect(self.on_template_applied)
+        dialog.exec()
+    
+    def on_template_applied(self, template_name):
+        """Handle template applied signal."""
+        print(f"Template '{template_name}' applied successfully")
+        # Refresh settings in UI if needed
+        self.refresh_settings_from_disk()
+    
+    def refresh_settings_from_disk(self):
+        """Refresh settings from disk and update UI."""
+        try:
+            from ..core.settings_manager import load_settings
+            settings = load_settings()
+            # Update UI components with new settings if needed
+            print("Settings refreshed from disk")
+        except Exception as e:
+            print(f"Error refreshing settings: {e}")
     
     def open_advanced_settings_dialog(self):
         """Open the advanced settings dialog (modal)."""
@@ -900,7 +1310,7 @@ class MainWindow(QMainWindow):
                 self.holes_tree.scrollTo(first_index)
                 
     def open_cross_section_window(self, hole_file_paths=None):
-        \"\"\"Open a new cross-section window (Phase 5, Task 9).\"\"\"
+        """Open a new cross-section window (Phase 5, Task 9)."""
         # Get selected holes if not provided
         if hole_file_paths is None:
             # Get selected files from holes tree
@@ -914,8 +1324,8 @@ class MainWindow(QMainWindow):
         
         # Need at least 2 holes for a cross-section, but 3+ is better
         if len(hole_file_paths) < 2:
-            QMessageBox.warning(self, \"Insufficient Holes\", 
-                              \"Please select at least 2 holes for a cross-section.\")
+            QMessageBox.warning(self, "Insufficient Holes", 
+                              "Please select at least 2 holes for a cross-section.")
             return
         
         # Create cross-section window
@@ -924,7 +1334,7 @@ class MainWindow(QMainWindow):
         # Create MDI subwindow
         subwindow = QMdiSubWindow()
         subwindow.setWidget(cross_section)
-        subwindow.setWindowTitle(\"Cross-Section\")
+        subwindow.setWindowTitle("Cross-Section")
         
         # Add to MDI area
         self.mdi_area.addSubWindow(subwindow)
@@ -994,37 +1404,90 @@ class MainWindow(QMainWindow):
             return {}
 
     def load_las_data(self):
+        """Load LAS file using background worker thread."""
         if not self.las_file_path:
             return
-        try:
-            data_processor = DataProcessor()
-            dataframe, mnemonics = data_processor.load_las_file(self.las_file_path)
-            self.gammaRayComboBox.clear()
-            self.densityComboBox.clear()
-            self.shortSpaceDensityComboBox.clear()
-            self.longSpaceDensityComboBox.clear()
+        
+        # Disable UI during loading
+        self.loadLasButton.setEnabled(False)
+        self.loadLasButton.setText("Loading...")
+        
+        # Create worker and thread
+        self.las_worker = LASLoaderWorker(self.las_file_path)
+        self.las_thread = QThread()
+        
+        # Move worker to thread
+        self.las_worker.moveToThread(self.las_thread)
+        
+        # Connect signals
+        self.las_thread.started.connect(self.las_worker.run)
+        self.las_worker.progress.connect(self._on_las_loading_progress)
+        self.las_worker.finished.connect(self._on_las_loading_finished)
+        self.las_worker.error.connect(self._on_las_loading_error)
+        
+        # Cleanup connections
+        self.las_worker.finished.connect(self.las_thread.quit)
+        self.las_worker.finished.connect(self.las_worker.deleteLater)
+        self.las_thread.finished.connect(self.las_thread.deleteLater)
+        
+        # Start thread
+        self.las_thread.start()
+    
+    def _on_las_loading_progress(self, percent: int, message: str):
+        """Handle progress updates from LAS loader worker."""
+        self.loadLasButton.setText(f"Loading... {percent}%")
+        # Could update status bar here if available
+        print(f"LAS Loading: {percent}% - {message}")
+    
+    def _on_las_loading_finished(self, dataframe: pd.DataFrame, metadata: dict, file_path: str):
+        """Handle successful LAS file loading."""
+        # Update UI
+        self.loadLasButton.setEnabled(True)
+        self.loadLasButton.setText("Load LAS File")
+        
+        # Extract mnemonics from dataframe columns
+        mnemonics = list(dataframe.columns)
+        
+        # Update combo boxes with available mnemonics
+        self.gammaRayComboBox.clear()
+        self.densityComboBox.clear()
+        self.shortSpaceDensityComboBox.clear()
+        self.longSpaceDensityComboBox.clear()
 
-            self.gammaRayComboBox.addItems(mnemonics)
-            self.densityComboBox.addItems(mnemonics)
-            self.shortSpaceDensityComboBox.addItems(mnemonics)
-            self.longSpaceDensityComboBox.addItems(mnemonics)
+        self.gammaRayComboBox.addItems(mnemonics)
+        self.densityComboBox.addItems(mnemonics)
+        self.shortSpaceDensityComboBox.addItems(mnemonics)
+        self.longSpaceDensityComboBox.addItems(mnemonics)
 
-            if 'GR' in mnemonics:
-                self.gammaRayComboBox.setCurrentText('GR')
-            # Both density combo boxes get the same default selection
-            if 'RHOB' in mnemonics:
-                self.densityComboBox.setCurrentText('RHOB')
-                self.shortSpaceDensityComboBox.setCurrentText('RHOB')
-            if 'DENS' in mnemonics: # Assuming 'DENS' for short space density
-                self.densityComboBox.setCurrentText('DENS')
-                self.shortSpaceDensityComboBox.setCurrentText('DENS')
-            if 'LSD' in mnemonics: # Assuming 'LSD' for long space density
-                self.longSpaceDensityComboBox.setCurrentText('LSD')
-
-            QMessageBox.information(self, "LAS File Loaded", f"Successfully loaded {os.path.basename(self.las_file_path)}")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to load LAS file: {e}")
-            self.las_file_path = None
+        # Set default selections
+        if 'GR' in mnemonics:
+            self.gammaRayComboBox.setCurrentText('GR')
+        # Both density combo boxes get the same default selection
+        if 'RHOB' in mnemonics:
+            self.densityComboBox.setCurrentText('RHOB')
+            self.shortSpaceDensityComboBox.setCurrentText('RHOB')
+        if 'DENS' in mnemonics: # Assuming 'DENS' for short space density
+            self.densityComboBox.setCurrentText('DENS')
+            self.shortSpaceDensityComboBox.setCurrentText('DENS')
+        if 'LSD' in mnemonics: # Assuming 'LSD' for long space density
+            self.longSpaceDensityComboBox.setCurrentText('LSD')
+        
+        # Store metadata for potential use
+        self.las_metadata = metadata
+        
+        QMessageBox.information(self, "LAS File Loaded", 
+                               f"Successfully loaded {os.path.basename(file_path)}")
+    
+    def _on_las_loading_error(self, error_msg: str, file_path: str):
+        """Handle LAS loading errors."""
+        # Re-enable UI
+        self.loadLasButton.setEnabled(True)
+        self.loadLasButton.setText("Load LAS File")
+        
+        # Show error message
+        QMessageBox.critical(self, "Error Loading LAS File", 
+                            f"Failed to load {os.path.basename(file_path)}:\n\n{error_msg}")
+        self.las_file_path = None
 
     def load_default_lithology_rules(self):
         self.lithology_rules = DEFAULT_LITHOLOGY_RULES
@@ -1464,6 +1927,37 @@ class MainWindow(QMainWindow):
                 self.analysisMethodComboBox.setCurrentText("Simple")
             else:
                 self.analysisMethodComboBox.setCurrentText("Standard")
+    
+    def update_settings_from_template(self, template):
+        """Update settings from a template object."""
+        from ..core.template_manager import ProjectTemplate
+        
+        if not isinstance(template, ProjectTemplate):
+            print(f"Error: Expected ProjectTemplate, got {type(template)}")
+            return
+        
+        print(f"Updating settings from template: {template.name}")
+        
+        # Update lithology rules from template
+        self.lithology_rules = template.lithology_rules
+        
+        # Update other settings from template defaults
+        if template.default_settings:
+            for key, value in template.default_settings.items():
+                if hasattr(self, key):
+                    setattr(self, key, value)
+                    print(f"  Set {key} = {value}")
+        
+        # Update UI controls
+        self.load_settings_rules_to_table()
+        
+        # Show notification
+        QMessageBox.information(
+            self, 
+            "Template Applied", 
+            f"Template '{template.name}' has been applied.\n\n"
+            f"Lithology rules and settings have been updated."
+        )
         self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
         self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
         self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
@@ -2008,7 +2502,8 @@ class MainWindow(QMainWindow):
         self.zoomSpinBox.valueChanged.connect(self.on_zoom_changed)
 
         # Initialize empty table
-        self.editorTable.setRowCount(0)
+        # Note: setRowCount is not needed for QTableView with PandasModel
+        # The model will handle row count automatically
         self.editorTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
 
     def on_zoom_changed(self):
@@ -2036,18 +2531,9 @@ class MainWindow(QMainWindow):
         self.stratigraphicColumnView.set_zoom_level(zoom_factor)
 
     def populate_editor_table(self, dataframe):
-        self.editorTable.clear()
-        if dataframe.empty:
-            self.editorTable.setRowCount(0)
-            self.editorTable.setColumnCount(0)
-            return
-        self.editorTable.setRowCount(dataframe.shape[0])
-        self.editorTable.setColumnCount(dataframe.shape[1])
-        self.editorTable.setHorizontalHeaderLabels(dataframe.columns.tolist())
-        for i in range(dataframe.shape[0]):
-            for j in range(dataframe.shape[1]):
-                item = QTableWidgetItem(str(dataframe.iloc[i, j]))
-                self.editorTable.setItem(i, j, item)
+        """Populate the editor table with dataframe content."""
+        # Use the LithologyTableWidget's load_data method which now uses PandasModel
+        self.editorTable.load_data(dataframe)
 
     def export_editor_data_to_csv(self):
         if self.editorTable.rowCount() == 0:
@@ -2057,15 +2543,11 @@ class MainWindow(QMainWindow):
         file_path, _ = file_dialog.getSaveFileName(self, "Export to CSV", "", "CSV Files (*.csv);;All Files (*)")
         if file_path:
             try:
-                column_headers = [self.editorTable.horizontalHeaderItem(i).text() for i in range(self.editorTable.columnCount())]
-                data = []
-                for row in range(self.editorTable.rowCount()):
-                    row_data = []
-                    for col in range(self.editorTable.columnCount()):
-                        item = self.editorTable.item(row, col)
-                        row_data.append(item.text() if item else "")
-                    data.append(row_data)
-                df_to_export = pd.DataFrame(data, columns=column_headers)
+                # Get data directly from the model's dataframe
+                df_to_export = self.editorTable.get_dataframe()
+                if df_to_export is None:
+                    QMessageBox.warning(self, "Export Error", "No data to export.")
+                    return
                 df_to_export.to_csv(file_path, index=False)
                 QMessageBox.information(self, "Export Successful", f"Data exported to {os.path.basename(file_path)}")
             except Exception as e:
@@ -2519,8 +3001,8 @@ class MainWindow(QMainWindow):
 
         # Get selected rows from the table
         selected_rows = set()
-        for item in self.editorTable.selectedItems():
-            selected_rows.add(item.row())
+        for index in self.editorTable.selectionModel().selectedIndexes():
+            selected_rows.add(index.row())
 
         if len(selected_rows) < 2:
             QMessageBox.warning(self, "Selection Required", "Please select at least 2 consecutive lithology units to create interbedding.")

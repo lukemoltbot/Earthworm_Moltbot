@@ -1,14 +1,16 @@
 from PyQt6.QtWidgets import (
-    QTableWidget, QTableWidgetItem, QStyledItemDelegate,
+    QTableView, QStyledItemDelegate,
     QComboBox, QHeaderView, QAbstractItemView, QApplication
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QModelIndex, QEvent
+from ...ui.models.pandas_model import PandasModel
+from PyQt6.QtCore import Qt, pyqtSignal, QModelIndex, QEvent, QThread, QObject
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen, QKeyEvent
 from typing import Optional, Dict, List, Tuple
 import pandas as pd
 
-from ..core.dictionary_manager import get_dictionary_manager
-from ..core.validation import ValidationResult, ValidationIssue, ValidationSeverity
+from ...core.dictionary_manager import get_dictionary_manager
+from ...core.validation import ValidationResult, ValidationIssue, ValidationSeverity
+from ...core.workers import ValidationWorker
 
 
 class DictionaryDelegate(QStyledItemDelegate):
@@ -109,7 +111,7 @@ class ValidationDelegate(QStyledItemDelegate):
         super().paint(painter, option, index)
 
 
-class LithologyTableWidget(QTableWidget):
+class LithologyTableWidget(QTableView):
     dataChangedSignal = pyqtSignal(object)  # Signal to notify main window to redraw graphics
     rowSelectionChangedSignal = pyqtSignal(int)  # Signal emitted when row selection changes
     validationChangedSignal = pyqtSignal(object)  # Signal with validation results
@@ -120,6 +122,15 @@ class LithologyTableWidget(QTableWidget):
         self.validation_issues: Dict[int, List[ValidationIssue]] = {}
         self.current_dataframe: Optional[pd.DataFrame] = None
         self.total_depth: Optional[float] = None
+        
+        # Create PandasModel
+        self.model = PandasModel()
+        self.setModel(self.model)
+        
+        # Background validation
+        self.validation_worker: Optional[ValidationWorker] = None
+        self.validation_thread: Optional[QThread] = None
+        self.is_validating = False
         
         # 1point Desktop standard column layout with new interbedding columns
         self.headers = [
@@ -148,48 +159,45 @@ class LithologyTableWidget(QTableWidget):
             11: 'Litho_Interrel', 13: 'Bed_Spacing'
         }
         
-        self.setColumnCount(len(self.headers))
-        self.setHorizontalHeaderLabels(self.headers)
-        
-        # Set column tooltips
-        tooltips = {
-            0: "From depth (meters)",
-            1: "To depth (meters)",
-            2: "Thickness (meters)",
-            3: "Lithology type code",
-            4: "Lithology qualifier",
-            5: "Shade (light, medium, dark)",
-            6: "Hue (color tint)",
-            7: "Colour (primary color)",
-            8: "Weathering degree",
-            9: "Estimated strength",
-            10: "Record sequence for interbedding",
-            11: "Inter-relationship code",
-            12: "Percentage in interbedded unit",
-            13: "Bed spacing (CoalLog standard)"
-        }
-        for col, tip in tooltips.items():
-            header_item = self.horizontalHeaderItem(col)
-            if header_item:
-                header_item.setToolTip(tip)
-        
+        # Set up view properties
         self.verticalHeader().setVisible(True)  # Show Row Numbers
         self.setAlternatingRowColors(True)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         
         # Apply dictionary delegates
         self._apply_dictionary_delegates()
         
-        # Apply validation delegate
-        self.validation_delegate = ValidationDelegate(self.validation_issues, self)
-        self.setItemDelegate(self.validation_delegate)
+        # Note: Validation highlighting is now handled by PandasModel
+        # No separate validation delegate needed
         
         # Connect signals
-        self.itemChanged.connect(self._handle_item_changed)
-        self.itemSelectionChanged.connect(self._handle_selection_changed)
+        self.selectionModel().selectionChanged.connect(self._handle_selection_changed)
+        self.model.dataChanged.connect(self._handle_data_changed)
         
         # Install event filter for F3 key
         self.installEventFilter(self)
+        
+        # Set editable columns in model
+        self._update_editable_columns()
+    
+    def _update_editable_columns(self):
+        """Update editable columns in the PandasModel."""
+        if self.current_dataframe is not None:
+            # All columns are editable by default
+            editable_columns = list(self.current_dataframe.columns)
+            self.model.set_editable_columns(editable_columns)
+    
+    def _handle_data_changed(self, top_left, bottom_right, roles):
+        """Handle data changes from the model."""
+        # Update dataframe from model
+        self.current_dataframe = self.model.dataframe()
+        
+        # Run validation
+        self.run_validation()
+        
+        # Emit data changed signal
+        self.dataChangedSignal.emit(self.current_dataframe)
     
     def _apply_dictionary_delegates(self):
         """Apply dictionary delegates to appropriate columns."""
@@ -245,38 +253,34 @@ class LithologyTableWidget(QTableWidget):
                 current_thickness = new_depth - self.current_dataframe.loc[row_index, 'from_depth']
             self.current_dataframe.loc[row_index, 'thickness'] = current_thickness
             
-            # Update the table UI
-            col_idx = self.col_map[column_name]
-            item = QTableWidgetItem(f"{new_depth:.3f}")
-            self.setItem(row_index, col_idx, item)
+            # Update the model with new dataframe
+            self.model.set_dataframe(self.current_dataframe)
             
-            # Update thickness column
+            # Emit data changed for affected cells
+            col_idx = self.col_map[column_name]
             thickness_col_idx = self.col_map['thickness']
-            thickness_item = QTableWidgetItem(f"{current_thickness:.3f}")
-            self.setItem(row_index, thickness_col_idx, thickness_item)
+            
+            # Emit data changed for current row
+            top_left = self.model.index(row_index, min(col_idx, thickness_col_idx))
+            bottom_right = self.model.index(row_index, max(col_idx, thickness_col_idx))
+            self.model.dataChanged.emit(top_left, bottom_right, [])
             
             # Update adjacent rows if needed
             if boundary_type == 'top' and row_index > 0:
-                # Update previous row's To_Depth in UI
+                # Emit data changed for previous row
                 prev_to_col_idx = self.col_map['to_depth']
-                prev_to_item = QTableWidgetItem(f"{new_depth:.3f}")
-                self.setItem(row_index - 1, prev_to_col_idx, prev_to_item)
-                
-                # Update previous row's thickness
                 prev_thickness_col_idx = self.col_map['thickness']
-                prev_thickness_item = QTableWidgetItem(f"{prev_thickness:.3f}")
-                self.setItem(row_index - 1, prev_thickness_col_idx, prev_thickness_item)
+                prev_top_left = self.model.index(row_index - 1, min(prev_to_col_idx, prev_thickness_col_idx))
+                prev_bottom_right = self.model.index(row_index - 1, max(prev_to_col_idx, prev_thickness_col_idx))
+                self.model.dataChanged.emit(prev_top_left, prev_bottom_right, [])
                 
             elif boundary_type == 'bottom' and row_index < len(self.current_dataframe) - 1:
-                # Update next row's From_Depth in UI
+                # Emit data changed for next row
                 next_from_col_idx = self.col_map['from_depth']
-                next_from_item = QTableWidgetItem(f"{new_depth:.3f}")
-                self.setItem(row_index + 1, next_from_col_idx, next_from_item)
-                
-                # Update next row's thickness
                 next_thickness_col_idx = self.col_map['thickness']
-                next_thickness_item = QTableWidgetItem(f"{next_thickness:.3f}")
-                self.setItem(row_index + 1, next_thickness_col_idx, next_thickness_item)
+                next_top_left = self.model.index(row_index + 1, min(next_from_col_idx, next_thickness_col_idx))
+                next_bottom_right = self.model.index(row_index + 1, max(next_from_col_idx, next_thickness_col_idx))
+                self.model.dataChanged.emit(next_top_left, next_bottom_right, [])
             
             # Run validation on affected rows
             affected_rows = [row_index]
@@ -301,17 +305,11 @@ class LithologyTableWidget(QTableWidget):
         self.current_dataframe = dataframe.copy()
         self.total_depth = total_depth
         
-        self.setRowCount(0)
-        self.setRowCount(len(dataframe))
+        # Set dataframe in model
+        self.model.set_dataframe(self.current_dataframe)
         
-        for row_idx, row_data in dataframe.iterrows():
-            for col_name, col_idx in self.col_map.items():
-                if col_name in dataframe.columns:
-                    val = row_data[col_name]
-                    # Format floats to 3 decimals
-                    if isinstance(val, (float, int)) and col_idx <= 2:
-                        val = f"{val:.3f}"
-                    self.setItem(row_idx, col_idx, QTableWidgetItem(str(val) if val is not None else ""))
+        # Update editable columns
+        self._update_editable_columns()
         
         self.blockSignals(False)
         
@@ -319,18 +317,55 @@ class LithologyTableWidget(QTableWidget):
         self.run_validation()
     
     def run_validation(self):
-        """Run validation on current data and update UI."""
+        """Run validation in background thread."""
         if self.current_dataframe is None or self.current_dataframe.empty:
             self.validation_issues.clear()
-            self.validation_delegate.set_validation_issues(self.validation_issues)
-            self.viewport().update()
+            # Update PandasModel with empty validation issues
+            self.model.set_validation_issues({})
             return
         
-        # Import here to avoid circular imports
-        from ..core.validation import RealTimeValidator
+        # Cancel any ongoing validation
+        self._cancel_validation()
         
-        validator = RealTimeValidator(self.dictionary_manager)
-        result = validator.validate_dataframe(self.current_dataframe, self.total_depth)
+        # Create worker and thread
+        self.validation_worker = ValidationWorker(self.current_dataframe, self.total_depth)
+        self.validation_thread = QThread()
+        
+        # Move worker to thread
+        self.validation_worker.moveToThread(self.validation_thread)
+        
+        # Connect signals
+        self.validation_thread.started.connect(self.validation_worker.run)
+        self.validation_worker.progress.connect(self._on_validation_progress)
+        self.validation_worker.finished.connect(self._on_validation_finished)
+        self.validation_worker.error.connect(self._on_validation_error)
+        
+        # Cleanup connections
+        self.validation_worker.finished.connect(self.validation_thread.quit)
+        self.validation_worker.finished.connect(self.validation_worker.deleteLater)
+        self.validation_thread.finished.connect(self.validation_thread.deleteLater)
+        
+        # Set flag and start
+        self.is_validating = True
+        self.validation_thread.start()
+    
+    def _cancel_validation(self):
+        """Cancel any ongoing validation."""
+        if self.validation_thread and self.validation_thread.isRunning():
+            self.validation_thread.quit()
+            self.validation_thread.wait()
+        self.validation_worker = None
+        self.validation_thread = None
+        self.is_validating = False
+    
+    def _on_validation_progress(self, percent: int, message: str):
+        """Handle validation progress updates."""
+        # Could update status bar or show progress in UI
+        print(f"Validation: {percent}% - {message}")
+    
+    def _on_validation_finished(self, result: ValidationResult):
+        """Handle validation completion."""
+        self.is_validating = False
         
         # Group issues by row
         self.validation_issues.clear()
@@ -340,96 +375,63 @@ class LithologyTableWidget(QTableWidget):
                     self.validation_issues[issue.row_index] = []
                 self.validation_issues[issue.row_index].append(issue)
         
-        # Update validation delegate
-        self.validation_delegate.set_validation_issues(self.validation_issues)
+        # Note: Validation delegate removed - highlighting handled by PandasModel
+        
+        # Update PandasModel with validation issues
+        # Convert ValidationIssue objects to simple dicts with severity and column
+        pandas_model_issues = {}
+        for row_idx, issues in self.validation_issues.items():
+            pandas_model_issues[row_idx] = []
+            for issue in issues:
+                # Convert ValidationSeverity enum to string
+                severity_str = issue.severity.value if hasattr(issue.severity, 'value') else str(issue.severity)
+                pandas_model_issues[row_idx].append({
+                    'severity': severity_str.upper(),
+                    'column': issue.column,
+                    'message': issue.message
+                })
+        
+        self.model.set_validation_issues(pandas_model_issues)
         
         # Emit signal with validation results
         self.validationChangedSignal.emit(result)
-        
-        # Trigger repaint
-        self.viewport().update()
+    
+    def _on_validation_error(self, error_msg: str):
+        """Handle validation errors."""
+        self.is_validating = False
+        print(f"Validation error: {error_msg}")
+        # Could show error in status bar
     
     def _run_validation_for_rows(self, row_indices: List[int]):
-        """Run validation only for specific rows."""
-        if not self.current_dataframe or self.current_dataframe.empty:
-            return
-            
-        # Import here to avoid circular imports
-        from ..core.validation import RealTimeValidator
-        
-        validator = RealTimeValidator(self.dictionary_manager)
-        
-        # Clear validation issues for affected rows
-        for row_idx in row_indices:
-            if row_idx in self.validation_issues:
-                del self.validation_issues[row_idx]
-        
-        # Validate affected rows
-        for row_idx in row_indices:
-            if row_idx < len(self.current_dataframe):
-                row_data = self.current_dataframe.iloc[row_idx]
-                result = validator.validate_row(row_idx, row_data, self.total_depth)
-                
-                if result.issues:
-                    self.validation_issues[row_idx] = result.issues
-        
-        # Update validation delegate
-        self.validation_delegate.set_validation_issues(self.validation_issues)
-        
-        # Trigger repaint for affected rows
-        self.viewport().update()
-    
-    def _handle_item_changed(self, item):
-        """Handle item changes and update validation."""
-        row = item.row()
-        col = item.column()
-        
-        # Update dataframe
-        if self.current_dataframe is not None and row < len(self.current_dataframe):
-            col_name = self.index_to_col.get(col)
-            if col_name:
-                try:
-                    text = item.text()
-                    if col <= 2:  # Depth columns
-                        value = float(text) if text else None
-                    else:
-                        value = text if text else None
-                    
-                    self.current_dataframe.at[row, col_name] = value
-                    
-                    # Auto-calc thickness
-                    if col in [0, 1]:  # From or To changed
-                        self._update_thickness(row)
-                    
-                except ValueError:
-                    pass
-        
-        # Run validation
+        """Run validation for specific rows (triggers background validation)."""
+        # For now, just trigger full background validation
+        # This ensures UI doesn't freeze while providing validation feedback
         self.run_validation()
-        
-        # Notify Main Window that data changed
-        self.dataChangedSignal.emit(None)
+    
+    # Note: _handle_item_changed method removed - not needed for QTableView
+    # Data changes are handled via model's dataChanged signal connected to _handle_data_changed
     
     def _update_thickness(self, row: int):
         """Update thickness for a row based on From and To depths."""
-        if self.current_dataframe is None:
+        if self.current_dataframe is None or row >= len(self.current_dataframe):
             return
         
         try:
-            from_item = self.item(row, 0)
-            to_item = self.item(row, 1)
-            if from_item and to_item and from_item.text() and to_item.text():
-                start = float(from_item.text())
-                end = float(to_item.text())
-                thickness = end - start
-                
-                self.blockSignals(True)
-                self.setItem(row, 2, QTableWidgetItem(f"{thickness:.3f}"))
-                self.blockSignals(False)
+            # Get from and to depths from dataframe
+            from_depth = self.current_dataframe.at[row, 'from_depth']
+            to_depth = self.current_dataframe.at[row, 'to_depth']
+            
+            if pd.notna(from_depth) and pd.notna(to_depth):
+                thickness = to_depth - from_depth
                 
                 # Update dataframe
                 self.current_dataframe.at[row, 'thickness'] = thickness
-        except ValueError:
+                
+                # Update model
+                thickness_col_idx = self.col_map['thickness']
+                index = self.model.index(row, thickness_col_idx)
+                self.model.setData(index, thickness, Qt.ItemDataRole.EditRole)
+        except (ValueError, KeyError):
             pass
     
     def _handle_selection_changed(self):
@@ -466,17 +468,17 @@ class LithologyTableWidget(QTableWidget):
     
     def _insert_code_from_search(self, category: str, code: str):
         """Insert code from search dialog into current cell."""
-        current_item = self.currentItem()
-        if not current_item:
+        current_index = self.currentIndex()
+        if not current_index.isValid():
             return
         
         # Check if current column matches the category
-        current_col = current_item.column()
+        current_col = current_index.column()
         expected_category = self.dict_mappings.get(current_col)
         
         if expected_category == category:
             # Direct match - just insert the code
-            current_item.setText(code)
+            self.model.setData(current_index, code, Qt.ItemDataRole.EditRole)
         else:
             # Show message about category mismatch
             from PyQt6.QtWidgets import QMessageBox
