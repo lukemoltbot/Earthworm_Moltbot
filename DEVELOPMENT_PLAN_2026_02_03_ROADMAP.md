@@ -229,6 +229,7 @@
 |-----------|-------|------|---------|--------|-------------|-------|
 | 2026-02-03 20:30 | Init | Roadmap | Creation | ✅ Complete | - | Development plan roadmap created |
 | 2026-02-03 20:31 | Setup | Orchestration | Monitoring | ⏳ Pending | - | 15-minute cron job to be established |
+| 2026-02-03 21:43 | 2 | 2.2 | 2.2.1 | ✅ Complete | 0b5de22 | Added "Column Configurator" button to Settings pane with placeholder dialog |
 
 ---
 
