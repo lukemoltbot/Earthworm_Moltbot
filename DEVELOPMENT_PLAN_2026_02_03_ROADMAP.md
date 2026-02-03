@@ -3,8 +3,8 @@
 
 **Purpose:** Implement the 5-phase development plan outlined in the attached RTF document, transforming Earthworm Moltbot into a professional-grade geological analysis tool with enhanced settings, data schema, plotting, masking, and bug fixes.
 
-**Status:** 🟡 In Progress (30% complete)  
-**Last Updated:** 2026-02-03 21:43 AEDT  
+**Status:** 🟡 In Progress (40% complete)  
+**Last Updated:** 2026-02-04 06:47 AEDT  
 **Total Phases:** 5 | **Total Tasks:** 10 | **Total Subtasks:** 22  
 **GitHub Repository:** https://github.com/lukemoltbot/Earthworm_Moltbot  
 **Continuous Monitoring:** 15-minute progress updates via Discord (User ID: 1465989240746934410)
@@ -15,14 +15,14 @@
 | Phase | Tasks Completed | Total Tasks | Completion |
 |-------|----------------|-------------|------------|
 | Phase 1 | 2/2 | 2 | 100% |
-| Phase 2 | 1/2 | 2 | 50% |
+| Phase 2 | 2/2 | 2 | 100% |
 | Phase 3 | 0/2 | 2 | 0% |
 | Phase 4 | 0/2 | 2 | 0% |
 | Phase 5 | 0/2 | 2 | 0% |
-| **Overall** | **3/10** | **10** | **30%** |
+| **Overall** | **4/10** | **10** | **40%** |
 
 **Active Sub-agents:** 1 (Progress Monitor)  
-**Last Commit:** DevPlan Phase 2.1.4  
+**Last Commit:** DevPlan Phase 2.2.4  
 **Next Update:** 21:45 AEDT (15-minute interval)
 
 ---
@@ -74,16 +74,16 @@
 - [x] **2.1.4:** Test data import/export with new column schema
 
 ### Task 2.2: Visibility Toggle System
-**Status:** 🔄 In Progress  
+**Status:** ✅ Completed  
 **Priority:** Medium  
 **Estimated Complexity:** Medium  
 **Files to Modify:** `src/ui/main_window.py`, new `src/ui/dialogs/column_configurator_dialog.py`
 
 #### Subtasks:
 - [x] **2.2.1:** Add "Column Configurator" button in Settings pane
-- [ ] **2.2.2:** Create dialog with checklist to hide/show any of the 37 columns
-- [ ] **2.2.3:** Implement column visibility persistence in settings
-- [ ] **2.2.4:** Apply visibility changes dynamically to the table view
+- [x] **2.2.2:** Create dialog with checklist to hide/show any of the 37 columns
+- [x] **2.2.3:** Implement column visibility persistence in settings
+- [x] **2.2.4:** Apply visibility changes dynamically to the table view
 
 ---
 
@@ -230,8 +230,9 @@
 | 2026-02-03 20:30 | Init | Roadmap | Creation | ✅ Complete | - | Development plan roadmap created |
 | 2026-02-03 20:31 | Setup | Orchestration | Monitoring | ⏳ Pending | - | 15-minute cron job to be established |
 | 2026-02-03 21:43 | 2 | 2.2 | 2.2.1 | ✅ Complete | 0b5de22 | Added "Column Configurator" button to Settings pane with placeholder dialog |
+| 2026-02-04 06:47 | 2 | 2.2 | 2.2.2-2.2.4 | ✅ Complete | - | Created column configurator dialog with persistence and dynamic visibility |
 
 ---
 
-**Next Scheduled Update:** 2026-02-03 20:45 AEDT  
+**Next Scheduled Update:** 2026-02-04 07:00 AEDT  
 **Projected Completion:** Based on 22 subtasks × 30 minutes each = 11 hours of active work (spread over continuous operation)

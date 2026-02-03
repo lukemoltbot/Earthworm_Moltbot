@@ -28,6 +28,7 @@ from .widgets.pyqtgraph_curve_plotter import PyQtGraphCurvePlotter # Import PyQt
 from .widgets.enhanced_range_gap_visualizer import EnhancedRangeGapVisualizer # Import enhanced widget
 from ..core.settings_manager import load_settings, save_settings
 from .dialogs.researched_defaults_dialog import ResearchedDefaultsDialog # Import new dialog
+from .dialogs.column_configurator_dialog import ColumnConfiguratorDialog # Import column configurator dialog
 from .dialogs.settings_dialog import SettingsDialog # Import settings dialog
 from .dialogs.session_dialog import SessionDialog # Import session dialog
 from .dialogs.template_dialog import TemplateDialog # Import template dialog
@@ -65,10 +66,11 @@ class SvgPreviewWidget(QGraphicsView):
 class HoleEditorWindow(QWidget):
     """A self-contained window for editing a single drill hole."""
     
-    def __init__(self, parent=None, coallog_data=None, file_path=None):
+    def __init__(self, parent=None, coallog_data=None, file_path=None, main_window=None):
         super().__init__(parent)
         self.coallog_data = coallog_data
         self.file_path = file_path
+        self.main_window = main_window
         self.dataframe = None
         self.file_metadata = None
         
@@ -334,6 +336,9 @@ class HoleEditorWindow(QWidget):
         """Populate the editor table with dataframe content."""
         # Use the LithologyTableWidget's load_data method which now uses PandasModel
         self.editorTable.load_data(dataframe)
+        # Apply column visibility settings if main_window is available
+        if self.main_window and hasattr(self.main_window, 'column_visibility'):
+            self.main_window.apply_column_visibility(self.main_window.column_visibility)
     
     def set_window_title(self, title):
         """Set window title for MDI subwindow."""
@@ -581,6 +586,7 @@ class MainWindow(QMainWindow):
 
         # Load settings on startup
         app_settings = load_settings()
+        self.column_visibility = app_settings.get("column_visibility", {})
         self.lithology_rules = app_settings["lithology_rules"]
         self.initial_separator_thickness = app_settings["separator_thickness"]
         self.initial_draw_separators = app_settings["draw_separator_lines"]
@@ -692,7 +698,7 @@ class MainWindow(QMainWindow):
         self.holes_dock.show()  # Show by default
 
         # Create first hole editor window
-        self.editor_hole = HoleEditorWindow(coallog_data=self.coallog_data)
+        self.editor_hole = HoleEditorWindow(coallog_data=self.coallog_data, main_window=self)
         self.editor_tab = self.editor_hole  # Backward compatibility
         
         # Create editor subwindow for the first hole
@@ -1147,7 +1153,8 @@ class MainWindow(QMainWindow):
             smart_interbedding_thick_unit_threshold=app_settings.get("smart_interbedding_thick_unit_threshold", 0.5),
             fallback_classification=app_settings.get("fallback_classification", "Unknown"),
             workspace_state=app_settings.get("workspace"),
-            theme=self.current_theme
+            theme=self.current_theme,
+            column_visibility=app_settings.get("column_visibility", {})
         )
 
     def open_settings_dialog(self):
@@ -1218,7 +1225,7 @@ class MainWindow(QMainWindow):
     def open_hole(self, file_path):
         """Open a hole file in a new MDI subwindow (Phase 1, Task 2)."""
         # Create a new hole editor window
-        hole_editor = HoleEditorWindow(coallog_data=self.coallog_data)
+        hole_editor = HoleEditorWindow(coallog_data=self.coallog_data, main_window=self)
         hole_editor.set_file_path(file_path)
         
         # Create MDI subwindow
@@ -1866,7 +1873,22 @@ class MainWindow(QMainWindow):
                 current_smart_interbedding_thick_unit = self.smartInterbeddingThickUnitSpinBox.value()
 
                 # Call save_settings with the chosen file path
-                save_settings(self.lithology_rules, current_separator_thickness, current_draw_separators, current_curve_inversion_settings, current_curve_thickness, current_use_researched_defaults, current_analysis_method, current_merge_thin_units, current_merge_threshold, current_smart_interbedding, current_smart_interbedding_max_sequence, current_smart_interbedding_thick_unit, file_path)
+                save_settings(
+                    lithology_rules=self.lithology_rules,
+                    separator_thickness=current_separator_thickness,
+                    draw_separator_lines=current_draw_separators,
+                    curve_inversion_settings=current_curve_inversion_settings,
+                    curve_thickness=current_curve_thickness,
+                    use_researched_defaults=current_use_researched_defaults,
+                    analysis_method=current_analysis_method,
+                    merge_thin_units=current_merge_thin_units,
+                    merge_threshold=current_merge_threshold,
+                    smart_interbedding=current_smart_interbedding,
+                    smart_interbedding_max_sequence_length=current_smart_interbedding_max_sequence,
+                    smart_interbedding_thick_unit_threshold=current_smart_interbedding_thick_unit,
+                    column_visibility=self.column_visibility,
+                    file_path=file_path
+                )
                 QMessageBox.information(self, "Settings Saved", f"Settings saved to {os.path.basename(file_path)}")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to save settings: {e}")
@@ -2006,7 +2028,21 @@ class MainWindow(QMainWindow):
         current_smart_interbedding = self.smartInterbeddingCheckBox.isChecked()
         current_smart_interbedding_max_sequence = self.smartInterbeddingMaxSequenceSpinBox.value()
         current_smart_interbedding_thick_unit = self.smartInterbeddingThickUnitSpinBox.value()
-        save_settings(self.lithology_rules, current_separator_thickness, current_draw_separators, current_curve_inversion_settings, current_curve_thickness, current_use_researched_defaults, current_analysis_method, current_merge_thin_units, current_merge_threshold, current_smart_interbedding, current_smart_interbedding_max_sequence, current_smart_interbedding_thick_unit)
+        save_settings(
+            lithology_rules=self.lithology_rules,
+            separator_thickness=current_separator_thickness,
+            draw_separator_lines=current_draw_separators,
+            curve_inversion_settings=current_curve_inversion_settings,
+            curve_thickness=current_curve_thickness,
+            use_researched_defaults=current_use_researched_defaults,
+            analysis_method=current_analysis_method,
+            merge_thin_units=current_merge_thin_units,
+            merge_threshold=current_merge_threshold,
+            smart_interbedding=current_smart_interbedding,
+            smart_interbedding_max_sequence_length=current_smart_interbedding_max_sequence,
+            smart_interbedding_thick_unit_threshold=current_smart_interbedding_thick_unit,
+            column_visibility=self.column_visibility
+        )
 
         # Update instance variables to ensure smart interbedding uses current values
         self.smart_interbedding = current_smart_interbedding
@@ -2053,6 +2089,8 @@ class MainWindow(QMainWindow):
                 self.initial_curve_thickness = loaded_settings["curve_thickness"] # Load new setting
                 self.use_researched_defaults = loaded_settings["use_researched_defaults"]
                 self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
+                self.column_visibility = loaded_settings.get("column_visibility", {})
+                self.apply_column_visibility(self.column_visibility)
 
                 self.load_settings_rules_to_table()
                 self.load_separator_settings()
@@ -2551,6 +2589,8 @@ class MainWindow(QMainWindow):
         """Populate the editor table with dataframe content."""
         # Use the LithologyTableWidget's load_data method which now uses PandasModel
         self.editorTable.load_data(dataframe)
+        # Apply column visibility settings
+        self.apply_column_visibility(self.column_visibility)
 
     def export_editor_data_to_csv(self):
         if self.editorTable.rowCount() == 0:
@@ -2696,12 +2736,68 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     def open_column_configurator_dialog(self):
-        """Open the column configurator dialog (placeholder for now)."""
-        QMessageBox.information(self, "Column Configurator", 
-                               "Column configurator dialog coming soon.\n\n"
-                               "This dialog will allow you to hide/show any of the 37 columns "
-                               "in the lithology table.")
+        """Open the column configurator dialog to hide/show columns."""
+        dialog = ColumnConfiguratorDialog(self, main_window=self, current_visibility=self.column_visibility)
+        dialog.visibility_changed.connect(self.on_column_visibility_changed)
+        dialog.exec()
 
+    def on_column_visibility_changed(self, visibility_map):
+        """Handle column visibility changes from configurator dialog."""
+        # Update stored visibility
+        self.column_visibility = visibility_map
+        
+        # Apply visibility to table
+        self.apply_column_visibility(visibility_map)
+        
+        # Save settings with updated column visibility
+        self.update_settings(auto_save=True)
+        
+        # Show confirmation
+        visible_count = sum(1 for v in visibility_map.values() if v)
+        hidden_count = len(visibility_map) - visible_count
+        QMessageBox.information(
+            self, 
+            "Columns Updated",
+            f"Column visibility applied:\n"
+            f"• {visible_count} columns visible\n"
+            f"• {hidden_count} columns hidden\n\n"
+            f"Changes have been saved to settings."
+        )
+    
+    def apply_column_visibility(self, visibility_map):
+        """Apply column visibility mapping to all lithology tables."""
+        # Apply to main editor table (first hole)
+        if hasattr(self, 'editorTable') and self.editorTable.model() is not None:
+            self._apply_visibility_to_table(self.editorTable, visibility_map)
+        
+        # Apply to all hole editor windows in MDI area
+        if hasattr(self, 'mdi_area'):
+            for subwindow in self.mdi_area.subWindowList():
+                widget = subwindow.widget()
+                if hasattr(widget, 'editorTable') and widget.editorTable.model() is not None:
+                    self._apply_visibility_to_table(widget.editorTable, visibility_map)
+    
+    def _apply_visibility_to_table(self, table, visibility_map):
+        """Apply visibility mapping to a specific table."""
+        model = table.model()
+        if not hasattr(model, '_dataframe'):
+            return
+        
+        column_names = model._dataframe.columns.tolist()
+        
+        # Map internal names to column indices
+        for internal_name, is_visible in visibility_map.items():
+            if internal_name in column_names:
+                col_index = column_names.index(internal_name)
+                table.setColumnHidden(col_index, not is_visible)
+            else:
+                # Try to find by display name (replace underscores with spaces)
+                display_name = internal_name.replace('_', ' ').title()
+                for idx, col in enumerate(column_names):
+                    if col == internal_name or col == display_name:
+                        table.setColumnHidden(idx, not is_visible)
+                        break
+    
     def refresh_range_visualization(self):
         """Refresh the range gap visualization with current lithology rules"""
         # Get current rules from the table
