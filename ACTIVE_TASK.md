@@ -16,7 +16,7 @@ Execute the 5-phase development plan outlined in the RTF document, implementing 
 
 ## Development Plan Overview
 
-### Phase 1: Settings Optimization & Vertical Flow (1/2 tasks)
+### Phase 1: Settings Optimization & Vertical Flow (2/2 tasks)
 - **Task 1.1**: Vertical Layout Overhaul & Anti-Horizontal Scroll
 - **Task 1.2**: Externalizing "Lithology Rules" to a Modal Dialog
 
@@ -39,12 +39,13 @@ Execute the 5-phase development plan outlined in the RTF document, implementing 
 **Total**: 5 phases, 9 tasks, 22 subtasks
 
 ## Current Status (Execution Phase)
-- **Overall Progress**: 11% (1/9 tasks completed)
-- **Active Sub-agents**: 2 (DevPlan_Progress_Monitor, DevPlan_Phase1_Task1_2)
+- **Overall Progress**: 22% (2/9 tasks completed)
+- **Active Sub-agents**: 1 (DevPlan_Progress_Monitor_restart - active)
+- **Progress Monitor**: Restart in progress (DevPlan_Progress_Monitor_restart)
 - **Last Commit**: bd53c91 (Update ACTIVE_TASK.md with Phase 1 Task 1.1 completion)
-- **Next Update**: 2026-02-03 21:05 AEDT (15-minute interval)
+- **Next Update**: 2026-02-03 21:35 AEDT (15-minute interval after restart)
 - **Roadmap Created**: ✅ DEVELOPMENT_PLAN_2026_02_03_ROADMAP.md
-- **Current Task**: Phase 1 Task 1.2 (Externalizing Lithology Rules)
+- **Current Task**: Phase 2 Task 2.1 (Full Column Implementation)
 
 ## Immediate Actions
 1. ✅ **Create comprehensive roadmap** - Completed
@@ -53,7 +54,10 @@ Execute the 5-phase development plan outlined in the RTF document, implementing 
 4. ✅ **Establish 15-minute progress monitoring** - Completed (DevPlan_Progress_Monitor)
 5. ✅ **Execute Phase 1 Task 1.1** - Completed
 6. ✅ **Spawn Task 1.2 sub-agent** - Completed (DevPlan_Phase1_Task1_2)
-7. 🔄 **Execute Phase 1 Task 1.2** - In progress
+7. ✅ **Execute Phase 1 Task 1.2** - Completed (Lithology rules modal dialog)
+8. 🔄 **Restart progress monitor cron job** - Pending
+9. ✅ **Spawn fresh Task 1.2 sub-agent** - Completed (DevPlan_Phase1_Task1_2_LithologyRules_restart)
+10. 🔄 **Spawn Phase 2 Task 2.1 sub-agent** - Pending
 
 ## Orchestration Protocol
 
@@ -96,8 +100,10 @@ Execute the 5-phase development plan outlined in the RTF document, implementing 
 | 2026-02-03 20:38 | Phase 1 | Task 1.1 | Spawn | ✅ | - | 2 |
 | 2026-02-03 20:38 | Phase 1 | Task 1.1 | Execution | ✅ | bd53c91 | 1 |
 | 2026-02-03 20:50 | Phase 1 | Task 1.2 | Spawn | ✅ | - | 2 |
-| 2026-02-03 20:51 | Phase 1 | Task 1.2 | Execution | 🔄 | - | 2 |
+| 2026-02-03 20:51 | Phase 1 | Task 1.2 | Execution | ❌ Stalled | - | 1 |
+| 2026-02-03 21:19 | Phase 1 | Task 1.2 | Stall Detection | 🔍 Detected | - | 1 |
+| 2026-02-03 21:20 | Phase 1 | Task 1.2 | Restart | 🔄 In progress | - | 3 |
 
 ---
-*Last updated: 2026-02-03 20:51 AEDT (GMT+11)*
+*Last updated: 2026-02-03 21:20 AEDT (GMT+11)*
 *Development plan initiated per user request with attached RTF document*
