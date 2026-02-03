@@ -216,6 +216,7 @@ poetry.lock
 *.bak
 test_*.py
 continuous_*.py
+!continuous_monitor.py
 *_settings_tab.py
 progress_updater.py
 send_updates.py
