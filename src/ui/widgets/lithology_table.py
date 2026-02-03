@@ -132,31 +132,54 @@ class LithologyTableWidget(QTableView):
         self.validation_thread: Optional[QThread] = None
         self.is_validating = False
         
-        # 1point Desktop standard column layout with new interbedding columns
+        # CoalLog v3.1 standard 37-column layout
         self.headers = [
-            'From', 'To', 'Thick', 'Litho', 'Qual',
-            'Shade', 'Hue', 'Colour', 'Weath', 'Str',
-            'Rec Seq', 'Inter-rel', 'Percent', 'Bed Sp'
+            'From Depth', 'To Depth', 'Recovered Thickness',
+            'Record Sequence Flag', 'Seam', 'Ply', 'Horizon',
+            'Sample Purpose', 'Lithology Sample Number', 'Interval Status',
+            'Lithology', 'Lithology Qualifier', 'Lithology %',
+            'Shade', 'Hue', 'Colour',
+            'Adjective 1', 'Adjective 2', 'Adjective 3', 'Adjective 4',
+            'Interrelationship', 'Lithology Descriptor',
+            'Weathering', 'Estimated Strength', 'Bed Spacing',
+            'Core State', 'Mechanical State', 'Texture',
+            'Defect Type', 'Intact', 'Defect Spacing', 'Defect Dip',
+            'Bedding Dip', 'Basal Contact', 'Sedimentary Feature',
+            'Mineral / Fossil', 'Abundance'
         ]
         
-        # Map internal DF columns to Table Indices
+        # Map internal DF columns to Table Indices (0-36 for 37 columns)
         self.col_map = {
-            'from_depth': 0, 'to_depth': 1, 'thickness': 2,
-            'LITHOLOGY_CODE': 3, 'lithology_qualifier': 4,
-            'shade': 5, 'hue': 6, 'colour': 7,
-            'weathering': 8, 'estimated_strength': 9,
-            'record_sequence': 10, 'inter_relationship': 11, 
-            'percentage': 12, 'bed_spacing': 13
+            'from_depth': 0, 'to_depth': 1, 'recovered_thickness': 2,
+            'record_sequence_flag': 3, 'seam': 4, 'ply': 5, 'horizon': 6,
+            'sample_purpose': 7, 'lithology_sample_number': 8, 'interval_status': 9,
+            'lithology': 10, 'lithology_qualifier': 11, 'lithology_percent': 12,
+            'shade': 13, 'hue': 14, 'colour': 15,
+            'adjective_1': 16, 'adjective_2': 17, 'adjective_3': 18, 'adjective_4': 19,
+            'interrelationship': 20, 'lithology_descriptor': 21,
+            'weathering': 22, 'estimated_strength': 23, 'bed_spacing': 24,
+            'core_state': 25, 'mechanical_state': 26, 'texture': 27,
+            'defect_type': 28, 'intact': 29, 'defect_spacing': 30, 'defect_dip': 31,
+            'bedding_dip': 32, 'basal_contact': 33, 'sedimentary_feature': 34,
+            'mineral_fossil': 35, 'abundance': 36
         }
         
         # Reverse mapping for validation
         self.index_to_col = {v: k for k, v in self.col_map.items()}
         
-        # Dictionary column mappings
+        # Dictionary column mappings - update for new dictionary columns
+        # Note: Need to check which columns have dictionaries in CoalLog
         self.dict_mappings = {
-            3: 'Litho_Type', 4: 'Litho_Qual', 5: 'Shade',
-            6: 'Hue', 7: 'Colour', 8: 'Weathering', 9: 'Est_Strength',
-            11: 'Litho_Interrel', 13: 'Bed_Spacing'
+            10: 'Litho_Type',  # Lithology
+            11: 'Litho_Qual',  # Lithology Qualifier
+            13: 'Shade',       # Shade
+            14: 'Hue',         # Hue
+            15: 'Colour',      # Colour
+            20: 'Litho_Interrel',  # Interrelationship
+            22: 'Weathering',  # Weathering
+            23: 'Est_Strength',  # Estimated Strength
+            24: 'Bed_Spacing',  # Bed Spacing
+            # Add more dictionary mappings as needed for new columns
         }
         
         # Set up view properties
@@ -248,7 +271,7 @@ class LithologyTableWidget(QTableView):
                     self.current_dataframe.loc[row_index - 1, 'to_depth'] = new_depth
                     # Update thickness for previous row
                     prev_thickness = new_depth - self.current_dataframe.loc[row_index - 1, 'from_depth']
-                    self.current_dataframe.loc[row_index - 1, 'thickness'] = prev_thickness
+                    self.current_dataframe.loc[row_index - 1, 'recovered_thickness'] = prev_thickness
                     
             else:  # 'bottom'
                 column_name = 'to_depth'
@@ -260,21 +283,21 @@ class LithologyTableWidget(QTableView):
                     self.current_dataframe.loc[row_index + 1, 'from_depth'] = new_depth
                     # Update thickness for next row
                     next_thickness = self.current_dataframe.loc[row_index + 1, 'to_depth'] - new_depth
-                    self.current_dataframe.loc[row_index + 1, 'thickness'] = next_thickness
+                    self.current_dataframe.loc[row_index + 1, 'recovered_thickness'] = next_thickness
             
             # Update thickness for current row
             if boundary_type == 'top':
                 current_thickness = self.current_dataframe.loc[row_index, 'to_depth'] - new_depth
             else:
                 current_thickness = new_depth - self.current_dataframe.loc[row_index, 'from_depth']
-            self.current_dataframe.loc[row_index, 'thickness'] = current_thickness
+            self.current_dataframe.loc[row_index, 'recovered_thickness'] = current_thickness
             
             # Update the model with new dataframe
             self.model.set_dataframe(self.current_dataframe)
             
             # Emit data changed for affected cells
             col_idx = self.col_map[column_name]
-            thickness_col_idx = self.col_map['thickness']
+            thickness_col_idx = self.col_map['recovered_thickness']
             
             # Emit data changed for current row
             top_left = self.model.index(row_index, min(col_idx, thickness_col_idx))
@@ -285,7 +308,7 @@ class LithologyTableWidget(QTableView):
             if boundary_type == 'top' and row_index > 0:
                 # Emit data changed for previous row
                 prev_to_col_idx = self.col_map['to_depth']
-                prev_thickness_col_idx = self.col_map['thickness']
+                prev_thickness_col_idx = self.col_map['recovered_thickness']
                 prev_top_left = self.model.index(row_index - 1, min(prev_to_col_idx, prev_thickness_col_idx))
                 prev_bottom_right = self.model.index(row_index - 1, max(prev_to_col_idx, prev_thickness_col_idx))
                 self.model.dataChanged.emit(prev_top_left, prev_bottom_right, [])
@@ -293,7 +316,7 @@ class LithologyTableWidget(QTableView):
             elif boundary_type == 'bottom' and row_index < len(self.current_dataframe) - 1:
                 # Emit data changed for next row
                 next_from_col_idx = self.col_map['from_depth']
-                next_thickness_col_idx = self.col_map['thickness']
+                next_thickness_col_idx = self.col_map['recovered_thickness']
                 next_top_left = self.model.index(row_index + 1, min(next_from_col_idx, next_thickness_col_idx))
                 next_bottom_right = self.model.index(row_index + 1, max(next_from_col_idx, next_thickness_col_idx))
                 self.model.dataChanged.emit(next_top_left, next_bottom_right, [])
@@ -441,10 +464,10 @@ class LithologyTableWidget(QTableView):
                 thickness = to_depth - from_depth
                 
                 # Update dataframe
-                self.current_dataframe.at[row, 'thickness'] = thickness
+                self.current_dataframe.at[row, 'recovered_thickness'] = thickness
                 
                 # Update model
-                thickness_col_idx = self.col_map['thickness']
+                thickness_col_idx = self.col_map['recovered_thickness']
                 index = self.model.index(row, thickness_col_idx)
                 self.model.setData(index, thickness, Qt.ItemDataRole.EditRole)
         except (ValueError, KeyError):
