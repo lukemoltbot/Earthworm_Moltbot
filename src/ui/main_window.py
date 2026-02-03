@@ -1511,10 +1511,10 @@ class MainWindow(QMainWindow):
             if item.widget():
                 item.widget().deleteLater()
         
-        # Create scroll area for settings (in case panel is small)
+        # Create scroll area for settings with vertical-only scrolling
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)  # Force vertical-only scrolling
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         
         # Container widget for all settings groups
@@ -1557,34 +1557,29 @@ class MainWindow(QMainWindow):
         
         # 2. DISPLAY SETTINGS GROUP
         display_group = QGroupBox("Display Settings")
-        display_layout = QGridLayout(display_group)
+        display_layout = QFormLayout(display_group)
         display_layout.setSpacing(8)
-        display_layout.setColumnStretch(1, 1)
+        display_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
         
-        # Row 0: Separator thickness
-        display_layout.addWidget(QLabel("Separator Line Thickness:"), 0, 0)
+        # Separator thickness
         self.separatorThicknessSpinBox = QDoubleSpinBox()
         self.separatorThicknessSpinBox.setRange(0.0, 5.0)
         self.separatorThicknessSpinBox.setSingleStep(0.1)
         self.separatorThicknessSpinBox.setMaximumWidth(100)
-        display_layout.addWidget(self.separatorThicknessSpinBox, 0, 1)
+        display_layout.addRow("Separator Line Thickness:", self.separatorThicknessSpinBox)
         
-        # Row 1: Draw separators checkbox
+        # Draw separators checkbox
         self.drawSeparatorsCheckBox = QCheckBox("Draw Separator Lines")
-        display_layout.addWidget(self.drawSeparatorsCheckBox, 1, 0, 1, 2)
+        display_layout.addRow(self.drawSeparatorsCheckBox)
         
-        # Row 2: Curve thickness
-        display_layout.addWidget(QLabel("Curve Line Thickness:"), 2, 0)
+        # Curve thickness
         self.curveThicknessSpinBox = QDoubleSpinBox()
         self.curveThicknessSpinBox.setRange(0.1, 5.0)
         self.curveThicknessSpinBox.setSingleStep(0.1)
         self.curveThicknessSpinBox.setMaximumWidth(100)
-        display_layout.addWidget(self.curveThicknessSpinBox, 2, 1)
+        display_layout.addRow("Curve Line Thickness:", self.curveThicknessSpinBox)
         
-        # Row 3: Curve inversion checkboxes
-        curve_inv_label = QLabel("Curve Inversion:")
-        display_layout.addWidget(curve_inv_label, 3, 0, Qt.AlignmentFlag.AlignTop)
-        
+        # Curve inversion checkboxes
         curve_inv_widget = QWidget()
         curve_inv_layout = QVBoxLayout(curve_inv_widget)
         curve_inv_layout.setSpacing(4)
@@ -1595,7 +1590,7 @@ class MainWindow(QMainWindow):
         curve_inv_layout.addWidget(self.invertGammaCheckBox)
         curve_inv_layout.addWidget(self.invertShortSpaceDensityCheckBox)
         curve_inv_layout.addWidget(self.invertLongSpaceDensityCheckBox)
-        display_layout.addWidget(curve_inv_widget, 3, 1)
+        display_layout.addRow("Curve Inversion:", curve_inv_widget)
         
         container_layout.addWidget(display_group)
         
@@ -1648,18 +1643,19 @@ class MainWindow(QMainWindow):
         self.interbedding_params_widget.setVisible(self.smart_interbedding)
         
         # Analysis method
-        method_layout = QHBoxLayout()
+        method_widget = QWidget()
+        method_layout = QFormLayout(method_widget)
         method_layout.setSpacing(8)
-        method_layout.addWidget(QLabel("Analysis Method:"))
+        method_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
+        
         self.analysisMethodComboBox = QComboBox()
         self.analysisMethodComboBox.addItems(["Standard", "Simple"])
         if hasattr(self, 'analysis_method') and self.analysis_method == "simple":
             self.analysisMethodComboBox.setCurrentText("Simple")
         else:
             self.analysisMethodComboBox.setCurrentText("Standard")
-        method_layout.addWidget(self.analysisMethodComboBox)
-        method_layout.addStretch()
-        analysis_layout.addLayout(method_layout)
+        method_layout.addRow("Analysis Method:", self.analysisMethodComboBox)
+        analysis_layout.addWidget(method_widget)
         
         container_layout.addWidget(analysis_group)
         

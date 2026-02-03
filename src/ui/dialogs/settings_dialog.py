@@ -76,10 +76,10 @@ class SettingsDialog(QDialog):
         main_layout = QVBoxLayout(tab)
         main_layout.setContentsMargins(4, 4, 4, 4)
         
-        # Create scroll area
+        # Create scroll area with vertical-only scrolling
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)  # Force vertical-only scrolling
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         
         # Container widget for scroll content
@@ -123,10 +123,10 @@ class SettingsDialog(QDialog):
         main_layout = QVBoxLayout(tab)
         main_layout.setContentsMargins(4, 4, 4, 4)
         
-        # Create scroll area
+        # Create scroll area with vertical-only scrolling
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)  # Force vertical-only scrolling
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         
         # Container widget for scroll content
@@ -137,50 +137,48 @@ class SettingsDialog(QDialog):
         
         # Separator settings group
         separator_group = QGroupBox("Stratigraphic Column Separators")
-        separator_layout = QVBoxLayout(separator_group)
+        separator_layout = QFormLayout(separator_group)
         separator_layout.setSpacing(8)
+        separator_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
         
         # Separator thickness
-        thickness_layout = QHBoxLayout()
-        thickness_layout.addWidget(QLabel("Separator Line Thickness:"))
         self.separatorThicknessSpinBox = QDoubleSpinBox()
         self.separatorThicknessSpinBox.setRange(0.0, 5.0)
         self.separatorThicknessSpinBox.setSingleStep(0.1)
         self.separatorThicknessSpinBox.setMaximumWidth(100)
-        thickness_layout.addWidget(self.separatorThicknessSpinBox)
-        thickness_layout.addStretch()
-        separator_layout.addLayout(thickness_layout)
+        separator_layout.addRow("Separator Line Thickness:", self.separatorThicknessSpinBox)
         
         # Draw separators checkbox
         self.drawSeparatorsCheckBox = QCheckBox("Draw Separator Lines")
-        separator_layout.addWidget(self.drawSeparatorsCheckBox)
+        separator_layout.addRow(self.drawSeparatorsCheckBox)
         
         layout.addWidget(separator_group)
         
         # Curve display settings group
         curve_group = QGroupBox("Curve Display")
-        curve_layout = QVBoxLayout(curve_group)
+        curve_layout = QFormLayout(curve_group)
         curve_layout.setSpacing(8)
+        curve_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
         
         # Curve thickness
-        curve_thickness_layout = QHBoxLayout()
-        curve_thickness_layout.addWidget(QLabel("Curve Line Thickness:"))
         self.curveThicknessSpinBox = QDoubleSpinBox()
         self.curveThicknessSpinBox.setRange(0.1, 5.0)
         self.curveThicknessSpinBox.setSingleStep(0.1)
         self.curveThicknessSpinBox.setMaximumWidth(100)
-        curve_thickness_layout.addWidget(self.curveThicknessSpinBox)
-        curve_thickness_layout.addStretch()
-        curve_layout.addLayout(curve_thickness_layout)
+        curve_layout.addRow("Curve Line Thickness:", self.curveThicknessSpinBox)
         
         # Curve inversion checkboxes
+        curve_inv_widget = QWidget()
+        curve_inv_layout = QVBoxLayout(curve_inv_widget)
+        curve_inv_layout.setSpacing(4)
+        curve_inv_layout.setContentsMargins(0, 0, 0, 0)
         self.invertGammaCheckBox = QCheckBox("Invert Gamma Curve")
         self.invertShortSpaceDensityCheckBox = QCheckBox("Invert Short Space Density")
         self.invertLongSpaceDensityCheckBox = QCheckBox("Invert Long Space Density")
-        
-        curve_layout.addWidget(self.invertGammaCheckBox)
-        curve_layout.addWidget(self.invertShortSpaceDensityCheckBox)
-        curve_layout.addWidget(self.invertLongSpaceDensityCheckBox)
+        curve_inv_layout.addWidget(self.invertGammaCheckBox)
+        curve_inv_layout.addWidget(self.invertShortSpaceDensityCheckBox)
+        curve_inv_layout.addWidget(self.invertLongSpaceDensityCheckBox)
+        curve_layout.addRow("Curve Inversion:", curve_inv_widget)
         
         layout.addWidget(curve_group)
         
@@ -198,10 +196,10 @@ class SettingsDialog(QDialog):
         main_layout = QVBoxLayout(tab)
         main_layout.setContentsMargins(4, 4, 4, 4)
         
-        # Create scroll area
+        # Create scroll area with vertical-only scrolling
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)  # Force vertical-only scrolling
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         
         # Container widget for scroll content
@@ -230,32 +228,30 @@ class SettingsDialog(QDialog):
         
         # Smart interbedding parameters group
         self.interbedding_group = QGroupBox("Smart Interbedding Parameters")
-        interbedding_layout = QGridLayout(self.interbedding_group)
+        interbedding_layout = QFormLayout(self.interbedding_group)
         interbedding_layout.setSpacing(8)
+        interbedding_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
         
-        interbedding_layout.addWidget(QLabel("Max Sequence Length:"), 0, 0)
         self.smartInterbeddingMaxSequenceSpinBox = QSpinBox()
         self.smartInterbeddingMaxSequenceSpinBox.setRange(5, 50)
-        interbedding_layout.addWidget(self.smartInterbeddingMaxSequenceSpinBox, 0, 1)
+        interbedding_layout.addRow("Max Sequence Length:", self.smartInterbeddingMaxSequenceSpinBox)
         
-        interbedding_layout.addWidget(QLabel("Thick Unit Threshold (m):"), 1, 0)
         self.smartInterbeddingThickUnitSpinBox = QDoubleSpinBox()
         self.smartInterbeddingThickUnitSpinBox.setRange(0.1, 5.0)
         self.smartInterbeddingThickUnitSpinBox.setSingleStep(0.1)
-        interbedding_layout.addWidget(self.smartInterbeddingThickUnitSpinBox, 1, 1)
+        interbedding_layout.addRow("Thick Unit Threshold (m):", self.smartInterbeddingThickUnitSpinBox)
         
-        interbedding_layout.setColumnStretch(2, 1)
         layout.addWidget(self.interbedding_group)
         
         # Analysis method
         method_group = QGroupBox("Analysis Method")
-        method_layout = QHBoxLayout(method_group)
+        method_layout = QFormLayout(method_group)
         method_layout.setSpacing(8)
-        method_layout.addWidget(QLabel("Analysis Method:"))
+        method_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
+        
         self.analysisMethodComboBox = QComboBox()
         self.analysisMethodComboBox.addItems(["Standard", "Simple"])
-        method_layout.addWidget(self.analysisMethodComboBox)
-        method_layout.addStretch()
+        method_layout.addRow("Analysis Method:", self.analysisMethodComboBox)
         layout.addWidget(method_group)
         
         layout.addStretch()
@@ -323,10 +319,10 @@ class SettingsDialog(QDialog):
         main_layout = QVBoxLayout(tab)
         main_layout.setContentsMargins(4, 4, 4, 4)
         
-        # Create scroll area
+        # Create scroll area with vertical-only scrolling
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)  # Force vertical-only scrolling
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         
         # Container widget for scroll content
@@ -375,10 +371,10 @@ class SettingsDialog(QDialog):
         main_layout = QVBoxLayout(tab)
         main_layout.setContentsMargins(4, 4, 4, 4)
         
-        # Create scroll area
+        # Create scroll area with vertical-only scrolling
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)  # Force vertical-only scrolling
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         
         # Container widget for scroll content
