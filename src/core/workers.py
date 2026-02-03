@@ -53,14 +53,36 @@ class LASLoaderWorker(QObject):
             
             # Try to extract coordinates from header
             coordinates = {}
+            
+            def safe_float(value, default=None):
+                """Safely convert value to float, handling empty strings and conversion errors."""
+                if value is None:
+                    return default
+                if isinstance(value, str):
+                    value = value.strip()
+                    if value == '':
+                        return default
+                try:
+                    return float(value)
+                except (ValueError, TypeError):
+                    return default
+            
             if hasattr(las.well, 'X'):
-                coordinates['easting'] = float(las.well.X.value)
+                easting = safe_float(las.well.X.value)
+                if easting is not None:
+                    coordinates['easting'] = easting
             if hasattr(las.well, 'Y'):
-                coordinates['northing'] = float(las.well.Y.value)
+                northing = safe_float(las.well.Y.value)
+                if northing is not None:
+                    coordinates['northing'] = northing
             if hasattr(las.well, 'LATI'):
-                coordinates['latitude'] = float(las.well.LATI.value)
+                latitude = safe_float(las.well.LATI.value)
+                if latitude is not None:
+                    coordinates['latitude'] = latitude
             if hasattr(las.well, 'LONG'):
-                coordinates['longitude'] = float(las.well.LONG.value)
+                longitude = safe_float(las.well.LONG.value)
+                if longitude is not None:
+                    coordinates['longitude'] = longitude
             
             metadata['coordinates'] = coordinates
             
@@ -130,6 +152,19 @@ class MapDataWorker(QObject):
             processed_data = []
             metadata = {'total_files': len(self.file_paths), 'processed_files': 0}
             
+            def safe_float(value, default=None):
+                """Safely convert value to float, handling empty strings and conversion errors."""
+                if value is None:
+                    return default
+                if isinstance(value, str):
+                    value = value.strip()
+                    if value == '':
+                        return default
+                try:
+                    return float(value)
+                except (ValueError, TypeError):
+                    return default
+            
             for i, file_path in enumerate(self.file_paths):
                 progress_pct = int((i / len(self.file_paths)) * 100)
                 self.progress.emit(progress_pct, f"Processing {file_path}...")
@@ -144,13 +179,21 @@ class MapDataWorker(QObject):
                         # Extract coordinates
                         coords = {}
                         if hasattr(las.well, 'X'):
-                            coords['easting'] = float(las.well.X.value)
+                            easting = safe_float(las.well.X.value)
+                            if easting is not None:
+                                coords['easting'] = easting
                         if hasattr(las.well, 'Y'):
-                            coords['northing'] = float(las.well.Y.value)
+                            northing = safe_float(las.well.Y.value)
+                            if northing is not None:
+                                coords['northing'] = northing
                         if hasattr(las.well, 'LATI'):
-                            coords['latitude'] = float(las.well.LATI.value)
+                            latitude = safe_float(las.well.LATI.value)
+                            if latitude is not None:
+                                coords['latitude'] = latitude
                         if hasattr(las.well, 'LONG'):
-                            coords['longitude'] = float(las.well.LONG.value)
+                            longitude = safe_float(las.well.LONG.value)
+                            if longitude is not None:
+                                coords['longitude'] = longitude
                         
                         # Extract well name
                         well_name = str(las.well.WELL.value) if hasattr(las.well, 'WELL') else file_path
@@ -169,11 +212,19 @@ class MapDataWorker(QObject):
                         # Try to extract coordinates from header or first row
                         coords = {}
                         if 'Easting' in df.columns and 'Northing' in df.columns:
-                            coords['easting'] = float(df['Easting'].iloc[0])
-                            coords['northing'] = float(df['Northing'].iloc[0])
+                            easting = safe_float(df['Easting'].iloc[0])
+                            northing = safe_float(df['Northing'].iloc[0])
+                            if easting is not None:
+                                coords['easting'] = easting
+                            if northing is not None:
+                                coords['northing'] = northing
                         elif 'X' in df.columns and 'Y' in df.columns:
-                            coords['easting'] = float(df['X'].iloc[0])
-                            coords['northing'] = float(df['Y'].iloc[0])
+                            easting = safe_float(df['X'].iloc[0])
+                            northing = safe_float(df['Y'].iloc[0])
+                            if easting is not None:
+                                coords['easting'] = easting
+                            if northing is not None:
+                                coords['northing'] = northing
                         
                         processed_data.append({
                             'file_path': file_path,
