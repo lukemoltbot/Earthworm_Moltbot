@@ -1502,9 +1502,7 @@ class MainWindow(QMainWindow):
     def load_default_lithology_rules(self):
         self.lithology_rules = DEFAULT_LITHOLOGY_RULES
 
-    def on_tab_changed(self, index):
-        if self.tab_widget.tabText(index) != "Settings":
-            self.save_settings_rules_from_table()
+    # Tab widget removed in MDI refactoring - method kept for compatibility
 
     def setup_settings_tab(self):
         # Clear existing layout (just in case)
@@ -3312,7 +3310,10 @@ class MainWindow(QMainWindow):
         if hasattr(self.curvePlotter, 'set_lithology_data'):
             self.curvePlotter.set_lithology_data(editor_dataframe)
         
-        self.tab_widget.setCurrentIndex(self.tab_widget.indexOf(self.editor_tab))
+        # Activate the editor subwindow in MDI area
+        if hasattr(self, 'mdi_area') and hasattr(self, 'editor_subwindow'):
+            self.mdi_area.setActiveSubWindow(self.editor_subwindow)
+            self.editor_subwindow.show()
         QMessageBox.information(self, "Analysis Complete", "Borehole analysis finished successfully!")
 
     def _schedule_gap_visualization_update(self):
