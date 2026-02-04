@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QDialog, QScrollArea, QDockWidget,
     QPushButton, QComboBox, QLabel, QGraphicsView, QFileDialog, QMessageBox,
     QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView, QColorDialog, QGraphicsScene, QDoubleSpinBox, QCheckBox, QSlider, QSpinBox, QFrame, QSplitter, QAbstractItemView,
-    QGroupBox, QGridLayout, QSizePolicy,
+    QGroupBox, QGridLayout, QFormLayout, QSizePolicy,
     QMdiArea, QMdiSubWindow, QMenu,
     QTreeView, QProgressBar, QApplication, QToolBar
 )
