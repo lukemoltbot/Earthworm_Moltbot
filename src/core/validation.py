@@ -10,6 +10,8 @@ from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 from enum import Enum
 
+from .config import LITHOLOGY_COLUMN, RECOVERED_THICKNESS_COLUMN
+
 
 class ValidationSeverity(Enum):
     """Severity levels for validation issues."""
@@ -233,15 +235,15 @@ def validate_hole(dataframe: pd.DataFrame, total_depth: Optional[float] = None) 
         seen_ranges.add(range_str)
     
     # Check thickness calculation if Thickness column exists
-    if 'Thickness' in df.columns:
+    if RECOVERED_THICKNESS_COLUMN in df.columns:
         for idx, row in df.iterrows():
             calculated = row['To_Depth'] - row['From_Depth']
-            stored = row['Thickness']
+            stored = row[RECOVERED_THICKNESS_COLUMN]
             if pd.notna(stored) and abs(calculated - stored) > 0.001:
                 result.add_warning(
                     f"Thickness mismatch: calculated {calculated:.3f}, stored {stored:.3f}",
                     row_index=idx,
-                    column='Thickness',
+                    column=RECOVERED_THICKNESS_COLUMN,
                     value=stored
                 )
     
@@ -298,7 +300,7 @@ class RealTimeValidator:
     def __init__(self, dictionary_manager: Optional[Any] = None):
         self.dictionary_manager = dictionary_manager
         self.code_columns = {
-            'LITHOLOGY_CODE': 'Litho_Type',
+            LITHOLOGY_COLUMN: 'Litho_Type',
             'lithology_qualifier': 'Litho_Qual',
             'shade': 'Shade',
             'hue': 'Hue',
