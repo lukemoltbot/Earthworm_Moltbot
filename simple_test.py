@@ -10,10 +10,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src
 
 try:
     # Try to import the config module
-    from core.config import COALLOG_V31_COLUMNS, LITHOLOGY_COLUMN_NEW
+    from core.config import COALLOG_V31_COLUMNS, LITHOLOGY_COLUMN
     print("✅ Successfully imported config module")
     print(f"  - COALLOG_V31_COLUMNS has {len(COALLOG_V31_COLUMNS)} columns")
-    print(f"  - LITHOLOGY_COLUMN_NEW: {LITHOLOGY_COLUMN_NEW}")
+    print(f"  - LITHOLOGY_COLUMN: {LITHOLOGY_COLUMN}")
     
     # Check the column list
     print("\nFirst 10 columns in COALLOG_V31_COLUMNS:")
