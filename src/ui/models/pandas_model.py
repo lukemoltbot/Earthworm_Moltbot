@@ -34,6 +34,8 @@ class PandasModel(QAbstractTableModel):
         self.beginResetModel()
         self._dataframe = dataframe.copy()
         self.endResetModel()
+        # Emit layoutChanged to ensure views are properly updated
+        self.layoutChanged.emit()
     
     def dataframe(self) -> pd.DataFrame:
         """Get the underlying dataframe."""

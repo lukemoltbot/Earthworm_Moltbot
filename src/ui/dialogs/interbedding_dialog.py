@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (
     QDoubleSpinBox, QMessageBox, QHeaderView, QAbstractItemView
 )
 from PyQt6.QtCore import Qt
+from ..core.config import LITHOLOGY_COLUMN, RECOVERED_THICKNESS_COLUMN
 
 class InterbeddingDialog(QDialog):
     def __init__(self, selected_units, parent=None):
@@ -63,15 +64,15 @@ class InterbeddingDialog(QDialog):
 
     def populate_table(self):
         """Populate the table with selected units and calculate percentages."""
-        total_thickness = sum(unit['thickness'] for unit in self.selected_units)
+        total_thickness = sum(unit[RECOVERED_THICKNESS_COLUMN] for unit in self.selected_units)
 
         # Group by lithology code for percentage calculation
         lithology_groups = {}
         for unit in self.selected_units:
-            code = unit['LITHOLOGY_CODE']
+            code = unit[LITHOLOGY_COLUMN]
             if code not in lithology_groups:
                 lithology_groups[code] = {'thickness': 0, 'count': 0}
-            lithology_groups[code]['thickness'] += unit['thickness']
+            lithology_groups[code]['thickness'] += unit[RECOVERED_THICKNESS_COLUMN]
             lithology_groups[code]['count'] += 1
 
         # Sort by thickness (dominance)

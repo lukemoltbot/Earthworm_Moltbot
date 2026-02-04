@@ -19,7 +19,7 @@ import traceback
 from ..core.data_processor import DataProcessor
 from ..core.analyzer import Analyzer
 from ..core.workers import LASLoaderWorker, ValidationWorker
-from ..core.config import DEFAULT_LITHOLOGY_RULES, DEPTH_COLUMN, DEFAULT_SEPARATOR_THICKNESS, DRAW_SEPARATOR_LINES, DEFAULT_CURVE_THICKNESS, CURVE_RANGES, INVALID_DATA_VALUE, DEFAULT_MERGE_THIN_UNITS, DEFAULT_MERGE_THRESHOLD, DEFAULT_SMART_INTERBEDDING, DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH, DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD, LITHOLOGY_COLUMN, LITHOLOGY_COLUMN_NEW, RECOVERED_THICKNESS_COLUMN, RECORD_SEQUENCE_FLAG_COLUMN, INTERRELATIONSHIP_COLUMN, LITHOLOGY_PERCENT_COLUMN, COALLOG_V31_COLUMNS
+from ..core.config import DEFAULT_LITHOLOGY_RULES, DEPTH_COLUMN, DEFAULT_SEPARATOR_THICKNESS, DRAW_SEPARATOR_LINES, DEFAULT_CURVE_THICKNESS, CURVE_RANGES, INVALID_DATA_VALUE, DEFAULT_MERGE_THIN_UNITS, DEFAULT_MERGE_THRESHOLD, DEFAULT_SMART_INTERBEDDING, DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH, DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD, DEFAULT_BIT_SIZE_MM, DEFAULT_SHOW_ANOMALY_HIGHLIGHTS, LITHOLOGY_COLUMN, LITHOLOGY_COLUMN_NEW, RECOVERED_THICKNESS_COLUMN, RECORD_SEQUENCE_FLAG_COLUMN, INTERRELATIONSHIP_COLUMN, LITHOLOGY_PERCENT_COLUMN, COALLOG_V31_COLUMNS
 from ..core.coallog_utils import load_coallog_dictionaries
 from .widgets.stratigraphic_column import StratigraphicColumn
 from .widgets.svg_renderer import SvgRenderer
@@ -32,6 +32,7 @@ from .dialogs.column_configurator_dialog import ColumnConfiguratorDialog # Impor
 from .dialogs.settings_dialog import SettingsDialog # Import settings dialog
 from .dialogs.session_dialog import SessionDialog # Import session dialog
 from .dialogs.template_dialog import TemplateDialog # Import template dialog
+from .dialogs.nl_review_dialog import NLReviewDialog # Import NL review dialog
 from ..utils.range_analyzer import RangeAnalyzer # Import range analyzer
 from .widgets.compact_range_widget import CompactRangeWidget # Import compact widgets
 from .widgets.multi_attribute_widget import MultiAttributeWidget
@@ -79,6 +80,10 @@ class HoleEditorWindow(QWidget):
         self.stratigraphicColumnView = StratigraphicColumn()
         self.editorTable = LithologyTableWidget()
         self.exportCsvButton = QPushButton("Export to CSV")
+        
+        # Set bit size for anomaly detection if main_window is available
+        if main_window and hasattr(main_window, 'bit_size_mm') and hasattr(self.curvePlotter, 'set_bit_size'):
+            self.curvePlotter.set_bit_size(main_window.bit_size_mm)
         
         # Add loading indicator
         self.loadingProgressBar = QProgressBar()
@@ -599,6 +604,10 @@ class MainWindow(QMainWindow):
         self.smart_interbedding = app_settings.get("smart_interbedding", False)
         self.smart_interbedding_max_sequence_length = app_settings.get("smart_interbedding_max_sequence_length", 10)
         self.smart_interbedding_thick_unit_threshold = app_settings.get("smart_interbedding_thick_unit_threshold", 0.5)
+        self.bit_size_mm = app_settings.get("bit_size_mm", 150.0)  # Load bit size in millimeters
+        self.show_anomaly_highlights = app_settings.get("show_anomaly_highlights", True)  # Load anomaly highlights setting
+        self.casing_depth_enabled = app_settings.get("casing_depth_enabled", False)  # Load casing depth masking enabled state
+        self.casing_depth_m = app_settings.get("casing_depth_m", 0.0)  # Load casing depth in meters
         self.current_theme = app_settings.get("theme", "dark")  # Load theme preference
 
         self.lithology_qualifier_map = self.load_lithology_qualifier_map()
@@ -619,6 +628,9 @@ class MainWindow(QMainWindow):
         self.gap_update_timer = QTimer(self)
         self.gap_update_timer.setSingleShot(True)
         self.gap_update_timer.timeout.connect(self._perform_gap_visualization_update)
+        
+        # Settings dirty flag for safety workflow (Phase 5 Task 5.2)
+        self.settings_dirty = False
 
         # MDI area will replace tab widget (1PD UI/UX Phase 1)
         # Create central widget with vertical layout: control panel at top, MDI area below
@@ -1152,6 +1164,10 @@ class MainWindow(QMainWindow):
             smart_interbedding_max_sequence_length=app_settings.get("smart_interbedding_max_sequence_length", 10),
             smart_interbedding_thick_unit_threshold=app_settings.get("smart_interbedding_thick_unit_threshold", 0.5),
             fallback_classification=app_settings.get("fallback_classification", "Unknown"),
+            bit_size_mm=app_settings.get("bit_size_mm", 150.0),
+            show_anomaly_highlights=app_settings.get("show_anomaly_highlights", True),
+            casing_depth_enabled=app_settings.get("casing_depth_enabled", False),
+            casing_depth_m=app_settings.get("casing_depth_m", 0.0),
             workspace_state=app_settings.get("workspace"),
             theme=self.current_theme,
             column_visibility=app_settings.get("column_visibility", {})
@@ -1664,6 +1680,66 @@ class MainWindow(QMainWindow):
         method_layout.addRow("Analysis Method:", self.analysisMethodComboBox)
         analysis_layout.addWidget(method_widget)
         
+        # Bit size input field
+        bit_size_widget = QWidget()
+        bit_size_layout = QFormLayout(bit_size_widget)
+        bit_size_layout.setSpacing(8)
+        bit_size_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
+        
+        self.bitSizeSpinBox = QDoubleSpinBox()
+        self.bitSizeSpinBox.setRange(50.0, 500.0)  # Reasonable range for bit sizes in mm
+        self.bitSizeSpinBox.setValue(self.bit_size_mm)
+        self.bitSizeSpinBox.setSingleStep(10.0)
+        self.bitSizeSpinBox.setSuffix(" mm")
+        self.bitSizeSpinBox.setToolTip("Bit size in millimeters for caliper anomaly detection (CAL - BitSize > 20)")
+        bit_size_layout.addRow("Bit Size:", self.bitSizeSpinBox)
+        
+        # Anomaly highlighting checkbox
+        self.showAnomalyHighlightsCheckBox = QCheckBox("Show anomaly highlights")
+        self.showAnomalyHighlightsCheckBox.setChecked(self.show_anomaly_highlights)
+        self.showAnomalyHighlightsCheckBox.setToolTip("Show/hide red highlighting for caliper anomalies (CAL - BitSize > 20 mm)")
+        bit_size_layout.addRow("", self.showAnomalyHighlightsCheckBox)
+        
+        analysis_layout.addWidget(bit_size_widget)
+        
+        # Casing depth masking
+        casing_depth_widget = QWidget()
+        casing_depth_layout = QFormLayout(casing_depth_widget)
+        casing_depth_layout.setSpacing(8)
+        casing_depth_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
+        
+        # Enable casing depth masking checkbox
+        self.casingDepthEnabledCheckBox = QCheckBox("Enable Casing Depth Masking")
+        self.casingDepthEnabledCheckBox.setChecked(self.casing_depth_enabled)
+        self.casingDepthEnabledCheckBox.setToolTip("Mask intervals above casing depth as 'NL' (Not Logged)")
+        casing_depth_layout.addRow("", self.casingDepthEnabledCheckBox)
+        
+        # Casing depth input (only enabled when checkbox is checked)
+        self.casingDepthSpinBox = QDoubleSpinBox()
+        self.casingDepthSpinBox.setRange(0.0, 5000.0)  # Reasonable range for casing depth in meters
+        self.casingDepthSpinBox.setValue(self.casing_depth_m)
+        self.casingDepthSpinBox.setSingleStep(1.0)
+        self.casingDepthSpinBox.setSuffix(" m")
+        self.casingDepthSpinBox.setToolTip("Casing depth in meters. Intervals above this depth will be masked as 'NL'")
+        self.casingDepthSpinBox.setEnabled(self.casing_depth_enabled)  # Initially disabled if not checked
+        casing_depth_layout.addRow("Casing Depth:", self.casingDepthSpinBox)
+        
+        analysis_layout.addWidget(casing_depth_widget)
+        
+        # NL Review button
+        nl_review_widget = QWidget()
+        nl_review_layout = QHBoxLayout(nl_review_widget)
+        nl_review_layout.setSpacing(8)
+        nl_review_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.nlReviewButton = QPushButton("📊 Review NL Intervals")
+        self.nlReviewButton.setToolTip("Review 'NL' (Not Logged) intervals with statistics")
+        self.nlReviewButton.clicked.connect(self.open_nl_review_dialog)
+        nl_review_layout.addWidget(self.nlReviewButton)
+        nl_review_layout.addStretch()
+        
+        analysis_layout.addWidget(nl_review_widget)
+        
         container_layout.addWidget(analysis_group)
         
         # 4. TABLE SETTINGS GROUP
@@ -1679,7 +1755,38 @@ class MainWindow(QMainWindow):
         
         container_layout.addWidget(table_group)
         
-        # 5. FILE OPERATIONS GROUP
+        # 5. CURVE VISIBILITY GROUP
+        curve_visibility_group = QGroupBox("Curve Visibility")
+        curve_visibility_layout = QVBoxLayout(curve_visibility_group)
+        curve_visibility_layout.setSpacing(6)
+        
+        # Create checkboxes for each curve type
+        self.curve_visibility_checkboxes = {}
+        
+        # Curve types with their display names and abbreviations
+        curve_types = [
+            ("SS", "Short Space Density", "short_space_density"),
+            ("LS", "Long Space Density", "long_space_density"),
+            ("GR", "Gamma Ray", "gamma"),
+            ("CD", "Caliper", "cd"),
+            ("RES", "Resistivity", "res"),
+            ("CAL", "Caliper", "cal")
+        ]
+        
+        for abbr, display_name, curve_name in curve_types:
+            checkbox = QCheckBox(f"[{abbr}] {display_name}")
+            checkbox.setChecked(True)  # All curves visible by default
+            checkbox.curve_name = curve_name  # Store the internal curve name
+            self.curve_visibility_checkboxes[curve_name] = checkbox
+            curve_visibility_layout.addWidget(checkbox)
+            
+            # Connect checkbox state change to update curve visibility
+            checkbox.stateChanged.connect(self.on_curve_visibility_changed)
+        
+        curve_visibility_layout.addStretch()
+        container_layout.addWidget(curve_visibility_group)
+        
+        # 6. FILE OPERATIONS GROUP
         file_group = QGroupBox("File Operations")
         file_layout = QVBoxLayout(file_group)
         file_layout.setSpacing(8)
@@ -1722,7 +1829,7 @@ class MainWindow(QMainWindow):
         
         container_layout.addWidget(file_group)
         
-        # 6. RANGE ANALYSIS GROUP
+        # 7. RANGE ANALYSIS GROUP
         range_group = QGroupBox("Range Analysis")
         range_layout = QVBoxLayout(range_group)
         range_layout.setSpacing(8)
@@ -1763,20 +1870,57 @@ class MainWindow(QMainWindow):
         self.load_curve_inversion_settings()
         self._apply_researched_defaults_if_needed()
         
-        # Connect value change signals to auto-save
+        # Connect value change signals to auto-save and mark settings as dirty
+        self.separatorThicknessSpinBox.valueChanged.connect(self.mark_settings_dirty)
         self.separatorThicknessSpinBox.valueChanged.connect(lambda: self.update_settings(auto_save=True))
+        self.drawSeparatorsCheckBox.stateChanged.connect(self.mark_settings_dirty)
         self.drawSeparatorsCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
+        self.curveThicknessSpinBox.valueChanged.connect(self.mark_settings_dirty)
         self.curveThicknessSpinBox.valueChanged.connect(lambda: self.update_settings(auto_save=True))
+        self.invertGammaCheckBox.stateChanged.connect(self.mark_settings_dirty)
         self.invertGammaCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
+        self.invertShortSpaceDensityCheckBox.stateChanged.connect(self.mark_settings_dirty)
         self.invertShortSpaceDensityCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
+        self.invertLongSpaceDensityCheckBox.stateChanged.connect(self.mark_settings_dirty)
         self.invertLongSpaceDensityCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
+        self.useResearchedDefaultsCheckBox.stateChanged.connect(self.mark_settings_dirty)
         self.useResearchedDefaultsCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
+        self.mergeThinUnitsCheckBox.stateChanged.connect(self.mark_settings_dirty)
         self.mergeThinUnitsCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
+        self.smartInterbeddingCheckBox.stateChanged.connect(self.mark_settings_dirty)
         self.smartInterbeddingCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
+        self.smartInterbeddingMaxSequenceSpinBox.valueChanged.connect(self.mark_settings_dirty)
         self.smartInterbeddingMaxSequenceSpinBox.valueChanged.connect(lambda: self.update_settings(auto_save=True))
+        self.smartInterbeddingThickUnitSpinBox.valueChanged.connect(self.mark_settings_dirty)
         self.smartInterbeddingThickUnitSpinBox.valueChanged.connect(lambda: self.update_settings(auto_save=True))
+        self.analysisMethodComboBox.currentTextChanged.connect(self.mark_settings_dirty)
         self.analysisMethodComboBox.currentTextChanged.connect(lambda: self.update_settings(auto_save=True))
+        self.fallbackClassificationCheckBox.stateChanged.connect(self.mark_settings_dirty)
         self.fallbackClassificationCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
+        # Connect bit size spin box if it exists
+        if hasattr(self, 'bitSizeSpinBox'):
+            self.bitSizeSpinBox.valueChanged.connect(self.mark_settings_dirty)
+            self.bitSizeSpinBox.valueChanged.connect(lambda: self.update_settings(auto_save=True))
+            self.bitSizeSpinBox.valueChanged.connect(self.update_plotter_bit_size)
+        
+        # Connect anomaly highlights checkbox if it exists
+        if hasattr(self, 'showAnomalyHighlightsCheckBox'):
+            self.showAnomalyHighlightsCheckBox.stateChanged.connect(self.mark_settings_dirty)
+            self.showAnomalyHighlightsCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
+            self.showAnomalyHighlightsCheckBox.stateChanged.connect(self.update_plotter_anomaly_visibility)
+        
+        # Connect casing depth controls if they exist
+        if hasattr(self, 'casingDepthEnabledCheckBox'):
+            self.casingDepthEnabledCheckBox.stateChanged.connect(self.mark_settings_dirty)
+            self.casingDepthEnabledCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
+            self.casingDepthEnabledCheckBox.stateChanged.connect(self.toggle_casing_depth_input)
+            # Connect casing depth spin box
+            self.casingDepthSpinBox.valueChanged.connect(self.mark_settings_dirty)
+            self.casingDepthSpinBox.valueChanged.connect(lambda: self.update_settings(auto_save=True))
+        
+        # Connect curve visibility checkboxes to mark settings as dirty
+        for checkbox in self.curve_visibility_checkboxes.values():
+            checkbox.stateChanged.connect(self.mark_settings_dirty)
         
         # Initialize range visualization
         self.refresh_range_visualization()
@@ -1785,6 +1929,34 @@ class MainWindow(QMainWindow):
         """Show/hide smart interbedding parameters based on checkbox state."""
         visible = self.smartInterbeddingCheckBox.isChecked()
         self.interbedding_params_widget.setVisible(visible)
+    
+    def toggle_casing_depth_input(self):
+        """Enable/disable casing depth input based on checkbox state."""
+        enabled = self.casingDepthEnabledCheckBox.isChecked()
+        self.casingDepthSpinBox.setEnabled(enabled)
+    
+    def on_curve_visibility_changed(self):
+        """Handle curve visibility checkbox state changes."""
+        # Get the checkbox that triggered the signal
+        checkbox = self.sender()
+        if not hasattr(checkbox, 'curve_name'):
+            return
+            
+        curve_name = checkbox.curve_name
+        visible = checkbox.isChecked()
+        
+        # Update curve visibility in all open hole editors
+        for subwindow in self.mdi_area.subWindowList():
+            hole_editor = subwindow.widget()
+            if hasattr(hole_editor, 'curvePlotter') and hasattr(hole_editor.curvePlotter, 'set_curve_visibility'):
+                hole_editor.curvePlotter.set_curve_visibility(curve_name, visible)
+    
+    def mark_settings_dirty(self):
+        """Mark settings as dirty when any setting is modified (Phase 5 Task 5.2)."""
+        self.settings_dirty = True
+        # Update the "Update Settings" button text to indicate unsaved changes
+        if hasattr(self, 'updateSettingsButton'):
+            self.updateSettingsButton.setText("Update Settings *")
     
     def reset_settings_to_defaults(self):
         """Reset all settings to default values."""
@@ -1812,6 +1984,12 @@ class MainWindow(QMainWindow):
             self.smart_interbedding = DEFAULT_SMART_INTERBEDDING
             self.smart_interbedding_max_sequence_length = DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH
             self.smart_interbedding_thick_unit_threshold = DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD
+            # Reset bit size and anomaly highlights
+            self.bit_size_mm = DEFAULT_BIT_SIZE_MM
+            self.show_anomaly_highlights = DEFAULT_SHOW_ANOMALY_HIGHLIGHTS
+            # Reset casing depth settings
+            self.casing_depth_enabled = DEFAULT_CASING_DEPTH_ENABLED
+            self.casing_depth_m = DEFAULT_CASING_DEPTH_M
             # Update UI controls
             self.load_settings_rules_to_table()
             self.load_separator_settings()
@@ -1824,10 +2002,23 @@ class MainWindow(QMainWindow):
             self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
             self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
             self.fallbackClassificationCheckBox.setChecked(False)
+            if hasattr(self, 'bitSizeSpinBox'):
+                self.bitSizeSpinBox.setValue(self.bit_size_mm)
+            if hasattr(self, 'showAnomalyHighlightsCheckBox'):
+                self.showAnomalyHighlightsCheckBox.setChecked(self.show_anomaly_highlights)
+            if hasattr(self, 'casingDepthEnabledCheckBox'):
+                self.casingDepthEnabledCheckBox.setChecked(self.casing_depth_enabled)
+                self.casingDepthSpinBox.setValue(self.casing_depth_m)
+                self.casingDepthSpinBox.setEnabled(self.casing_depth_enabled)
             # Hide interbedding params if needed
             self.interbedding_params_widget.setVisible(self.smart_interbedding)
             # Save defaults
             self.update_settings(auto_save=True)
+            # Clear the dirty flag since settings have been reset
+            self.settings_dirty = False
+            # Update the "Update Settings" button text to remove the asterisk
+            if hasattr(self, 'updateSettingsButton'):
+                self.updateSettingsButton.setText("Update Settings")
             QMessageBox.information(self, "Settings Reset", "All settings have been reset to defaults.")
 
     def load_separator_settings(self):
@@ -1841,6 +2032,67 @@ class MainWindow(QMainWindow):
         self.invertGammaCheckBox.setChecked(self.initial_curve_inversion_settings.get('gamma', False))
         self.invertShortSpaceDensityCheckBox.setChecked(self.initial_curve_inversion_settings.get('short_space_density', False))
         self.invertLongSpaceDensityCheckBox.setChecked(self.initial_curve_inversion_settings.get('long_space_density', False))
+
+    def revert_to_saved_settings(self):
+        """Revert UI to last saved settings from disk (Phase 5 Task 5.2.4)."""
+        # Load saved settings from disk
+        app_settings = load_settings()
+        
+        # Update instance variables from saved settings
+        self.initial_separator_thickness = app_settings["separator_thickness"]
+        self.initial_draw_separators = app_settings["draw_separator_lines"]
+        self.initial_curve_inversion_settings = app_settings["curve_inversion_settings"]
+        self.initial_curve_thickness = app_settings["curve_thickness"]
+        self.use_researched_defaults = app_settings["use_researched_defaults"]
+        self.analysis_method = app_settings.get("analysis_method", "standard")
+        self.merge_thin_units = app_settings.get("merge_thin_units", False)
+        self.merge_threshold = app_settings.get("merge_threshold", 0.05)
+        self.smart_interbedding = app_settings.get("smart_interbedding", False)
+        self.smart_interbedding_max_sequence_length = app_settings.get("smart_interbedding_max_sequence_length", 10)
+        self.smart_interbedding_thick_unit_threshold = app_settings.get("smart_interbedding_thick_unit_threshold", 0.5)
+        self.bit_size_mm = app_settings.get("bit_size_mm", 215.9)
+        self.show_anomaly_highlights = app_settings.get("show_anomaly_highlights", False)
+        self.casing_depth_enabled = app_settings.get("casing_depth_enabled", False)
+        self.casing_depth_m = app_settings.get("casing_depth_m", 0.0)
+        
+        # Update lithology rules
+        self.lithology_rules = app_settings["lithology_rules"]
+        
+        # Call existing helper methods to update UI
+        self.load_separator_settings()
+        self.load_curve_thickness_settings()
+        self.load_curve_inversion_settings()
+        
+        # Only load settings rules to table if coallog_data is available
+        if self.coallog_data is not None:
+            self.load_settings_rules_to_table()
+        else:
+            print("Warning: coallog_data not available, skipping load_settings_rules_to_table()")
+        
+        # Update other UI widgets that don't have helper methods
+        self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
+        self.analysisMethodComboBox.setCurrentText("Standard" if self.analysis_method == "standard" else "Simple")
+        self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
+        self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
+        self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
+        self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
+        self.fallbackClassificationCheckBox.setChecked(False)  # Default
+        
+        # Update optional widgets if they exist
+        if hasattr(self, 'bitSizeSpinBox'):
+            self.bitSizeSpinBox.setValue(self.bit_size_mm)
+        if hasattr(self, 'showAnomalyHighlightsCheckBox'):
+            self.showAnomalyHighlightsCheckBox.setChecked(self.show_anomaly_highlights)
+        if hasattr(self, 'casingDepthEnabledCheckBox'):
+            self.casingDepthEnabledCheckBox.setChecked(self.casing_depth_enabled)
+            if hasattr(self, 'casingDepthSpinBox'):
+                self.casingDepthSpinBox.setValue(self.casing_depth_m)
+                self.casingDepthSpinBox.setEnabled(self.casing_depth_enabled)
+        
+        # Clear dirty flag and update button text
+        self.settings_dirty = False
+        if hasattr(self, 'updateSettingsButton'):
+            self.updateSettingsButton.setText("Update Settings")
 
     def save_settings_as_file(self):
         file_path, _ = QFileDialog.getSaveFileName(self, "Save Settings As", "", "JSON Files (*.json);;All Files (*)")
@@ -1871,6 +2123,12 @@ class MainWindow(QMainWindow):
                 current_smart_interbedding = self.smartInterbeddingCheckBox.isChecked()
                 current_smart_interbedding_max_sequence = self.smartInterbeddingMaxSequenceSpinBox.value()
                 current_smart_interbedding_thick_unit = self.smartInterbeddingThickUnitSpinBox.value()
+                
+                # Get current bit size
+                current_bit_size_mm = self.bitSizeSpinBox.value() if hasattr(self, 'bitSizeSpinBox') else self.bit_size_mm
+                
+                # Get current anomaly highlights setting
+                current_show_anomaly_highlights = self.showAnomalyHighlightsCheckBox.isChecked() if hasattr(self, 'showAnomalyHighlightsCheckBox') else self.show_anomaly_highlights
 
                 # Call save_settings with the chosen file path
                 save_settings(
@@ -1886,6 +2144,8 @@ class MainWindow(QMainWindow):
                     smart_interbedding=current_smart_interbedding,
                     smart_interbedding_max_sequence_length=current_smart_interbedding_max_sequence,
                     smart_interbedding_thick_unit_threshold=current_smart_interbedding_thick_unit,
+                    bit_size_mm=current_bit_size_mm,
+                    show_anomaly_highlights=current_show_anomaly_highlights,
                     column_visibility=self.column_visibility,
                     file_path=file_path
                 )
@@ -1916,6 +2176,7 @@ class MainWindow(QMainWindow):
         current_smart_interbedding_max_sequence = self.smartInterbeddingMaxSequenceSpinBox.value()
         current_smart_interbedding_thick_unit = self.smartInterbeddingThickUnitSpinBox.value()
         current_fallback_classification = self.fallbackClassificationCheckBox.isChecked()
+        current_bit_size_mm = self.bitSizeSpinBox.value() if hasattr(self, 'bitSizeSpinBox') else self.bit_size_mm
         
         # Build settings dict matching SettingsDialog expectations
         settings = {
@@ -1932,7 +2193,8 @@ class MainWindow(QMainWindow):
             'smart_interbedding': current_smart_interbedding,
             'fallback_classification': current_fallback_classification,
             'smart_interbedding_max_sequence_length': current_smart_interbedding_max_sequence,
-            'smart_interbedding_thick_unit_threshold': current_smart_interbedding_thick_unit
+            'smart_interbedding_thick_unit_threshold': current_smart_interbedding_thick_unit,
+            'bit_size_mm': current_bit_size_mm
         }
         return settings
 
@@ -1955,6 +2217,7 @@ class MainWindow(QMainWindow):
         self.smart_interbedding_max_sequence_length = settings.get('smart_interbedding_max_sequence_length', self.smart_interbedding_max_sequence_length)
         self.smart_interbedding_thick_unit_threshold = settings.get('smart_interbedding_thick_unit_threshold', self.smart_interbedding_thick_unit_threshold)
         self.use_fallback_classification = settings.get('fallback_classification', self.use_fallback_classification)
+        self.bit_size_mm = settings.get('bit_size_mm', self.bit_size_mm)
         # Update UI controls
         self.load_settings_rules_to_table()
         self.load_separator_settings()
@@ -1966,6 +2229,8 @@ class MainWindow(QMainWindow):
                 self.analysisMethodComboBox.setCurrentText("Simple")
             else:
                 self.analysisMethodComboBox.setCurrentText("Standard")
+        if hasattr(self, 'bitSizeSpinBox'):
+            self.bitSizeSpinBox.setValue(self.bit_size_mm)
     
     def update_settings_from_template(self, template):
         """Update settings from a template object."""
@@ -2002,6 +2267,8 @@ class MainWindow(QMainWindow):
         self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
         self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
         self.fallbackClassificationCheckBox.setChecked(self.use_fallback_classification)
+        if hasattr(self, 'bitSizeSpinBox'):
+            self.bitSizeSpinBox.setValue(self.bit_size_mm)
         # Refresh range visualization
         self.refresh_range_visualization()
         # Save to disk
@@ -2028,6 +2295,10 @@ class MainWindow(QMainWindow):
         current_smart_interbedding = self.smartInterbeddingCheckBox.isChecked()
         current_smart_interbedding_max_sequence = self.smartInterbeddingMaxSequenceSpinBox.value()
         current_smart_interbedding_thick_unit = self.smartInterbeddingThickUnitSpinBox.value()
+        current_bit_size_mm = self.bitSizeSpinBox.value() if hasattr(self, 'bitSizeSpinBox') else self.bit_size_mm
+        current_show_anomaly_highlights = self.showAnomalyHighlightsCheckBox.isChecked() if hasattr(self, 'showAnomalyHighlightsCheckBox') else self.show_anomaly_highlights
+        current_casing_depth_enabled = self.casingDepthEnabledCheckBox.isChecked() if hasattr(self, 'casingDepthEnabledCheckBox') else self.casing_depth_enabled
+        current_casing_depth_m = self.casingDepthSpinBox.value() if hasattr(self, 'casingDepthSpinBox') else self.casing_depth_m
         save_settings(
             lithology_rules=self.lithology_rules,
             separator_thickness=current_separator_thickness,
@@ -2041,6 +2312,10 @@ class MainWindow(QMainWindow):
             smart_interbedding=current_smart_interbedding,
             smart_interbedding_max_sequence_length=current_smart_interbedding_max_sequence,
             smart_interbedding_thick_unit_threshold=current_smart_interbedding_thick_unit,
+            bit_size_mm=current_bit_size_mm,
+            show_anomaly_highlights=current_show_anomaly_highlights,
+            casing_depth_enabled=current_casing_depth_enabled,
+            casing_depth_m=current_casing_depth_m,
             column_visibility=self.column_visibility
         )
 
@@ -2048,8 +2323,18 @@ class MainWindow(QMainWindow):
         self.smart_interbedding = current_smart_interbedding
         self.smart_interbedding_max_sequence_length = current_smart_interbedding_max_sequence
         self.smart_interbedding_thick_unit_threshold = current_smart_interbedding_thick_unit
+        self.bit_size_mm = current_bit_size_mm
+        self.show_anomaly_highlights = current_show_anomaly_highlights
+        self.casing_depth_enabled = current_casing_depth_enabled
+        self.casing_depth_m = current_casing_depth_m
 
         if not auto_save: # Only show message if triggered by the "Update Settings" button
+            # Clear the dirty flag since settings have been saved
+            self.settings_dirty = False
+            # Update the "Update Settings" button text to remove the asterisk
+            if hasattr(self, 'updateSettingsButton'):
+                self.updateSettingsButton.setText("Update Settings")
+            
             QMessageBox.information(self, "Settings Updated", "All settings have been updated and saved.")
 
             # Reload settings to ensure UI reflects saved state (only for manual updates)
@@ -2067,6 +2352,15 @@ class MainWindow(QMainWindow):
                     self.analysisMethodComboBox.setCurrentText("Simple")
                 else:
                     self.analysisMethodComboBox.setCurrentText("Standard")
+            self.bit_size_mm = app_settings.get("bit_size_mm", 150.0)
+            if hasattr(self, 'bitSizeSpinBox'):
+                self.bitSizeSpinBox.setValue(self.bit_size_mm)
+            self.casing_depth_enabled = app_settings.get("casing_depth_enabled", False)
+            self.casing_depth_m = app_settings.get("casing_depth_m", 0.0)
+            if hasattr(self, 'casingDepthEnabledCheckBox'):
+                self.casingDepthEnabledCheckBox.setChecked(self.casing_depth_enabled)
+                self.casingDepthSpinBox.setValue(self.casing_depth_m)
+                self.casingDepthSpinBox.setEnabled(self.casing_depth_enabled)
             self.load_settings_rules_to_table()
             self.load_separator_settings()
             self.load_curve_thickness_settings() # Reload new setting
@@ -2089,6 +2383,18 @@ class MainWindow(QMainWindow):
                 self.initial_curve_thickness = loaded_settings["curve_thickness"] # Load new setting
                 self.use_researched_defaults = loaded_settings["use_researched_defaults"]
                 self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
+                self.bit_size_mm = loaded_settings.get("bit_size_mm", 150.0)
+                if hasattr(self, 'bitSizeSpinBox'):
+                    self.bitSizeSpinBox.setValue(self.bit_size_mm)
+                self.show_anomaly_highlights = loaded_settings.get("show_anomaly_highlights", True)
+                if hasattr(self, 'showAnomalyHighlightsCheckBox'):
+                    self.showAnomalyHighlightsCheckBox.setChecked(self.show_anomaly_highlights)
+                self.casing_depth_enabled = loaded_settings.get("casing_depth_enabled", False)
+                self.casing_depth_m = loaded_settings.get("casing_depth_m", 0.0)
+                if hasattr(self, 'casingDepthEnabledCheckBox'):
+                    self.casingDepthEnabledCheckBox.setChecked(self.casing_depth_enabled)
+                    self.casingDepthSpinBox.setValue(self.casing_depth_m)
+                    self.casingDepthSpinBox.setEnabled(self.casing_depth_enabled)
                 self.column_visibility = loaded_settings.get("column_visibility", {})
                 self.apply_column_visibility(self.column_visibility)
 
@@ -2097,9 +2403,45 @@ class MainWindow(QMainWindow):
                 self.load_curve_thickness_settings() # Reload new setting
                 self.load_curve_inversion_settings() # Load new setting
                 self._apply_researched_defaults_if_needed() # Call new method after loading settings
+                # Update plotter with new bit size and anomaly visibility
+                self.update_plotter_bit_size()
+                self.update_plotter_anomaly_visibility()
+                # Clear the dirty flag since we just loaded fresh settings
+                self.settings_dirty = False
+                # Update the "Update Settings" button text to remove the asterisk
+                if hasattr(self, 'updateSettingsButton'):
+                    self.updateSettingsButton.setText("Update Settings")
                 QMessageBox.information(self, "Settings Loaded", f"Settings loaded from {os.path.basename(file_path)}")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to load settings: {e}")
+
+    def update_plotter_bit_size(self):
+        """Update plotter with current bit size for anomaly detection."""
+        if hasattr(self, 'bitSizeSpinBox'):
+            bit_size_mm = self.bitSizeSpinBox.value()
+            # Update plotter if it exists
+            if hasattr(self, 'curvePlotter') and hasattr(self.curvePlotter, 'set_bit_size'):
+                self.curvePlotter.set_bit_size(bit_size_mm)
+            # Also update any hole editor plotters
+            if hasattr(self, 'mdi_area'):
+                for subwindow in self.mdi_area.subWindowList():
+                    widget = subwindow.widget()
+                    if hasattr(widget, 'curvePlotter') and hasattr(widget.curvePlotter, 'set_bit_size'):
+                        widget.curvePlotter.set_bit_size(bit_size_mm)
+
+    def update_plotter_anomaly_visibility(self):
+        """Update plotter with current anomaly visibility setting."""
+        if hasattr(self, 'showAnomalyHighlightsCheckBox'):
+            show_anomaly = self.showAnomalyHighlightsCheckBox.isChecked()
+            # Update plotter if it exists and has the method
+            if hasattr(self, 'curvePlotter') and hasattr(self.curvePlotter, 'set_anomaly_highlight_visible'):
+                self.curvePlotter.set_anomaly_highlight_visible(show_anomaly)
+            # Also update any hole editor plotters
+            if hasattr(self, 'mdi_area'):
+                for subwindow in self.mdi_area.subWindowList():
+                    widget = subwindow.widget()
+                    if hasattr(widget, 'curvePlotter') and hasattr(widget.curvePlotter, 'set_anomaly_highlight_visible'):
+                        widget.curvePlotter.set_anomaly_highlight_visible(show_anomaly)
 
     def closeEvent(self, event):
         # Save window geometry and settings automatically when the application closes
@@ -2156,6 +2498,7 @@ class MainWindow(QMainWindow):
             litho_desc_combo.currentTextChanged.connect(self.update_litho_code)
             litho_desc_combo.currentTextChanged.connect(lambda _, r=row_idx: self.update_rule_preview(r))
             litho_desc_combo.currentTextChanged.connect(lambda text, r=row_idx: self.update_qualifier_dropdown(r, text))
+            litho_desc_combo.currentTextChanged.connect(self.mark_settings_dirty)  # Mark as dirty when changed
 
             # Column 1: Code (read-only QLabel)
             self.settings_rules_table.setItem(row_idx, 1, QTableWidgetItem(str(rule.get('code', ''))))
@@ -2164,17 +2507,20 @@ class MainWindow(QMainWindow):
             # Column 2: Qualifier (QComboBox)
             qual_combo = QComboBox()
             self.settings_rules_table.setCellWidget(row_idx, 2, qual_combo)
+            qual_combo.currentTextChanged.connect(self.mark_settings_dirty)  # Mark as dirty when changed
 
             # Column 3: Gamma Range (CompactRangeWidget)
             gamma_widget = CompactRangeWidget()
             gamma_widget.set_values(rule.get('gamma_min', 0.0), rule.get('gamma_max', 0.0))
             gamma_widget.valuesChanged.connect(lambda min_val, max_val, r=row_idx: self.update_range_values(r, 'gamma', min_val, max_val))
+            gamma_widget.valuesChanged.connect(self.mark_settings_dirty)  # Mark as dirty when changed
             self.settings_rules_table.setCellWidget(row_idx, 3, gamma_widget)
 
             # Column 4: Density Range (CompactRangeWidget)
             density_widget = CompactRangeWidget()
             density_widget.set_values(rule.get('density_min', 0.0), rule.get('density_max', 0.0))
             density_widget.valuesChanged.connect(lambda min_val, max_val, r=row_idx: self.update_range_values(r, 'density', min_val, max_val))
+            density_widget.valuesChanged.connect(self.mark_settings_dirty)  # Mark as dirty when changed
             self.settings_rules_table.setCellWidget(row_idx, 4, density_widget)
 
             # Column 5: Visual Props (MultiAttributeWidget)
@@ -2187,6 +2533,7 @@ class MainWindow(QMainWindow):
                 'strength': rule.get('strength', '')
             })
             visual_widget.propertiesChanged.connect(lambda props, r=row_idx: self.update_visual_properties(r, props))
+            visual_widget.propertiesChanged.connect(self.mark_settings_dirty)  # Mark as dirty when changed
             self.settings_rules_table.setCellWidget(row_idx, 5, visual_widget)
 
             # Column 6: Background (QPushButton for color picker)
@@ -2350,6 +2697,7 @@ class MainWindow(QMainWindow):
         litho_desc_combo.currentTextChanged.connect(self.update_litho_code)
         litho_desc_combo.currentTextChanged.connect(lambda _, r=row_position: self.update_rule_preview(r))
         litho_desc_combo.currentTextChanged.connect(lambda text, r=row_position: self.update_qualifier_dropdown(r, text))
+        litho_desc_combo.currentTextChanged.connect(self.mark_settings_dirty)  # Mark as dirty when changed
 
         # Column 1: Code (read-only)
         self.settings_rules_table.setItem(row_position, 1, QTableWidgetItem(""))
@@ -2358,17 +2706,20 @@ class MainWindow(QMainWindow):
         # Column 2: Qualifier (QComboBox)
         qual_combo = QComboBox()
         self.settings_rules_table.setCellWidget(row_position, 2, qual_combo)
+        qual_combo.currentTextChanged.connect(self.mark_settings_dirty)  # Mark as dirty when changed
 
         # Column 3: Gamma Range (CompactRangeWidget)
         gamma_widget = CompactRangeWidget()
         gamma_widget.set_values(0.0, 0.0)
         gamma_widget.valuesChanged.connect(lambda min_val, max_val, r=row_position: self.update_range_values(r, 'gamma', min_val, max_val))
+        gamma_widget.valuesChanged.connect(self.mark_settings_dirty)  # Mark as dirty when changed
         self.settings_rules_table.setCellWidget(row_position, 3, gamma_widget)
 
         # Column 4: Density Range (CompactRangeWidget)
         density_widget = CompactRangeWidget()
         density_widget.set_values(0.0, 0.0)
         density_widget.valuesChanged.connect(lambda min_val, max_val, r=row_position: self.update_range_values(r, 'density', min_val, max_val))
+        density_widget.valuesChanged.connect(self.mark_settings_dirty)  # Mark as dirty when changed
         self.settings_rules_table.setCellWidget(row_position, 4, density_widget)
 
         # Column 5: Visual Props (MultiAttributeWidget)
@@ -2381,6 +2732,7 @@ class MainWindow(QMainWindow):
             'strength': ''
         })
         visual_widget.propertiesChanged.connect(lambda props, r=row_position: self.update_visual_properties(r, props))
+        visual_widget.propertiesChanged.connect(self.mark_settings_dirty)  # Mark as dirty when changed
         self.settings_rules_table.setCellWidget(row_position, 5, visual_widget)
 
         # Column 6: Background (QPushButton)
@@ -2441,6 +2793,7 @@ class MainWindow(QMainWindow):
         current_row = self.settings_rules_table.currentRow()
         if current_row >= 0:
             self.settings_rules_table.removeRow(current_row)
+            self.mark_settings_dirty()  # Mark as dirty when rule is removed
         self.save_settings_rules_from_table()
 
     def open_color_picker(self, row):
@@ -2451,6 +2804,7 @@ class MainWindow(QMainWindow):
         if color.isValid():
             button.setStyleSheet(f"background-color: {color.name()}")
             self.update_rule_preview(row)
+            self.mark_settings_dirty()  # Mark as dirty when color is changed
 
     def update_rule_preview(self, row):
         litho_code_item = self.settings_rules_table.item(row, 1)
@@ -2617,6 +2971,27 @@ class MainWindow(QMainWindow):
         if not self.lithology_rules:
             QMessageBox.warning(self, "No Lithology Rules", "Please define lithology rules in settings first.")
             return
+        
+        # Check if settings are dirty and prompt user (Phase 5 Task 5.2.3)
+        if hasattr(self, 'settings_dirty') and self.settings_dirty:
+            reply = QMessageBox.question(
+                self,
+                "Unsaved Settings",
+                "Settings have been modified but not saved. Apply changes before running analysis?",
+                QMessageBox.StandardButton.Apply | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Apply
+            )
+            
+            if reply == QMessageBox.StandardButton.Apply:
+                # Apply changes: save settings and clear dirty flag
+                self.update_settings(auto_save=False)
+            elif reply == QMessageBox.StandardButton.Discard:
+                # Discard changes: revert to saved settings
+                self.revert_to_saved_settings()
+            elif reply == QMessageBox.StandardButton.Cancel:
+                # Cancel analysis
+                return
+            # If user clicked Apply or Discard, continue with analysis
         # Short Space Density selection maps to both density fields
         density_selection = self.shortSpaceDensityComboBox.currentText()
         # Keep hidden combo box synchronized for backward compatibility
@@ -2739,6 +3114,11 @@ class MainWindow(QMainWindow):
         """Open the column configurator dialog to hide/show columns."""
         dialog = ColumnConfiguratorDialog(self, main_window=self, current_visibility=self.column_visibility)
         dialog.visibility_changed.connect(self.on_column_visibility_changed)
+        dialog.exec()
+
+    def open_nl_review_dialog(self):
+        """Open the NL review dialog to analyze 'Not Logged' intervals."""
+        dialog = NLReviewDialog(self, main_window=self)
         dialog.exec()
 
     def on_column_visibility_changed(self, visibility_map):
@@ -2874,7 +3254,7 @@ class MainWindow(QMainWindow):
                 classification_count = 0
                 if units_df is not None and not units_df.empty:
                     # Filter units by both code and qualifier for unique combinations
-                    mask = (units_df['LITHOLOGY_CODE'] == rule_code)
+                    mask = (units_df[LITHOLOGY_COLUMN] == rule_code)
                     if rule_qualifier and 'lithology_qualifier' in units_df.columns:
                         mask = mask & (units_df['lithology_qualifier'] == rule_qualifier)
 
@@ -2885,11 +3265,11 @@ class MainWindow(QMainWindow):
                         classification_count = matching_units.shape[0]  # Count of units, not rows
                     else:
                         # Fallback: check classified dataframe
-                        classified_mask = (classified_df['LITHOLOGY_CODE'] == rule_code)
+                        classified_mask = (classified_df[LITHOLOGY_COLUMN] == rule_code)
                         classification_count = classified_mask.sum()
                 else:
                     # Fallback: use classified dataframe only
-                    classified_mask = (classified_df['LITHOLOGY_CODE'] == rule_code)
+                    classified_mask = (classified_df[LITHOLOGY_COLUMN] == rule_code)
                     classification_count = classified_mask.sum()
 
                 classification_percentage = (classification_count / total_rows * 100) if total_rows > 0 else 0
@@ -2898,7 +3278,7 @@ class MainWindow(QMainWindow):
                 density_stats = {}
                 if 'short_space_density' in classified_df.columns:
                     # Filter rows that match this rule's classification
-                    density_mask = (classified_df['LITHOLOGY_CODE'] == rule_code)
+                    density_mask = (classified_df[LITHOLOGY_COLUMN] == rule_code)
                     # Note: We can't easily filter by qualifier in classified dataframe since qualifier column doesn't exist there
 
                     densities = classified_df.loc[density_mask, 'short_space_density'].dropna()
@@ -2933,12 +3313,12 @@ class MainWindow(QMainWindow):
                 report_data.append(row)
 
             # Enhanced NL Analysis Section
-            nl_count = (classified_df['LITHOLOGY_CODE'] == 'NL').sum()
+            nl_count = (classified_df[LITHOLOGY_COLUMN] == 'NL').sum()
             nl_percentage = (nl_count / total_rows * 100) if total_rows > 0 else 0
 
             if nl_count > 0:
                 # Calculate density stats for NL classifications
-                nl_densities = classified_df.loc[classified_df['LITHOLOGY_CODE'] == 'NL', 'short_space_density'].dropna() if 'short_space_density' in classified_df.columns else pd.Series()
+                nl_densities = classified_df.loc[classified_df[LITHOLOGY_COLUMN] == 'NL', 'short_space_density'].dropna() if 'short_space_density' in classified_df.columns else pd.Series()
 
                 nl_stats = {
                     'associated_ssd_min': nl_densities.min() if len(nl_densities) > 0 else None,
@@ -2948,7 +3328,7 @@ class MainWindow(QMainWindow):
                 }
 
                 # Add gamma stats for NL classifications
-                nl_gammas = classified_df.loc[classified_df['LITHOLOGY_CODE'] == 'NL', 'gamma'].dropna() if 'gamma' in classified_df.columns else pd.Series()
+                nl_gammas = classified_df.loc[classified_df[LITHOLOGY_COLUMN] == 'NL', 'gamma'].dropna() if 'gamma' in classified_df.columns else pd.Series()
                 if len(nl_gammas) > 0:
                     nl_stats.update({
                         'gamma_min': nl_gammas.min(),
@@ -3018,7 +3398,7 @@ class MainWindow(QMainWindow):
                 report_data.append(nl_data_header_row)
 
                 # Get NL rows with their data
-                nl_rows = classified_df.loc[classified_df['LITHOLOGY_CODE'] == 'NL'].copy()
+                nl_rows = classified_df.loc[classified_df[LITHOLOGY_COLUMN] == 'NL'].copy()
 
                 # Process NL rows in batches to show individual data points
                 nl_batch_size = min(50, len(nl_rows))  # Show up to 50 individual NL points to keep report manageable
@@ -3213,7 +3593,7 @@ class MainWindow(QMainWindow):
                 'from_depth': interbedding_data['from_depth'],
                 'to_depth': interbedding_data['to_depth'],
                 'thickness': thickness,
-                'LITHOLOGY_CODE': lith['code'],
+                LITHOLOGY_COLUMN: lith['code'],
                 'lithology_qualifier': rule.get('qualifier', ''),
                 'shade': rule.get('shade', ''),
                 'hue': rule.get('hue', ''),
@@ -3402,6 +3782,11 @@ class MainWindow(QMainWindow):
         self.curvePlotter.set_curve_configs(curve_configs)
         self.curvePlotter.set_data(classified_dataframe)
         self.curvePlotter.set_depth_range(min_overall_depth, max_overall_depth)
+        
+        # Set bit size for anomaly detection
+        if hasattr(self.curvePlotter, 'set_bit_size'):
+            current_bit_size_mm = self.bitSizeSpinBox.value() if hasattr(self, 'bitSizeSpinBox') else self.bit_size_mm
+            self.curvePlotter.set_bit_size(current_bit_size_mm)
 
         # Use 37-column schema for editor display
         # First ensure all columns are present

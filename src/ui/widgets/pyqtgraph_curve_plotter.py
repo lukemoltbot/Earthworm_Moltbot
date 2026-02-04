@@ -1,6 +1,7 @@
 """
 PyQtGraphCurvePlotter - A PyQtGraph-based curve plotter widget for Earthworm Moltbot.
 Provides improved performance and features over the QGraphicsScene-based CurvePlotter.
+Supports dual-axis plotting for LAS comparative analysis.
 """
 
 import numpy as np
@@ -10,7 +11,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QPointF, QTimer
 import pyqtgraph as pg
 
 class PyQtGraphCurvePlotter(QWidget):
-    """A PyQtGraph-based curve plotter widget with improved performance."""
+    """A PyQtGraph-based curve plotter widget with improved performance and dual-axis support."""
     
     # Signal emitted when user clicks on the plot (for synchronization with table)
     pointClicked = pyqtSignal(float)  # depth value
@@ -30,6 +31,16 @@ class PyQtGraphCurvePlotter(QWidget):
         self.curve_configs = []  # List of dictionaries for curve configurations
         self.depth_scale = 10  # Pixels per depth unit (should match StratigraphicColumn)
         self.plot_width = 110  # Width of the plot area
+        
+        # Dual-axis configuration
+        self.gamma_viewbox = None  # Secondary ViewBox for Gamma Ray
+        self.gamma_axis = None  # Top axis for Gamma Ray
+        self.gamma_curves = []  # List of Gamma Ray curves
+        self.density_curves = []  # List of Density curves
+        
+        # Curve type identification patterns
+        self.gamma_patterns = ['gamma', 'gr', 'gamma_ray', 'gammaray']
+        self.density_patterns = ['density', 'den', 'rhob', 'ss', 'ls', 'cd']
         
         # Lithology data for boundary lines
         self.lithology_data = None
@@ -54,11 +65,16 @@ class PyQtGraphCurvePlotter(QWidget):
         self.min_depth = 0.0
         self.max_depth = 100.0
         
+        # Anomaly detection
+        self.bit_size_mm = 150.0  # Default bit size in mm
+        self.anomaly_regions = []  # List of pg.LinearRegionItem for anomaly highlighting
+        self.anomaly_brush = (255, 0, 0, 50)  # Semi-transparent red for anomaly regions
+        
         # Setup UI
         self.setup_ui()
         
     def setup_ui(self):
-        """Initialize the PyQtGraph plot and controls."""
+        """Initialize the PyQtGraph plot and controls with dual-axis support."""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(5)
@@ -69,6 +85,12 @@ class PyQtGraphCurvePlotter(QWidget):
         self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
         self.plot_widget.setLabel('left', 'Depth', units='m')
         self.plot_widget.setLabel('bottom', 'Value')
+        
+        # Get the plot item for dual-axis configuration
+        self.plot_item = self.plot_widget.plotItem
+        
+        # Initialize dual-axis system for Gamma Ray
+        self.setup_dual_axes()
         
         # Invert Y-axis so 0 (surface) is at top, increasing depth downward
         self.plot_widget.invertY(True)
@@ -93,6 +115,37 @@ class PyQtGraphCurvePlotter(QWidget):
         
         layout.addWidget(self.axis_controls_widget)
         
+    def setup_dual_axes(self):
+        """Setup dual X-axes for LAS curve plotting."""
+        # Show and configure top axis for Gamma Ray
+        self.plot_item.showAxis('top')
+        self.gamma_axis = self.plot_item.getAxis('top')
+        
+        # Create secondary ViewBox for Gamma Ray curves
+        self.gamma_viewbox = pg.ViewBox()
+        self.plot_item.scene().addItem(self.gamma_viewbox)
+        
+        # Link top axis to Gamma Ray ViewBox
+        self.gamma_axis.linkToView(self.gamma_viewbox)
+        self.gamma_viewbox.setXLink(self.plot_item)  # Share X-axis transform
+        self.gamma_axis.setLabel('Gamma Ray', units='API', color='#8b008b')
+        
+        # Handle view synchronization
+        def update_gamma_view():
+            """Update Gamma Ray ViewBox geometry when main view changes."""
+            if self.gamma_viewbox:
+                self.gamma_viewbox.setGeometry(self.plot_item.vb.sceneBoundingRect())
+                self.gamma_viewbox.linkedViewChanged(self.plot_item.vb, self.gamma_viewbox.YAxis)
+        
+        # Connect resize signal
+        self.plot_item.vb.sigResized.connect(update_gamma_view)
+        
+        # Store update function for later use
+        self.update_gamma_view_func = update_gamma_view
+        
+        # Initial update
+        update_gamma_view()
+        
     def set_curve_configs(self, configs):
         """Set curve configurations and redraw."""
         self.curve_configs = configs
@@ -103,11 +156,37 @@ class PyQtGraphCurvePlotter(QWidget):
         """Set data and redraw curves."""
         self.data = dataframe
         self.draw_curves()
+        self.on_data_updated()
         
     def draw_curves(self):
-        """Draw all configured curves using PyQtGraph."""
-        # Clear the plot
-        self.plot_widget.clear()
+        """Draw all configured curves using PyQtGraph with dual-axis support."""
+        # Remove existing curve items without clearing the entire plot
+        # This preserves the dual-axis setup
+        
+        # Clear curve items dictionary
+        self.curve_items.clear()
+        
+        # Clear anomaly regions (they will be recreated after curves are drawn)
+        self.clear_anomaly_highlights()
+        
+        # Track curves to remove
+        items_to_remove = []
+        
+        # Find and remove previous curve items from main plot
+        for item in self.plot_item.items[:]:  # Copy list to avoid modification during iteration
+            if hasattr(item, 'config'):  # This is one of our curve items
+                items_to_remove.append(item)
+        
+        for item in items_to_remove:
+            self.plot_item.removeItem(item)
+        
+        # Clear gamma viewbox if it exists
+        if self.gamma_viewbox:
+            self.gamma_viewbox.clear()
+        
+        # Ensure dual axes are set up
+        if not self.gamma_viewbox:
+            self.setup_dual_axes()
         
         if self.data is None or self.data.empty or not self.curve_configs:
             return
@@ -118,14 +197,32 @@ class PyQtGraphCurvePlotter(QWidget):
             
         depth_data = self.data[self.depth_column].values
         
-        # Draw each curve
+        # Separate curve configs into gamma and density curves
+        gamma_configs = []
+        density_configs = []
+        
         for config in self.curve_configs:
+            curve_name = config['name'].lower()
+            
+            # Check if this is a gamma curve
+            is_gamma = any(pattern in curve_name for pattern in self.gamma_patterns)
+            
+            if is_gamma:
+                gamma_configs.append(config)
+            else:
+                # Assume it's a density curve (or other curve that goes on main axis)
+                density_configs.append(config)
+        
+        # Track curves for legend and visibility control
+        self.gamma_curves = []
+        self.density_curves = []
+        self.curve_items = {}  # Dictionary mapping curve_name -> curve item(s)
+        
+        # Plot density curves on main plot (bottom axis)
+        for config in density_configs:
             curve_name = config['name']
-            min_value = config['min']
-            max_value = config['max']
             color = config['color']
             thickness = config.get('thickness', 1.5)
-            inverted = config.get('inverted', False)
             
             if curve_name not in self.data.columns:
                 continue
@@ -141,40 +238,121 @@ class PyQtGraphCurvePlotter(QWidget):
             valid_depths = depth_data[mask]
             valid_values = curve_data[mask]
             
-            # Apply inversion if specified
-            if inverted:
-                # For inverted curves, we need to map values differently
-                # In PyQtGraph, we can just plot the data as-is and handle axis inversion
-                pass
+            # Create pen for the curve
+            pen = pg.mkPen(color=color, width=thickness)
+            
+            # Plot the curve on main plot
+            curve = self.plot_widget.plot(valid_values, valid_depths, pen=pen, name=curve_name)
+            
+            # Store reference
+            curve.config = config
+            self.density_curves.append(curve)
+            # Store in dictionary for visibility control
+            self.curve_items[curve_name] = curve
+        
+        # Plot gamma curves on gamma viewbox (top axis)
+        for config in gamma_configs:
+            curve_name = config['name']
+            color = config['color']
+            thickness = config.get('thickness', 1.5)
+            
+            if curve_name not in self.data.columns:
+                continue
+                
+            # Extract curve data
+            curve_data = self.data[curve_name].values
+            
+            # Filter out NaN values
+            mask = ~np.isnan(curve_data)
+            if not np.any(mask):
+                continue
+                
+            valid_depths = depth_data[mask]
+            valid_values = curve_data[mask]
             
             # Create pen for the curve
             pen = pg.mkPen(color=color, width=thickness)
             
-            # Plot the curve
-            curve = self.plot_widget.plot(valid_values, valid_depths, pen=pen, name=curve_name)
+            # Create PlotCurveItem for gamma viewbox with a name for the legend
+            curve = pg.PlotCurveItem(valid_values, valid_depths, pen=pen, name=curve_name)
             
-            # Store reference for potential updates
+            # Add to gamma viewbox
+            if self.gamma_viewbox:
+                self.gamma_viewbox.addItem(curve)
+            
+            # Store reference
             curve.config = config
-            
-        # Set axis ranges
+            self.gamma_curves.append(curve)
+            # Store in dictionary for visibility control
+            self.curve_items[curve_name] = curve
+        
+        # Add legend
+        self.plot_item.addLegend()
+        
+        # Set axis ranges and labels
         self.update_axis_ranges()
         
     def update_axis_ranges(self):
-        """Update plot axis ranges based on curve configurations."""
+        """Update plot axis ranges based on curve configurations for dual-axis system."""
         if not self.curve_configs:
             return
             
-        # Determine X-axis range from all curves
-        x_min = float('inf')
-        x_max = float('-inf')
+        # Separate curve configs into gamma and density
+        gamma_configs = []
+        density_configs = []
         
         for config in self.curve_configs:
-            x_min = min(x_min, config['min'])
-            x_max = max(x_max, config['max'])
+            curve_name = config['name'].lower()
+            is_gamma = any(pattern in curve_name for pattern in self.gamma_patterns)
             
-        # Set X-axis range with some padding
-        x_padding = (x_max - x_min) * 0.05
-        self.plot_widget.setXRange(x_min - x_padding, x_max + x_padding)
+            if is_gamma:
+                gamma_configs.append(config)
+            else:
+                density_configs.append(config)
+        
+        # Set X-axis range for density curves (main plot, bottom axis)
+        if density_configs:
+            density_x_min = float('inf')
+            density_x_max = float('-inf')
+            
+            for config in density_configs:
+                density_x_min = min(density_x_min, config['min'])
+                density_x_max = max(density_x_max, config['max'])
+            
+            # Default range for density curves if not specified: 0.0 to 4.0
+            if density_x_min == float('inf'):
+                density_x_min = 0.0
+            if density_x_max == float('-inf'):
+                density_x_max = 4.0
+                
+            # Set X-axis range with some padding
+            x_padding = (density_x_max - density_x_min) * 0.05
+            self.plot_widget.setXRange(density_x_min - x_padding, density_x_max + x_padding)
+            
+            # Update bottom axis label
+            self.plot_widget.setLabel('bottom', 'Density', units='g/cc')
+        
+        # Set X-axis range for gamma curves (gamma viewbox, top axis)
+        if gamma_configs and self.gamma_viewbox:
+            gamma_x_min = float('inf')
+            gamma_x_max = float('-inf')
+            
+            for config in gamma_configs:
+                gamma_x_min = min(gamma_x_min, config['min'])
+                gamma_x_max = max(gamma_x_max, config['max'])
+            
+            # Default range for gamma curves if not specified: 0 to 300
+            if gamma_x_min == float('inf'):
+                gamma_x_min = 0
+            if gamma_x_max == float('-inf'):
+                gamma_x_max = 300
+                
+            # Set gamma viewbox X-axis range
+            self.gamma_viewbox.setXRange(gamma_x_min, gamma_x_max)
+            
+            # Update top axis label if gamma axis exists
+            if self.gamma_axis:
+                self.gamma_axis.setLabel('Gamma Ray', units='API', color='#8b008b')
         
         # Set Y-axis range based on data
         if self.data is not None and not self.data.empty:
@@ -183,7 +361,7 @@ class PyQtGraphCurvePlotter(QWidget):
             self.plot_widget.setYRange(y_min, y_max)
             
     def update_axis_controls(self):
-        """Update the X-axis controls widget with current curve configurations."""
+        """Update the X-axis controls widget with current curve configurations for dual-axis."""
         # Clear existing controls
         while self.axis_controls_layout.count():
             item = self.axis_controls_layout.takeAt(0)
@@ -193,53 +371,97 @@ class PyQtGraphCurvePlotter(QWidget):
         if not self.curve_configs:
             return
             
-        # Sort curves for consistent display
-        sorted_configs = sorted(self.curve_configs, key=lambda x: (
-            0 if x['name'] == 'gamma' else
-            1 if x['name'] == 'short_space_density' else
-            2 if x['name'] == 'long_space_density' else
-            3
-        ))
+        # Separate curves into gamma and density for better organization
+        gamma_configs = []
+        density_configs = []
         
-        # Create controls for each curve
-        for config in sorted_configs:
-            curve_name = config['name']
-            min_value = config['min']
-            max_value = config['max']
-            color = config['color']
+        for config in self.curve_configs:
+            curve_name = config['name'].lower()
+            is_gamma = any(pattern in curve_name for pattern in self.gamma_patterns)
             
-            # Create control row
-            row_widget = QWidget()
-            row_layout = QHBoxLayout(row_widget)
-            row_layout.setContentsMargins(0, 0, 0, 0)
-            row_layout.setSpacing(5)
+            if is_gamma:
+                gamma_configs.append(config)
+            else:
+                density_configs.append(config)
+        
+        # Add section header for Density curves (bottom axis)
+        if density_configs:
+            density_header = QLabel("<b>Density Curves (Bottom Axis)</b>")
+            density_header.setStyleSheet("color: #333; padding: 2px;")
+            self.axis_controls_layout.addWidget(density_header)
             
-            # Color indicator
-            color_label = QLabel()
-            color_label.setFixedSize(15, 15)
-            color_label.setStyleSheet(f"background-color: {color}; border: 1px solid black;")
-            row_layout.addWidget(color_label)
+            # Sort density curves for consistent display
+            sorted_density = sorted(density_configs, key=lambda x: x['name'])
             
-            # Curve name
-            name_label = QLabel(curve_name)
-            name_label.setFixedWidth(80)
-            row_layout.addWidget(name_label)
+            for config in sorted_density:
+                self.add_curve_control_row(config, 'density')
+        
+        # Add section header for Gamma Ray curves (top axis)
+        if gamma_configs:
+            # Add separator
+            separator = QLabel()
+            separator.setFixedHeight(10)
+            self.axis_controls_layout.addWidget(separator)
             
-            # Min value
-            min_label = QLabel(f"{min_value:.0f}")
-            min_label.setFixedWidth(40)
-            row_layout.addWidget(min_label)
+            gamma_header = QLabel("<b>Gamma Ray Curves (Top Axis)</b>")
+            gamma_header.setStyleSheet("color: #8b008b; padding: 2px;")
+            self.axis_controls_layout.addWidget(gamma_header)
             
-            # Separator
-            row_layout.addWidget(QLabel("-"))
+            # Sort gamma curves for consistent display
+            sorted_gamma = sorted(gamma_configs, key=lambda x: x['name'])
             
-            # Max value
-            max_label = QLabel(f"{max_value:.0f}")
-            max_label.setFixedWidth(40)
-            row_layout.addWidget(max_label)
-            
-            row_layout.addStretch()
-            self.axis_controls_layout.addWidget(row_widget)
+            for config in sorted_gamma:
+                self.add_curve_control_row(config, 'gamma')
+    
+    def add_curve_control_row(self, config, curve_type='density'):
+        """Add a single curve control row to the axis controls widget."""
+        curve_name = config['name']
+        min_value = config['min']
+        max_value = config['max']
+        color = config['color']
+        
+        # Create control row
+        row_widget = QWidget()
+        row_layout = QHBoxLayout(row_widget)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(5)
+        
+        # Color indicator
+        color_label = QLabel()
+        color_label.setFixedSize(15, 15)
+        color_label.setStyleSheet(f"background-color: {color}; border: 1px solid black;")
+        row_layout.addWidget(color_label)
+        
+        # Curve name
+        name_label = QLabel(curve_name)
+        name_label.setFixedWidth(120)
+        if curve_type == 'gamma':
+            name_label.setStyleSheet("color: #8b008b;")
+        row_layout.addWidget(name_label)
+        
+        # Min value
+        min_label = QLabel(f"{min_value:.1f}")
+        min_label.setFixedWidth(50)
+        min_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        row_layout.addWidget(min_label)
+        
+        # Separator
+        row_layout.addWidget(QLabel("-"))
+        
+        # Max value
+        max_label = QLabel(f"{max_value:.1f}")
+        max_label.setFixedWidth(50)
+        max_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        row_layout.addWidget(max_label)
+        
+        # Axis indicator
+        axis_label = QLabel("(Top)" if curve_type == 'gamma' else "(Bottom)")
+        axis_label.setFixedWidth(50)
+        axis_label.setStyleSheet("color: #666; font-size: 10px;")
+        row_layout.addWidget(axis_label)
+        
+        row_layout.addStretch()
+        self.axis_controls_layout.addWidget(row_widget)
             
     def set_zoom_level(self, zoom_factor):
         """Set zoom level (1.0 = 100% = normal fit level)."""
@@ -680,3 +902,197 @@ class PyQtGraphCurvePlotter(QWidget):
             bottom_key = (idx, 'bottom')
             if bottom_key in self.boundary_lines:
                 self.boundary_lines[bottom_key].setPos(row['To_Depth'])
+    
+    def set_curve_visibility(self, curve_name: str, visible: bool):
+        """
+        Set visibility of a curve by name.
+        
+        Args:
+            curve_name: Internal curve name (e.g., 'short_space_density', 'gamma', etc.)
+            visible: True to show the curve, False to hide it
+        """
+        # Map internal curve names to actual curve column names
+        # This mapping might need to be adjusted based on actual data column names
+        curve_name_mapping = {
+            'short_space_density': ['SS', 'DENS', 'RHOB', 'short_space_density', 'density'],
+            'long_space_density': ['LS', 'LSD', 'long_space_density'],
+            'gamma': ['GR', 'gamma', 'gamma_ray', 'Gamma', 'GAMMA'],
+            'cd': ['CD', 'cd', 'caliper', 'Caliper', 'CALI'],
+            'res': ['RES', 'resistivity', 'res', 'Resistivity', 'RT'],
+            'cal': ['CAL', 'cal', 'caliper', 'Caliper', 'CALI']
+        }
+        
+        # Get possible column names for this curve type
+        possible_names = curve_name_mapping.get(curve_name, [curve_name])
+        
+        # Try to find the curve by checking all possible names
+        found_curve = None
+        for name in possible_names:
+            if name in self.curve_items:
+                found_curve = self.curve_items[name]
+                break
+        
+        # If not found by exact name, try case-insensitive search
+        if not found_curve and self.curve_items:
+            for stored_name, curve_item in self.curve_items.items():
+                stored_lower = stored_name.lower()
+                for possible_name in possible_names:
+                    if possible_name.lower() in stored_lower or stored_lower in possible_name.lower():
+                        found_curve = curve_item
+                        break
+                if found_curve:
+                    break
+        
+        if found_curve:
+            # Set visibility of the curve item
+            found_curve.setVisible(visible)
+            
+            # Also update legend if it exists
+            if hasattr(self.plot_item, 'legend'):
+                legend = self.plot_item.legend
+                if legend:
+                    # Find the legend item for this curve and update its visibility
+                    for item in legend.items:
+                        if hasattr(item, 'item') and item.item == found_curve:
+                            item.setVisible(visible)
+                            break
+            
+            print(f"Curve '{curve_name}' visibility set to: {visible}")
+        else:
+            print(f"Warning: Curve '{curve_name}' not found in plot. Available curves: {list(self.curve_items.keys())}")
+    
+    # =========================================================================
+    # Anomaly Detection Methods (Phase 3: Advanced LAS Comparative Plotting)
+    # =========================================================================
+    
+    def set_bit_size(self, bit_size_mm):
+        """Set bit size for caliper anomaly detection."""
+        self.bit_size_mm = bit_size_mm
+        self.update_anomaly_detection()
+        
+    def update_anomaly_detection(self):
+        """Update anomaly detection based on current bit size and data."""
+        if self.data is None or self.data.empty:
+            return
+            
+        # Detect anomalies
+        anomaly_intervals = self.detect_caliper_anomalies(self.bit_size_mm)
+        
+        # Highlight anomalies
+        self.highlight_anomalies(anomaly_intervals)
+        
+    def detect_caliper_anomalies(self, bit_size_mm):
+        """
+        Detect caliper anomalies where (CAL - BitSize) > 20 mm.
+        
+        Args:
+            bit_size_mm: Bit size in millimeters
+            
+        Returns:
+            List of (start_depth, end_depth) tuples for anomaly intervals
+        """
+        if self.data is None or self.data.empty:
+            return []
+            
+        # Try to find CAL column using various possible names
+        cal_column = None
+        cal_column_names = ['CAL', 'cal', 'caliper', 'Caliper', 'CALI', 'CD', 'cd']
+        
+        for col_name in cal_column_names:
+            if col_name in self.data.columns:
+                cal_column = col_name
+                break
+                
+        if cal_column is None:
+            print("Warning: CAL (caliper) column not found in data")
+            return []
+            
+        # Get depth and CAL data
+        depth_data = self.data[self.depth_column].values
+        cal_data = self.data[cal_column].values
+        
+        # Handle NaN values
+        valid_mask = ~np.isnan(cal_data)
+        if not np.any(valid_mask):
+            return []
+            
+        valid_depths = depth_data[valid_mask]
+        valid_cal = cal_data[valid_mask]
+        
+        # Convert bit size from mm to same units as CAL data (assuming CAL is also in mm)
+        # If CAL is in inches, we'd need to convert, but assuming mm for now
+        bit_size = bit_size_mm
+        
+        # Detect anomalies: (CAL - BitSize) > 20 mm
+        anomaly_mask = (valid_cal - bit_size) > 20
+        
+        # If no anomalies, return empty list
+        if not np.any(anomaly_mask):
+            return []
+            
+        # Convert mask to contiguous intervals
+        anomaly_intervals = []
+        in_anomaly = False
+        start_idx = -1
+        
+        for i, is_anomaly in enumerate(anomaly_mask):
+            if is_anomaly and not in_anomaly:
+                # Start of anomaly interval
+                in_anomaly = True
+                start_idx = i
+            elif not is_anomaly and in_anomaly:
+                # End of anomaly interval
+                in_anomaly = False
+                # Add interval (start_depth, end_depth)
+                anomaly_intervals.append((valid_depths[start_idx], valid_depths[i-1]))
+                
+        # Handle case where anomaly continues to end of data
+        if in_anomaly:
+            anomaly_intervals.append((valid_depths[start_idx], valid_depths[-1]))
+            
+        return anomaly_intervals
+        
+    def highlight_anomalies(self, anomaly_intervals):
+        """
+        Highlight anomaly intervals with semi-transparent red regions.
+        
+        Args:
+            anomaly_intervals: List of (start_depth, end_depth) tuples
+        """
+        # Clear previous anomaly regions
+        self.clear_anomaly_highlights()
+        
+        # Create new regions for each anomaly interval
+        for start_depth, end_depth in anomaly_intervals:
+            # Create linear region item for anomaly interval
+            region = pg.LinearRegionItem(
+                values=[start_depth, end_depth],
+                orientation='horizontal',
+                brush=self.anomaly_brush,
+                movable=False
+            )
+            
+            # Add to plot
+            self.plot_widget.addItem(region)
+            
+            # Store reference
+            self.anomaly_regions.append(region)
+            
+    def clear_anomaly_highlights(self):
+        """Remove all anomaly highlight regions from the plot."""
+        for region in self.anomaly_regions:
+            self.plot_widget.removeItem(region)
+        self.anomaly_regions.clear()
+        
+    def set_anomaly_highlight_visible(self, visible):
+        """Show or hide anomaly highlight regions.
+        
+        Args:
+            visible: Boolean indicating whether to show anomaly highlights
+        """
+        for region in self.anomaly_regions:
+            region.setVisible(visible)
+        
+    def on_data_updated(self):
+        """Called when data is updated to refresh anomaly detection."""
+        self.update_anomaly_detection()

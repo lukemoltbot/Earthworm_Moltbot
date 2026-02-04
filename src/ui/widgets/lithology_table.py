@@ -359,6 +359,9 @@ class LithologyTableWidget(QTableView):
         
         self.blockSignals(False)
         
+        # Emit data changed signal to notify main window
+        self.dataChangedSignal.emit(self.current_dataframe)
+        
         # Run validation
         self.run_validation()
     

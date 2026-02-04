@@ -2,7 +2,7 @@ import json
 import os
 import base64
 from PyQt6.QtCore import QByteArray
-from .config import DEFAULT_LITHOLOGY_RULES, DEFAULT_SEPARATOR_THICKNESS, DRAW_SEPARATOR_LINES, CURVE_INVERSION_DEFAULTS, DEFAULT_CURVE_THICKNESS, DEFAULT_MERGE_THIN_UNITS, DEFAULT_MERGE_THRESHOLD, DEFAULT_SMART_INTERBEDDING, DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH, DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD, DEFAULT_FALLBACK_CLASSIFICATION
+from .config import DEFAULT_LITHOLOGY_RULES, DEFAULT_SEPARATOR_THICKNESS, DRAW_SEPARATOR_LINES, CURVE_INVERSION_DEFAULTS, DEFAULT_CURVE_THICKNESS, DEFAULT_MERGE_THIN_UNITS, DEFAULT_MERGE_THRESHOLD, DEFAULT_SMART_INTERBEDDING, DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH, DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD, DEFAULT_FALLBACK_CLASSIFICATION, DEFAULT_BIT_SIZE_MM, DEFAULT_SHOW_ANOMALY_HIGHLIGHTS, DEFAULT_CASING_DEPTH_ENABLED, DEFAULT_CASING_DEPTH_M
 
 USE_RESEARCHED_DEFAULTS_DEFAULT = True  # Default to maintaining backward compatibility
 
@@ -27,6 +27,10 @@ def load_settings(file_path=None):
         "smart_interbedding_max_sequence_length": DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH,
         "smart_interbedding_thick_unit_threshold": DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD,
         "fallback_classification": DEFAULT_FALLBACK_CLASSIFICATION,
+        "bit_size_mm": DEFAULT_BIT_SIZE_MM,  # Default bit size in millimeters
+        "show_anomaly_highlights": DEFAULT_SHOW_ANOMALY_HIGHLIGHTS,  # Show anomaly highlights
+        "casing_depth_enabled": DEFAULT_CASING_DEPTH_ENABLED,  # Whether casing depth masking is enabled
+        "casing_depth_m": DEFAULT_CASING_DEPTH_M,  # Casing depth in meters
         "workspace": None,  # Default to no workspace state
         "theme": "dark",  # Default theme (dark/light)
         "column_visibility": {}  # Mapping column internal name -> bool (True = visible)
@@ -47,7 +51,7 @@ def load_settings(file_path=None):
             print(f"Warning: Error loading settings from {file_path}: {e}. Using default settings.")
     return settings
 
-def save_settings(lithology_rules, separator_thickness, draw_separator_lines, curve_inversion_settings, curve_thickness, use_researched_defaults, analysis_method="standard", merge_thin_units=False, merge_threshold=0.05, smart_interbedding=False, smart_interbedding_max_sequence_length=10, smart_interbedding_thick_unit_threshold=0.5, fallback_classification=DEFAULT_FALLBACK_CLASSIFICATION, workspace_state=None, theme="dark", column_visibility=None, file_path=None):
+def save_settings(lithology_rules, separator_thickness, draw_separator_lines, curve_inversion_settings, curve_thickness, use_researched_defaults, analysis_method="standard", merge_thin_units=False, merge_threshold=0.05, smart_interbedding=False, smart_interbedding_max_sequence_length=10, smart_interbedding_thick_unit_threshold=0.5, fallback_classification=DEFAULT_FALLBACK_CLASSIFICATION, bit_size_mm=DEFAULT_BIT_SIZE_MM, show_anomaly_highlights=DEFAULT_SHOW_ANOMALY_HIGHLIGHTS, casing_depth_enabled=DEFAULT_CASING_DEPTH_ENABLED, casing_depth_m=DEFAULT_CASING_DEPTH_M, workspace_state=None, theme="dark", column_visibility=None, file_path=None):
     """Saves application settings to a JSON file."""
     if file_path is None:
         file_path = DEFAULT_SETTINGS_FILE
@@ -66,6 +70,10 @@ def save_settings(lithology_rules, separator_thickness, draw_separator_lines, cu
         "smart_interbedding_max_sequence_length": smart_interbedding_max_sequence_length,
         "smart_interbedding_thick_unit_threshold": smart_interbedding_thick_unit_threshold,
         "fallback_classification": fallback_classification,
+        "bit_size_mm": bit_size_mm,  # Save bit size in millimeters
+        "show_anomaly_highlights": show_anomaly_highlights,  # Save anomaly highlights setting
+        "casing_depth_enabled": casing_depth_enabled,  # Save casing depth masking enabled state
+        "casing_depth_m": casing_depth_m,  # Save casing depth in meters
         "workspace": workspace_state,  # Save workspace state
         "theme": theme,  # Save theme preference
         "column_visibility": column_visibility or {}  # Save column visibility mapping

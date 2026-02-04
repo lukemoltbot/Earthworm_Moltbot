@@ -3,8 +3,8 @@
 
 **Purpose:** Implement the 5-phase development plan outlined in the attached RTF document, transforming Earthworm Moltbot into a professional-grade geological analysis tool with enhanced settings, data schema, plotting, masking, and bug fixes.
 
-**Status:** 🟡 In Progress (40% complete)  
-**Last Updated:** 2026-02-04 06:47 AEDT  
+**Status:** 🟢 Complete (100% complete)  
+**Last Updated:** 2026-02-04 20:45 AEDT  
 **Total Phases:** 5 | **Total Tasks:** 10 | **Total Subtasks:** 22  
 **GitHub Repository:** https://github.com/lukemoltbot/Earthworm_Moltbot  
 **Continuous Monitoring:** 15-minute progress updates via Discord (User ID: 1465989240746934410)
@@ -16,14 +16,14 @@
 |-------|----------------|-------------|------------|
 | Phase 1 | 2/2 | 2 | 100% |
 | Phase 2 | 2/2 | 2 | 100% |
-| Phase 3 | 0/2 | 2 | 0% |
-| Phase 4 | 0/2 | 2 | 0% |
-| Phase 5 | 0/2 | 2 | 0% |
-| **Overall** | **4/10** | **10** | **40%** |
+| Phase 3 | 2/2 | 2 | 100% |
+| Phase 4 | 2/2 | 2 | 100% |
+| Phase 5 | 2/2 | 2 | 100% |
+| **Overall** | **10/10** | **10** | **100%** |
 
-**Active Sub-agents:** 1 (Progress Monitor)  
-**Last Commit:** DevPlan Phase 2.2.4  
-**Next Update:** 21:45 AEDT (15-minute interval)
+**Active Sub-agents:** 0 (Development complete)  
+**Last Commit:** Phase 5 Task 5.2 completed - settings safety workflow implemented  
+**Next Update:** N/A (Development complete)
 
 ---
 
@@ -91,30 +91,30 @@
 **Purpose:** Overlay curves with different scales for easy visual analysis.
 
 ### Task 3.1: Dual-Axis Overlay (0-4 vs 0-300)
-**Status:** ⏳ Not Started  
+**Status:** ✅ Complete (5/5 subtasks done)  
 **Priority:** High  
 **Estimated Complexity:** High  
 **Files to Modify:** `src/ui/widgets/pyqtgraph_curve_plotter.py`
 
 #### Subtasks:
-- [ ] **3.1.1:** Implement dual-axis plotting using `ax1.twiny()` for secondary top X-axis
-- [ ] **3.1.2:** Configure bottom axis (0.0 to 4.0) for SS, LS, and CD Density
-- [ ] **3.1.3:** Configure top axis (0 to 300) for Gamma Ray (GR)
-- [ ] **3.1.4:** Ensure proper axis labeling and legend placement
-- [ ] **3.1.5:** Test with sample LAS data to verify scaling accuracy
+- [x] **3.1.1:** Implement dual-axis plotting using PyQtGraph's dual ViewBox system (functional equivalent)
+- [x] **3.1.2:** Configure bottom axis (0.0 to 4.0) for SS, LS, and CD Density
+- [x] **3.1.3:** Configure top axis (0 to 300) for Gamma Ray (GR)
+- [x] **3.1.4:** Ensure proper axis labeling and legend placement
+- [x] **3.1.5:** Test with sample LAS data to verify scaling accuracy
 
 ### Task 3.2: Plot Feature Controls
-**Status:** ⏳ Not Started  
+**Status:** ✅ Complete  
 **Priority:** Medium  
 **Estimated Complexity:** Medium  
 **Files to Modify:** `src/ui/main_window.py`, `src/ui/widgets/pyqtgraph_curve_plotter.py`
 
 #### Subtasks:
-- [ ] **3.2.1:** Add vertical list of checkboxes for curve visibility: [SS], [LS], [GR], [CD], [RES], [CAL]
-- [ ] **3.2.2:** Add "Bit Size (mm)" input field in settings
-- [ ] **3.2.3:** Implement anomaly detection: if `(CAL - BitSize) > 20`, highlight interval in red
-- [ ] **3.2.4:** Add toggle for anomaly highlighting on/off
-- [ ] **3.2.5:** Ensure real-time updates when checkboxes are toggled
+- [x] **3.2.1:** Add vertical list of checkboxes for curve visibility: [SS], [LS], [GR], [CD], [RES], [CAL]
+- [x] **3.2.2:** Add "Bit Size (mm)" input field in settings
+- [x] **3.2.3:** Implement anomaly detection: if `(CAL - BitSize) > 20`, highlight interval in red
+- [x] **3.2.4:** Add toggle for anomaly highlighting on/off
+- [x] **3.2.5:** Ensure real-time updates when checkboxes are toggled
 
 ---
 
@@ -122,28 +122,28 @@
 **Purpose:** Automate the handling of cased hole intervals and "Not Logged" data.
 
 ### Task 4.1: Casing Depth Integration
-**Status:** ⏳ Not Started  
+**Status:** ✅ Complete  
 **Priority:** Medium  
 **Estimated Complexity:** Low  
 **Files to Modify:** `src/ui/main_window.py`, `src/core/analyzer.py`
 
 #### Subtasks:
-- [ ] **4.1.1:** Add checkbox and numeric input for "Casing Depth (m)" in Settings pane
-- [ ] **4.1.2:** Implement logic: if checked, all rows where `Lithology To Depth <= Casing Depth` are forced to 'NL'
-- [ ] **4.1.3:** Update analysis to respect casing depth masking
-- [ ] **4.1.4:** Visual indication of masked intervals in table/plot
+- [x] **4.1.1:** Add checkbox and numeric input for "Casing Depth (m)" in Settings pane
+- [x] **4.1.2:** Implement logic: if checked, all rows where `Lithology To Depth <= Casing Depth` are forced to 'NL'
+- [x] **4.1.3:** Update analysis to respect casing depth masking
+- [x] **4.1.4:** Visual indication of masked intervals in table/plot
 
 ### Task 4.2: 'NL' Analysis Review
-**Status:** ⏳ Not Started  
+**Status:** ✅ Completed  
 **Priority:** Medium  
 **Estimated Complexity:** Medium  
 **Files to Modify:** `src/ui/main_window.py`, new `src/ui/dialogs/nl_review_dialog.py`
 
 #### Subtasks:
-- [ ] **4.2.1:** Add "Review NL Intervals" button in settings sidebar
-- [ ] **4.2.2:** Create dialog showing all 'NL' rows with calculated mean of SS, LS, and GR for those intervals
-- [ ] **4.2.3:** Implement calculation logic for mean values
-- [ ] **4.2.4:** Allow user to export NL analysis report
+- [x] **4.2.1:** Add "Review NL Intervals" button in settings sidebar
+- [x] **4.2.2:** Create dialog showing all 'NL' rows with calculated mean of SS, LS, and GR for those intervals
+- [x] **4.2.3:** Implement calculation logic for mean values
+- [x] **4.2.4:** Allow user to export NL analysis report
 
 ---
 
@@ -151,28 +151,28 @@
 **Purpose:** Resolve the interbedding data-write bug and enforce a clean user workflow.
 
 ### Task 5.1: Fix Smart Interbedding Data-Write
-**Status:** ⏳ Not Started  
+**Status:** ✅ Completed  
 **Priority:** Critical  
 **Estimated Complexity:** Low  
-**Files to Modify:** `src/ui/dialogs/interbedding_dialog.py`, `src/ui/main_window.py`
+**Files to Modify:** `src/ui/dialogs/interbedding_dialog.py`, `src/ui/main_window.py`, `src/ui/widgets/lithology_table.py`, `src/ui/models/pandas_model.py`
 
 #### Subtasks:
-- [ ] **5.1.1:** Ensure `InterbeddingDialog` correctly passes data back to main dataframe
-- [ ] **5.1.2:** Trigger full table refresh (`layoutChanged.emit()`) after dialog closes with "Apply"
-- [ ] **5.1.3:** Test interbedding functionality end-to-end
-- [ ] **5.1.4:** Verify data persistence after refresh
+- [x] **5.1.1:** Ensure `InterbeddingDialog` correctly passes data back to main dataframe
+- [x] **5.1.2:** Trigger full table refresh (`layoutChanged.emit()`) after dialog closes with "Apply"
+- [x] **5.1.3:** Test interbedding functionality end-to-end
+- [x] **5.1.4:** Verify data persistence after refresh
 
 ### Task 5.2: "Update Settings" Safety Workflow
-**Status:** ⏳ Not Started  
+**Status:** ✅ Completed  
 **Priority:** Medium  
 **Estimated Complexity:** Low  
 **Files to Modify:** `src/ui/main_window.py`, `src/ui/dialogs/settings_dialog.py`
 
 #### Subtasks:
-- [ ] **5.2.1:** Implement `self.settings_dirty` flag that triggers on sidebar input changes
-- [ ] **5.2.2:** Add prominent "Update Settings" button at bottom of Settings pane
-- [ ] **5.2.3:** On "Run Analysis" click: if `settings_dirty` is true, prompt user to confirm applying changes
-- [ ] **5.2.4:** Implement confirmation dialog with options to apply, discard, or cancel
+- [x] **5.2.1:** Implement `self.settings_dirty` flag that triggers on sidebar input changes
+- [x] **5.2.2:** Add prominent "Update Settings" button at bottom of Settings pane
+- [x] **5.2.3:** On "Run Analysis" click: if `settings_dirty` is true, prompt user to confirm applying changes
+- [x] **5.2.4:** Implement confirmation dialog with options to apply, discard, or cancel
 
 ---
 
@@ -231,7 +231,19 @@
 | 2026-02-03 20:31 | Setup | Orchestration | Monitoring | ⏳ Pending | - | 15-minute cron job to be established |
 | 2026-02-03 21:43 | 2 | 2.2 | 2.2.1 | ✅ Complete | 0b5de22 | Added "Column Configurator" button to Settings pane with placeholder dialog |
 | 2026-02-04 06:47 | 2 | 2.2 | 2.2.2-2.2.4 | ✅ Complete | - | Created column configurator dialog with persistence and dynamic visibility |
+| 2026-02-04 11:05 | 3 | 3.1 | Start | 🔄 In Progress | - | Beginning dual-axis overlay implementation |
+| 2026-02-04 11:15 | 3 | 3.1 | 3.1.1-3.1.4 | ✅ Complete | - | Dual-axis plotting, axis configuration, labeling, and legend added |
+| 2026-02-04 11:35 | 3 | 3.2 | Start | 🔄 In Progress | - | Beginning plot feature controls implementation |
+| 2026-02-04 11:45 | 3 | 3.2 | 3.2.1 & 3.2.5 | ✅ Complete | - | Curve visibility checkboxes added with real-time updates |
+| 2026-02-04 12:43 | 3 | 3.2 | 3.2.2 | ✅ Complete | - | Bit Size input field added to settings |
+| 2026-02-04 13:10 | 3 | 3.2 | 3.2.3 | ✅ Complete | - | Anomaly detection implemented: CAL - BitSize > 20 highlights intervals in red |
 
+| 2026-02-04 13:30 | 3 | 3.2 | 3.2.4 | ✅ Complete | - | Anomaly highlight toggle added: checkbox to show/hide red intervals |
+| 2026-02-04 14:55 | 3 | 3.1 | 3.1.5 | ✅ Complete | - | LAS scaling accuracy tested and verified; config.py updated for 0-300 API range |
+| 2026-02-04 14:56 | 4 | 4.1 | 4.1.1-4.1.4 | ✅ Complete | - | Casing depth integration complete: checkbox, numeric input, NL forcing logic, visual indications |
+| 2026-02-04 15:32 | 4 | 4.2 | Start | 🔄 In Progress | - | Beginning NL analysis review implementation |
+| 2026-02-04 15:35 | 4 | 4.2 | 4.2.2-4.2.3 | ✅ Complete | - | NL review dialog designed with calculation logic for mean SS, LS, GR values |
+| 2026-02-04 16:10 | 5 | 5.1 | 5.1.1-5.1.4 | ✅ Complete | - | Fixed smart interbedding data-write bug: added dataChangedSignal emission and layoutChanged signal |
 ---
 
 **Next Scheduled Update:** 2026-02-04 07:00 AEDT  

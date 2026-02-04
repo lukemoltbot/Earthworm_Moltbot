@@ -20,6 +20,7 @@ from .stratigraphic_column import StratigraphicColumn
 from .map_window import MapWindow  # For coordinate extraction
 from ...core.data_processor import DataProcessor
 from ...core.analyzer import Analyzer
+from ...core.config import LITHOLOGY_COLUMN, RECOVERED_THICKNESS_COLUMN
 
 
 class CrossSectionWindow(QWidget):
@@ -324,7 +325,7 @@ class CrossSectionWindow(QWidget):
                     dataframe = pd.read_csv(io.StringIO(data_str))
                     
                     # Check if it has lithology columns
-                    if 'Litho' in dataframe.columns or 'LITHOLOGY_CODE' in dataframe.columns:
+                    if 'Litho' in dataframe.columns or 'LITHOLOGY_CODE' in dataframe.columns or LITHOLOGY_COLUMN in dataframe.columns:
                         # This is already a lithology units file
                         # Rename columns to match expected format
                         column_mapping = {}
@@ -333,15 +334,15 @@ class CrossSectionWindow(QWidget):
                         if 'To' in dataframe.columns:
                             column_mapping['To'] = 'to_depth'
                         if 'Thick' in dataframe.columns:
-                            column_mapping['Thick'] = 'thickness'
+                            column_mapping['Thick'] = RECOVERED_THICKNESS_COLUMN
                         if 'Litho' in dataframe.columns:
-                            column_mapping['Litho'] = 'LITHOLOGY_CODE'
+                            column_mapping['Litho'] = LITHOLOGY_COLUMN
                         
                         if column_mapping:
                             dataframe = dataframe.rename(columns=column_mapping)
                         
                         # Ensure required columns exist
-                        required_cols = ['from_depth', 'to_depth', 'thickness', 'LITHOLOGY_CODE']
+                        required_cols = ['from_depth', 'to_depth', RECOVERED_THICKNESS_COLUMN, LITHOLOGY_COLUMN]
                         for col in required_cols:
                             if col not in dataframe.columns:
                                 # Create placeholder columns
@@ -349,10 +350,10 @@ class CrossSectionWindow(QWidget):
                                     dataframe['from_depth'] = dataframe.get('From', 0)
                                 elif col == 'to_depth':
                                     dataframe['to_depth'] = dataframe.get('To', 0)
-                                elif col == 'thickness':
-                                    dataframe['thickness'] = dataframe.get('Thick', 0)
-                                elif col == 'LITHOLOGY_CODE':
-                                    dataframe['LITHOLOGY_CODE'] = dataframe.get('Litho', 'NL')
+                                elif col == RECOVERED_THICKNESS_COLUMN:
+                                    dataframe[RECOVERED_THICKNESS_COLUMN] = dataframe.get('Thick', 0)
+                                elif col == LITHOLOGY_COLUMN:
+                                    dataframe[LITHOLOGY_COLUMN] = dataframe.get('Litho', 'NL')
                         
                         units_dataframe = dataframe
                     else:
@@ -394,8 +395,8 @@ class CrossSectionWindow(QWidget):
         data = {
             'from_depth': [0.0, 10.0, 25.0, 45.0, 65.0, 85.0, 105.0, 125.0],
             'to_depth': [10.0, 25.0, 45.0, 65.0, 85.0, 105.0, 125.0, 150.0],
-            'thickness': [10.0, 15.0, 20.0, 20.0, 20.0, 20.0, 20.0, 25.0],
-            'LITHOLOGY_CODE': ['SS', 'ST', 'CO', 'SS', 'ST', 'CO', 'SS', 'ST']
+            RECOVERED_THICKNESS_COLUMN: [10.0, 15.0, 20.0, 20.0, 20.0, 20.0, 20.0, 25.0],
+            LITHOLOGY_COLUMN: ['SS', 'ST', 'CO', 'SS', 'ST', 'CO', 'SS', 'ST']
         }
         
         df = pd.DataFrame(data)
@@ -423,7 +424,7 @@ class CrossSectionWindow(QWidget):
         default_color = '#E0E0E0'
         
         # Add background_color column
-        units_dataframe['background_color'] = units_dataframe['LITHOLOGY_CODE'].apply(
+        units_dataframe['background_color'] = units_dataframe[LITHOLOGY_COLUMN].apply(
             lambda code: color_map.get(code, default_color)
         )
         
@@ -527,8 +528,8 @@ class CrossSectionWindow(QWidget):
         for _, unit in units_dataframe.iterrows():
             from_depth = unit['from_depth']
             to_depth = unit['to_depth']
-            thickness = unit['thickness']
-            lithology_code = unit.get('LITHOLOGY_CODE', 'NL')
+            thickness = unit[RECOVERED_THICKNESS_COLUMN]
+            lithology_code = unit.get(LITHOLOGY_COLUMN, 'NL')
             background_color = unit.get('background_color', '#FFFFFF')
             
             # Calculate rectangle coordinates
@@ -641,7 +642,7 @@ class CrossSectionWindow(QWidget):
             # Extract units for this hole
             hole_units[i] = []
             for _, unit in units_dataframe.iterrows():
-                lithology_code = unit.get('LITHOLOGY_CODE', 'NL')
+                lithology_code = unit.get(LITHOLOGY_COLUMN, 'NL')
                 all_lithology_codes.add(lithology_code)
                 
                 hole_units[i].append({

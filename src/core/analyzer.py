@@ -8,7 +8,7 @@ import logging
 from .config import (
     DEPTH_COLUMN, LITHOLOGY_COLUMN, ANALYSIS_COLUMNS, RESEARCHED_LITHOLOGY_DEFAULTS, 
     INVALID_DATA_VALUE, DEFAULT_MERGE_THRESHOLD, COALLOG_V31_COLUMNS, DEFAULT_COLUMN_VALUES,
-    COLUMN_NAME_MAPPING, LITHOLOGY_COLUMN_NEW, RECOVERED_THICKNESS_COLUMN,
+    COLUMN_NAME_MAPPING, RECOVERED_THICKNESS_COLUMN,
     RECORD_SEQUENCE_FLAG_COLUMN, INTERRELATIONSHIP_COLUMN, LITHOLOGY_PERCENT_COLUMN
 )
 
@@ -19,7 +19,7 @@ class Analyzer:
     def __init__(self):
         pass
 
-    def classify_rows(self, dataframe, lithology_rules, mnemonic_map, use_researched_defaults=True, use_fallback_classification=False):
+    def classify_rows(self, dataframe, lithology_rules, mnemonic_map, use_researched_defaults=True, use_fallback_classification=False, casing_depth_enabled=False, casing_depth_m=0.0):
         """
         Classifies rows in the DataFrame based on lithology rules, using specified mnemonics.
 
@@ -28,13 +28,29 @@ class Analyzer:
             lithology_rules (list): A list of dictionaries, each defining a lithology rule.
             mnemonic_map (dict): A dictionary mapping standardized names to original mnemonics
                                  (e.g., {'gamma': 'GR', 'density': 'RHOB', 'short_space_density': 'DENS', 'long_space_density': 'LSD'}).
+            use_researched_defaults (bool): Whether to apply researched defaults for missing ranges.
+            use_fallback_classification (bool): Whether to apply fallback classification for 'NL' rows.
+            casing_depth_enabled (bool): Whether to apply casing depth masking.
+            casing_depth_m (float): Casing depth in meters. Rows with depth <= this value will be forced to 'NL'.
 
         Returns:
             pandas.DataFrame: The DataFrame with lithology classification columns.
         """
         classified_df = dataframe.copy()
         classified_df[LITHOLOGY_COLUMN] = 'NL'  # Old column for backward compatibility
-        classified_df[LITHOLOGY_COLUMN_NEW] = 'NL'  # New column for 37-column schema
+        classified_df[LITHOLOGY_COLUMN] = 'NL'  # New column for 37-column schema
+
+        # Apply casing depth masking if enabled
+        if casing_depth_enabled and casing_depth_m > 0:
+            # Check if depth column exists
+            if DEPTH_COLUMN in classified_df.columns:
+                # Force rows with depth <= casing_depth_m to 'NL'
+                mask = classified_df[DEPTH_COLUMN] <= casing_depth_m
+                classified_df.loc[mask, LITHOLOGY_COLUMN] = 'NL'
+                classified_df.loc[mask, LITHOLOGY_COLUMN] = 'NL'
+                logger.debug(f"Applied casing depth masking: {mask.sum()} rows with depth <= {casing_depth_m}m forced to 'NL'")
+            else:
+                logger.warning(f"Depth column '{DEPTH_COLUMN}' not found. Cannot apply casing depth masking.")
 
         # Determine which columns to use for gamma and density based on mnemonic_map
         gamma_col_name = 'gamma' # Standardized name for gamma
@@ -107,7 +123,7 @@ class Analyzer:
 
             # Apply the rule only to unclassified rows that match the rule criteria
             classified_df.loc[unclassified_mask & rule_mask, LITHOLOGY_COLUMN] = code
-            classified_df.loc[unclassified_mask & rule_mask, LITHOLOGY_COLUMN_NEW] = code
+            classified_df.loc[unclassified_mask & rule_mask, LITHOLOGY_COLUMN] = code
 
         # Apply fallback classification for remaining 'NL' rows if enabled
         if use_fallback_classification:
@@ -152,7 +168,7 @@ class Analyzer:
 
             if best_match:
                 fallback_classified_df.loc[idx, LITHOLOGY_COLUMN] = best_match
-                fallback_classified_df.loc[idx, LITHOLOGY_COLUMN_NEW] = best_match
+                fallback_classified_df.loc[idx, LITHOLOGY_COLUMN] = best_match
                 logger.debug(f"Fallback classified row {idx}: gamma={gamma_val:.1f}, density={density_val:.3f} -> {best_match}")
 
         # Apply extreme value rules for any remaining 'NL' rows
@@ -225,30 +241,30 @@ class Analyzer:
             # Extreme low density (gas, organic-rich)
             if density_val < 1.0:
                 classified_df.loc[idx, LITHOLOGY_COLUMN] = 'CO'  # Coal
-                classified_df.loc[idx, LITHOLOGY_COLUMN_NEW] = 'CO'  # Coal
+                classified_df.loc[idx, LITHOLOGY_COLUMN] = 'CO'  # Coal
                 logger.debug(f"Extreme low density fallback: row {idx}, density={density_val:.3f} -> CO")
 
             # Extreme high density (metamorphic, dense igneous)
             elif density_val > 3.5:
                 classified_df.loc[idx, LITHOLOGY_COLUMN] = 'IG'  # Igneous (would need to add this rule)
-                classified_df.loc[idx, LITHOLOGY_COLUMN_NEW] = 'IG'  # Igneous (would need to add this rule)
+                classified_df.loc[idx, LITHOLOGY_COLUMN] = 'IG'  # Igneous (would need to add this rule)
                 logger.debug(f"Extreme high density fallback: row {idx}, density={density_val:.3f} -> IG")
 
             # Extreme high gamma (very shaly, radioactive)
             elif gamma_val > 200:
                 classified_df.loc[idx, LITHOLOGY_COLUMN] = 'SH'  # Shale
-                classified_df.loc[idx, LITHOLOGY_COLUMN_NEW] = 'SH'  # Shale
+                classified_df.loc[idx, LITHOLOGY_COLUMN] = 'SH'  # Shale
                 logger.debug(f"Extreme high gamma fallback: row {idx}, gamma={gamma_val:.1f} -> SH")
 
             # Very low gamma, moderate density (clean sandstones or carbonates)
             elif gamma_val < 10 and 2.0 <= density_val <= 3.0:
                 if density_val < 2.7:
                     classified_df.loc[idx, LITHOLOGY_COLUMN] = 'SS'  # Sandstone
-                    classified_df.loc[idx, LITHOLOGY_COLUMN_NEW] = 'SS'  # Sandstone
+                    classified_df.loc[idx, LITHOLOGY_COLUMN] = 'SS'  # Sandstone
                     logger.debug(f"Clean sandstone fallback: row {idx}, gamma={gamma_val:.1f}, density={density_val:.3f} -> SS")
                 else:
                     classified_df.loc[idx, LITHOLOGY_COLUMN] = 'LS'  # Limestone (would need to add this rule)
-                    classified_df.loc[idx, LITHOLOGY_COLUMN_NEW] = 'LS'  # Limestone (would need to add this rule)
+                    classified_df.loc[idx, LITHOLOGY_COLUMN] = 'LS'  # Limestone (would need to add this rule)
                     logger.debug(f"Carbonate fallback: row {idx}, gamma={gamma_val:.1f}, density={density_val:.3f} -> LS")
 
         return classified_df
@@ -267,7 +283,7 @@ class Analyzer:
         """
         classified_df = dataframe.copy()
         classified_df[LITHOLOGY_COLUMN] = 'NL'  # Old column for backward compatibility
-        classified_df[LITHOLOGY_COLUMN_NEW] = 'NL'  # New column for 37-column schema
+        classified_df[LITHOLOGY_COLUMN] = 'NL'  # New column for 37-column schema
 
         # Determine which columns to use for gamma and density based on mnemonic_map
         gamma_col_name = 'gamma' # Standardized name for gamma
@@ -989,7 +1005,7 @@ class Analyzer:
                 'from_depth': from_depth,
                 'to_depth': to_depth,
                 RECOVERED_THICKNESS_COLUMN: total_thickness,  # All rows have full thickness
-                LITHOLOGY_COLUMN_NEW: lithology['code'],
+                LITHOLOGY_COLUMN: lithology['code'],
                 'lithology_qualifier': rule.get('qualifier', ''),
                 'shade': rule.get('shade', ''),
                 'hue': rule.get('hue', ''),
@@ -1019,7 +1035,7 @@ class Analyzer:
             if current_unit is None:
                 # Start a new unit with all 37 columns
                 current_unit = self._create_unit_template(current_depth, lithology_code, rule)
-            elif lithology_code == current_unit[LITHOLOGY_COLUMN_NEW]:
+            elif lithology_code == current_unit[LITHOLOGY_COLUMN]:
                 # Continue the current unit
                 current_unit['to_depth'] = current_depth
             else:
@@ -1063,7 +1079,7 @@ class Analyzer:
         unit['to_depth'] = depth
         
         # Set lithology information (using new column name)
-        unit[LITHOLOGY_COLUMN_NEW] = lithology_code
+        unit[LITHOLOGY_COLUMN] = lithology_code
         
         # Set rule-based properties
         unit['lithology_qualifier'] = rule.get('qualifier', '')
@@ -1344,7 +1360,7 @@ class Analyzer:
 
                 # Check if next unit has same lithology (code and qualifier)
                 # Use new lithology column name
-                same_lithology = (current_unit.get(LITHOLOGY_COLUMN_NEW, '') == next_unit.get(LITHOLOGY_COLUMN_NEW, '') and
+                same_lithology = (current_unit.get(LITHOLOGY_COLUMN, '') == next_unit.get(LITHOLOGY_COLUMN, '') and
                                 current_unit.get('lithology_qualifier', '') == next_unit.get('lithology_qualifier', ''))
 
                 if same_lithology:

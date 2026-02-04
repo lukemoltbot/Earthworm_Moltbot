@@ -213,6 +213,7 @@ poetry.lock
 
 # Temporary test files and backups
 *.backup
+*.backup.*
 *.bak
 test_*.py
 continuous_*.py

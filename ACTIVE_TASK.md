@@ -20,32 +20,32 @@ Execute the 5-phase development plan outlined in the RTF document, implementing 
 - **Task 1.1**: Vertical Layout Overhaul & Anti-Horizontal Scroll
 - **Task 1.2**: Externalizing "Lithology Rules" to a Modal Dialog
 
-### Phase 2: CoalLog v3.1 Data Schema (37 Columns) (0/2 tasks)
-- **Task 2.1**: Full Column Implementation
-- **Task 2.2**: Visibility Toggle System
+### Phase 2: CoalLog v3.1 Data Schema (37 Columns) (2/2 tasks)
+- **Task 2.1**: Full Column Implementation ✅
+- **Task 2.2**: Visibility Toggle System ✅
 
-### Phase 3: Advanced LAS Comparative Plotting (0/2 tasks)
-- **Task 3.1**: Dual-Axis Overlay (0-4 vs 0-300)
-- **Task 3.2**: Plot Feature Controls
+### Phase 3: Advanced LAS Comparative Plotting (2/2 tasks)
+- **Task 3.1**: Dual-Axis Overlay (0-4 vs 0-300) ✅
+- **Task 3.2**: Plot Feature Controls ✅
 
-### Phase 4: Masking & NL Analysis Logic (0/2 tasks)
-- **Task 4.1**: Casing Depth Integration
-- **Task 4.2**: 'NL' Analysis Review
+### Phase 4: Masking & NL Analysis Logic (2/2 tasks)
+- **Task 4.1**: Casing Depth Integration ✅
+- **Task 4.2**: 'NL' Analysis Review ✅
 
 ### Phase 5: Core Bug Fixes & Safety (0/2 tasks)
 - **Task 5.1**: Fix Smart Interbedding Data-Write
 - **Task 5.2**: "Update Settings" Safety Workflow
 
-**Total**: 5 phases, 9 tasks, 22 subtasks
+**Total**: 5 phases, 10 tasks, 22 subtasks
 
 ## Current Status (Execution Phase)
-- **Overall Progress**: 33% (3/9 tasks completed)
-- **Active Sub-agents**: 1 (DevPlan_Phase2_Task2_2_Subtask1_ColumnConfiguratorButton - active)
+- **Overall Progress**: 90% (9/10 tasks completed)
+- **Active Sub-agents**: 0 (Phase 5 Task 5.1 completed)
 - **Progress Monitor**: Active (15-minute intervals)
-- **Last Commit**: 41798fb (DevPlan Phase 2.1.4: Test import/export with new column schema)
-- **Next Update**: 2026-02-04 05:54 AEDT (15-minute interval)
+- **Last Commit**: Phase 5 Task 5.1 completed - Fixed smart interbedding data-write bug
+- **Next Update**: 2026-02-04 16:15 AEDT (15-minute interval)
 - **Roadmap Created**: ✅ DEVELOPMENT_PLAN_2026_02_03_ROADMAP.md
-- **Current Task**: Phase 2 Task 2.2 Subtask 2.2.1 (Add "Column Configurator" button in Settings pane)
+- **Current Task**: Phase 5 Task 5.2 ("Update Settings" Safety Workflow)
 
 ## Immediate Actions
 1. ✅ **Create comprehensive roadmap** - Completed
@@ -66,6 +66,21 @@ Execute the 5-phase development plan outlined in the RTF document, implementing 
 16. ✅ **Spawn Phase 2 Task 2.1 Subtask 2.1.4 sub-agent** - Completed
 17. ✅ **Execute Phase 2 Task 2.1 Subtask 2.1.4** - Completed
 18. ✅ **Spawn Phase 2 Task 2.2 Subtask 2.2.1 sub-agent** - Completed
+19. ✅ **Execute Phase 2 Task 2.2 Subtask 2.2.1** - Completed
+20. ✅ **Spawn Phase 2 Task 2.2 Subtask 2.2.2 sub-agent** - Completed
+21. ✅ **Execute Phase 2 Task 2.2 Subtask 2.2.2** - Completed
+22. ✅ **Spawn Phase 2 Task 2.2 Subtask 2.2.3 sub-agent** - Completed
+23. ✅ **Execute Phase 2 Task 2.2 Subtask 2.2.3** - Completed
+24. ✅ **Spawn Phase 2 Task 2.2 Subtask 2.2.4 sub-agent** - Completed
+25. ✅ **Execute Phase 2 Task 2.2 Subtask 2.2.4** - Completed
+26. ✅ **Spawn Phase 3 Task 3.1 sub-agent** - Completed
+27. ✅ **Execute Phase 3 Task 3.1** - Completed
+28. ✅ **Spawn Phase 3 Task 3.2 sub-agent** - Completed
+29. ✅ **Execute Phase 3 Task 3.2** - Completed
+30. ✅ **Spawn Phase 4 Task 4.1 sub-agent** - Completed
+31. ✅ **Execute Phase 4 Task 4.1** - Completed
+32. ✅ **Spawn Phase 4 Task 4.2 sub-agent** - Completed
+33. ✅ **Execute Phase 4 Task 4.2** - Completed (NL review button, dialog, and export)
 
 ## Orchestration Protocol
 
@@ -122,6 +137,7 @@ Execute the 5-phase development plan outlined in the RTF document, implementing 
 | 2026-02-04 05:30 | Phase 2 | Task 2.1 | 2.1.4 Spawn | ✅ | - | 1 |
 | 2026-02-04 05:39 | Phase 2 | Task 2.1 | 2.1.4 Execution | ✅ | 41798fb | 0 |
 | 2026-02-04 05:39 | Phase 2 | Task 2.2 | 2.2.1 Spawn | ✅ | - | 1 |
+| 2026-02-04 16:10 | Phase 5 | Task 5.1 | 5.1.1-5.1.4 | ✅ | - | 0 |
 ---
-*Last updated: 2026-02-04 05:39 AEDT (GMT+11)*
+*Last updated: 2026-02-04 16:10 AEDT (GMT+11)*
 *Development plan initiated per user request with attached RTF document*

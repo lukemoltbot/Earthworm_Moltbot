@@ -5,7 +5,7 @@ from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPixmap, QPen
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtCore import QRectF, Qt, pyqtSignal
 import numpy as np # Import numpy
-from ...core.config import LITHOLOGY_COLUMN
+from ...core.config import LITHOLOGY_COLUMN, RECOVERED_THICKNESS_COLUMN
 from .svg_renderer import SvgRenderer
 
 class StratigraphicColumn(QGraphicsView):
@@ -75,7 +75,7 @@ class StratigraphicColumn(QGraphicsView):
         for index, unit in units_dataframe.iterrows():
             from_depth = unit['from_depth']
             to_depth = unit['to_depth']
-            thickness = unit['thickness']
+            thickness = unit[RECOVERED_THICKNESS_COLUMN]
             lithology_code = unit[LITHOLOGY_COLUMN]
             lithology_qualifier = unit.get('lithology_qualifier', '')
             svg_file = unit.get('svg_path')
@@ -229,7 +229,7 @@ class StratigraphicColumn(QGraphicsView):
 
                 from_depth = unit['from_depth']
                 to_depth = unit['to_depth']
-                thickness = unit['thickness']
+                thickness = unit[RECOVERED_THICKNESS_COLUMN]
 
                 # Calculate position and size
                 y_start = (from_depth - self.min_depth) * self.depth_scale

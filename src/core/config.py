@@ -1,32 +1,26 @@
 # Configuration constants for the Earthworm application
 
-# Column names used in the DataFrame
+# Column names used in the DataFrame (CoalLog v3.1 schema - snake_case)
 DEPTH_COLUMN = 'DEPT'
-LITHOLOGY_COLUMN = 'LITHOLOGY_CODE' # Column for classified lithology (old name, maintained for backward compatibility)
-LITHOQUAL_COLUMN = 'LITHO_QUALITY' # Placeholder for original lithology quality if present
-LITHOLOGY_QUAL_COLUMN = 'LITHOLOGY_QUALITY_COMBINED' # Placeholder for combined lithology and quality
+LITHOLOGY_COLUMN = 'lithology'  # Column for classified lithology
+LITHOQUAL_COLUMN = 'LITHO_QUALITY'  # Placeholder for original lithology quality if present
+LITHOLOGY_QUAL_COLUMN = 'LITHOLOGY_QUALITY_COMBINED'  # Placeholder for combined lithology and quality
 
-# New 37-column CoalLog v3.1 schema column names
-# Primary column names (new schema uses snake_case)
-LITHOLOGY_COLUMN_NEW = 'lithology'  # New column name for lithology
-RECOVERED_THICKNESS_COLUMN = 'recovered_thickness'  # New column name for thickness
-RECORD_SEQUENCE_FLAG_COLUMN = 'record_sequence_flag'  # New column name for record sequence
-INTERRELATIONSHIP_COLUMN = 'interrelationship'  # New column name for interrelationship
-LITHOLOGY_PERCENT_COLUMN = 'lithology_percent'  # New column name for percentage
+# 37-column CoalLog v3.1 schema column names
+RECOVERED_THICKNESS_COLUMN = 'recovered_thickness'  # Column for thickness
+RECORD_SEQUENCE_FLAG_COLUMN = 'record_sequence_flag'  # Column for record sequence
+INTERRELATIONSHIP_COLUMN = 'interrelationship'  # Column for interrelationship
+LITHOLOGY_PERCENT_COLUMN = 'lithology_percent'  # Column for percentage
 
-# Column mapping for backward compatibility
+# Column mapping for loading legacy files (old -> new schema)
 COLUMN_NAME_MAPPING = {
-    # Old column names -> New column names
+    # Old column names -> New column names (one-way only)
     'LITHOLOGY_CODE': 'lithology',
     'thickness': 'recovered_thickness',
     'record_sequence': 'record_sequence_flag',
     'inter_relationship': 'interrelationship',
     'percentage': 'lithology_percent',
-    # New columns that don't have old equivalents will be added with defaults
 }
-
-# Reverse mapping for migration
-REVERSE_COLUMN_MAPPING = {v: k for k, v in COLUMN_NAME_MAPPING.items()}
 
 # Complete list of 37 columns in CoalLog v3.1 schema
 COALLOG_V31_COLUMNS = [
@@ -83,11 +77,12 @@ DEFAULT_COLUMN_VALUES = {
 ANALYSIS_COLUMNS = ['gamma', 'density']
 
 # Default ranges for plotting curves
+# Updated for dual-axis plotting: Gamma Ray 0-300 API, Density curves 0.0-4.0 g/cc
 CURVE_RANGES = {
-    'gamma': {'min': 0, 'max': 150, 'color': '#00FF00'}, # Green
-    'density': {'min': 1.5, 'max': 3.0, 'color': '#FF0000'}, # Red (assuming this is the primary density, will be replaced by short_space_density if present)
-    'short_space_density': {'min': 1.5, 'max': 3.0, 'color': '#FF0000'}, # Red
-    'long_space_density': {'min': 1.5, 'max': 3.0, 'color': '#0000FF'} # Blue
+    'gamma': {'min': 0, 'max': 300, 'color': '#8b008b'}, # Purple for Gamma Ray (top axis)
+    'density': {'min': 0.0, 'max': 4.0, 'color': '#006400'}, # Dark green for density (bottom axis)
+    'short_space_density': {'min': 0.0, 'max': 4.0, 'color': '#006400'}, # Dark green
+    'long_space_density': {'min': 0.0, 'max': 4.0, 'color': '#00008b'} # Dark blue
 }
 
 # Value used to represent invalid or missing data in input files
@@ -137,3 +132,11 @@ DEFAULT_SMART_INTERBEDDING = False # Whether to enable smart interbedding by def
 DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH = 10 # Maximum segments in interbedded sequence before stopping
 DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD = 0.5 # Stop interbedding when next unit exceeds this thickness (meters)
 DEFAULT_FALLBACK_CLASSIFICATION = False # Whether to enable fallback classification to reduce "NL" results
+
+# Drilling parameters
+DEFAULT_BIT_SIZE_MM = 150.0 # Default bit size in millimeters (typical for exploration drilling)
+DEFAULT_SHOW_ANOMALY_HIGHLIGHTS = True # Show anomaly highlights by default
+
+# Casing depth masking
+DEFAULT_CASING_DEPTH_ENABLED = False # Whether casing depth masking is enabled by default
+DEFAULT_CASING_DEPTH_M = 0.0 # Default casing depth in meters
