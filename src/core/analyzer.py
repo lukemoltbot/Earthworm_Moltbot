@@ -1122,6 +1122,12 @@ class Analyzer:
                 dataframe[new_name] = dataframe[old_name]
                 # Don't drop old column yet to maintain compatibility
         
+        # Ensure visualization columns exist with defaults
+        if 'background_color' not in dataframe.columns:
+            dataframe['background_color'] = '#FFFFFF'
+        if 'svg_path' not in dataframe.columns:
+            dataframe['svg_path'] = ''
+        
         return dataframe
 
     def _group_with_smart_interbedding(self, sorted_df, rules_map, max_sequence_length=10, thick_unit_threshold=0.5):
