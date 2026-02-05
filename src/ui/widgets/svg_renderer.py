@@ -18,12 +18,15 @@ class SvgRenderer:
 
     def render_svg(self, svg_path, width, height, background_color):
         if not svg_path:
+            print(f"DEBUG (SvgRenderer): No SVG path provided, returning None")
             return None
             
         renderer = self.get_renderer(svg_path)
         if not renderer or not renderer.isValid():
+            print(f"DEBUG (SvgRenderer): SVG renderer invalid or not found for path: {svg_path}")
             return None
 
+        print(f"DEBUG (SvgRenderer): Rendering SVG {svg_path} at {width}x{height} with background {background_color.name()}")
         pixmap = QPixmap(width, height)
         pixmap.fill(background_color)
         
@@ -34,5 +37,7 @@ class SvgRenderer:
                 renderer.render(painter)
             finally:
                 painter.end() # Ensure painter is ended even if render fails
+        else:
+            print(f"DEBUG (SvgRenderer): Failed to begin painting")
         
         return pixmap

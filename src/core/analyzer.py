@@ -1062,10 +1062,10 @@ class Analyzer:
             units_df = self._ensure_all_columns(units_df)
             
             # Reorder columns to match CoalLog v3.1 schema order
-            units_df = units_df[COALLOG_V31_COLUMNS]
+            units_df = units_df[COALLOG_V31_COLUMNS + ["background_color", "svg_path"]]
         else:
             # Create empty DataFrame with all 37 columns
-            units_df = pd.DataFrame(columns=COALLOG_V31_COLUMNS)
+            units_df = pd.DataFrame(columns=COALLOG_V31_COLUMNS + ["background_color", "svg_path"])
 
         return units_df
     
@@ -1156,10 +1156,10 @@ class Analyzer:
             units_df = self._ensure_all_columns(units_df)
             
             # Reorder columns to match CoalLog v3.1 schema order
-            units_df = units_df[COALLOG_V31_COLUMNS]
+            units_df = units_df[COALLOG_V31_COLUMNS + ["background_color", "svg_path"]]
         else:
             # Create empty DataFrame with all 37 columns
-            units_df = pd.DataFrame(columns=COALLOG_V31_COLUMNS)
+            units_df = pd.DataFrame(columns=COALLOG_V31_COLUMNS + ["background_color", "svg_path"])
 
         return units_df
 

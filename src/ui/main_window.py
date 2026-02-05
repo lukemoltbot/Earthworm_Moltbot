@@ -2547,7 +2547,9 @@ class MainWindow(QMainWindow):
                 rule['background_color'] = '#FFFFFF'
 
             # Find and store the absolute path to the SVG file directly in the rule, using qualifier
+            print(f"DEBUG (MainWindow): Finding SVG for code={rule['code']}, qualifier={rule['qualifier']}")
             rule['svg_path'] = self.find_svg_file(rule['code'], rule['qualifier'])
+            print(f"DEBUG (MainWindow): SVG path assigned: {rule['svg_path']}")
 
             rules.append(rule)
         self.lithology_rules = rules

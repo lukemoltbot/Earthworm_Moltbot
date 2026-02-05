@@ -43,6 +43,9 @@ class StratigraphicColumn(QGraphicsView):
         self.current_zoom_max = 100.0
 
     def draw_column(self, units_dataframe, min_overall_depth, max_overall_depth, separator_thickness=0.5, draw_separators=True):
+        print(f"DEBUG (StratigraphicColumn): draw_column called with {len(units_dataframe)} units")
+        if units_dataframe is not None and not units_dataframe.empty:
+            print(f"DEBUG (StratigraphicColumn): columns present: {list(units_dataframe.columns)}")
         self.scene.clear()
         # Clear references to deleted items
         self.highlight_rect_item = None
@@ -82,7 +85,7 @@ class StratigraphicColumn(QGraphicsView):
             svg_file = unit.get('svg_path')
             bg_color = QColor(unit.get('background_color', '#FFFFFF'))
 
-            print(f"DEBUG (StratigraphicColumn): Drawing unit {index}: from={from_depth}, to={to_depth}, thickness={thickness}, code={lithology_code}, color={bg_color.name()}")
+            print(f"DEBUG (StratigraphicColumn): Drawing unit {index}: from={from_depth}, to={to_depth}, thickness={thickness}, code={lithology_code}, color={bg_color.name()}, svg={svg_file}")
 
             y_start = (from_depth - self.min_depth) * self.depth_scale
             rect_height = thickness * self.depth_scale
@@ -102,6 +105,7 @@ class StratigraphicColumn(QGraphicsView):
             rect_item.setPen(QPen(QColor(Qt.GlobalColor.gray), 0.5))
 
             pixmap = self.svg_renderer.render_svg(svg_file, self.column_width, int(rect_height), bg_color)
+            print(f"DEBUG (StratigraphicColumn): pixmap created: {pixmap is not None}")
             if pixmap:
                 rect_item.setBrush(QBrush(pixmap))
             else:
