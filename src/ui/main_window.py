@@ -242,7 +242,7 @@ class HoleEditorWindow(QWidget):
                         # Select the corresponding row in the table
                         self.editorTable.selectRow(idx)
                         # Scroll to make the selected row visible
-                        self.editorTable.scrollTo(self.editorTable.model.index(idx, 0))
+                        self.editorTable.scrollTo(self.editorTable.model().index(idx, 0))
                         print(f"Plot clicked at depth: {depth}m -> Selected table row {idx}")
                         return
                 
@@ -1007,7 +1007,7 @@ class MainWindow(QMainWindow):
             # Get the index of the first matching unit
             row_index = containing_units.index[0]
             # Scroll to make this row visible
-            index = self.editorTable.model.index(row_index, 0)
+            index = self.editorTable.model().index(row_index, 0)
             self.editorTable.scrollTo(
                 index,
                 QAbstractItemView.ScrollHint.PositionAtCenter
@@ -1034,7 +1034,7 @@ class MainWindow(QMainWindow):
         # Select the corresponding row in the editor table
         if hasattr(self, 'editorTable') and self.editorTable is not None:
             # Get the model
-            model = self.editorTable.model
+            model = self.editorTable.model()
             if model and 0 <= unit_index < model.rowCount():
                 # Select the row in the table
                 self.editorTable.selectRow(unit_index)
