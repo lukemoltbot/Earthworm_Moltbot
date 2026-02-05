@@ -72,6 +72,7 @@ class StratigraphicColumn(QGraphicsView):
         self._draw_y_axis(min_depth_for_scene, max_depth_for_scene)
 
         # Draw stratigraphic units
+        print(f"DEBUG (StratigraphicColumn): Drawing {len(units_dataframe)} units, min_depth={self.min_depth}, max_depth={self.max_depth}")
         for index, unit in units_dataframe.iterrows():
             from_depth = unit['from_depth']
             to_depth = unit['to_depth']
@@ -81,9 +82,9 @@ class StratigraphicColumn(QGraphicsView):
             svg_file = unit.get('svg_path')
             bg_color = QColor(unit.get('background_color', '#FFFFFF'))
 
-            # print(f"DEBUG (StratigraphicColumn): Drawing unit: Code={lithology_code}, Qual={lithology_qualifier}, SVG={svg_file}, Color={bg_color.name()}")
+            print(f"DEBUG (StratigraphicColumn): Drawing unit {index}: from={from_depth}, to={to_depth}, thickness={thickness}, code={lithology_code}, color={bg_color.name()}")
 
-            y_start = (from_depth - min_overall_depth) * self.depth_scale
+            y_start = (from_depth - self.min_depth) * self.depth_scale
             rect_height = thickness * self.depth_scale
 
             # Apply minimum display height for very thin units
@@ -97,8 +98,8 @@ class StratigraphicColumn(QGraphicsView):
             # Position the column to the right of the Y-axis
             rect_item = QGraphicsRectItem(self.y_axis_width, y_start, self.column_width, rect_height)
             
-            # Remove the default border from the rectangle item
-            rect_item.setPen(QPen(Qt.PenStyle.NoPen))
+            # Add a subtle border to make units visible
+            rect_item.setPen(QPen(QColor(Qt.GlobalColor.gray), 0.5))
 
             pixmap = self.svg_renderer.render_svg(svg_file, self.column_width, int(rect_height), bg_color)
             if pixmap:

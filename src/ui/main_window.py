@@ -608,7 +608,7 @@ class MainWindow(QMainWindow):
         self.show_anomaly_highlights = app_settings.get("show_anomaly_highlights", True)  # Load anomaly highlights setting
         self.casing_depth_enabled = app_settings.get("casing_depth_enabled", False)  # Load casing depth masking enabled state
         self.casing_depth_m = app_settings.get("casing_depth_m", 0.0)  # Load casing depth in meters
-        self.current_theme = app_settings.get("theme", "dark")  # Load theme preference
+        self.current_theme = app_settings.get("theme", "light")  # Load theme preference
 
         self.lithology_qualifier_map = self.load_lithology_qualifier_map()
         self.coallog_data = self.load_coallog_data()
@@ -806,43 +806,8 @@ class MainWindow(QMainWindow):
         window_menu.addAction(close_all_action)
 
     def create_view_menu(self):
-        """Create View menu with theme toggle and other view options."""
+        """Create View menu with view options."""
         view_menu = self.menuBar().addMenu("&View")
-        
-        # Theme submenu
-        theme_menu = QMenu("Theme", self)
-        view_menu.addMenu(theme_menu)
-        
-        # Dark theme action
-        dark_theme_action = QAction("Dark", self)
-        dark_theme_action.setCheckable(True)
-        dark_theme_action.setChecked(self.current_theme == "dark")
-        dark_theme_action.triggered.connect(lambda: self.set_theme("dark"))
-        theme_menu.addAction(dark_theme_action)
-        
-        # Light theme action
-        light_theme_action = QAction("Light", self)
-        light_theme_action.setCheckable(True)
-        light_theme_action.setChecked(self.current_theme == "light")
-        light_theme_action.triggered.connect(lambda: self.set_theme("light"))
-        theme_menu.addAction(light_theme_action)
-        
-        # Add separator
-        theme_menu.addSeparator()
-        
-        # Toggle theme action (quick toggle)
-        toggle_theme_action = QAction("Toggle Theme", self)
-        toggle_theme_action.triggered.connect(self.toggle_theme)
-        theme_menu.addAction(toggle_theme_action)
-        
-        # Theme preview dialog
-        theme_menu.addSeparator()
-        preview_action = QAction("Preview Theme...", self)
-        preview_action.triggered.connect(self.show_theme_preview)
-        theme_menu.addAction(preview_action)
-        
-        # Add separator in main view menu
-        view_menu.addSeparator()
         
         # Show/Hide docks
         show_settings_action = QAction("Show/Hide Settings", self)
@@ -854,29 +819,20 @@ class MainWindow(QMainWindow):
         view_menu.addAction(show_explorer_action)
 
     def set_theme(self, theme_name):
-        """Set a specific theme."""
-        if theme_name not in ["dark", "light"]:
-            return
+        """Set theme (only light theme supported)."""
+        # Only light theme is supported
+        self.current_theme = "light"
         
-        self.current_theme = theme_name
-        
-        # Update application property for CSS class
+        # Update application property for CSS class (empty string for default light theme)
         app = QApplication.instance()
         if app:
-            if self.current_theme == "light":
-                app.setProperty("class", "light-theme")
-            else:
-                app.setProperty("class", "")  # Default to dark theme
+            app.setProperty("class", "")
         
         # Save theme preference
         self.save_theme_preference()
         
-        # Update menu check states
-        self.update_theme_menu_states()
-        
-        # Show theme change notification
-        QMessageBox.information(self, "Theme Changed", 
-                               f"Switched to {self.current_theme} theme. Restart the application for full effect.")
+        # No need to update menu check states (theme menu removed)
+        # No notification since theme is fixed
     
     def show_theme_preview(self):
         """Show theme preview dialog."""
@@ -906,16 +862,7 @@ class MainWindow(QMainWindow):
         toolbar.setMovable(True)
         self.addToolBar(toolbar)
         
-        # Add theme toggle button
-        theme_action = QAction("🌓", self)  # Using emoji for theme icon
-        theme_action.setToolTip("Toggle Dark/Light Theme")
-        theme_action.triggered.connect(self.toggle_theme)
-        toolbar.addAction(theme_action)
-        
-        # Add separator
-        toolbar.addSeparator()
-        
-        # Add other common actions
+        # Add common actions
         load_action = QAction("📂", self)
         load_action.setToolTip("Load LAS File")
         load_action.triggered.connect(self.load_las_file_dialog)
@@ -1105,41 +1052,21 @@ class MainWindow(QMainWindow):
                 # Apply the stylesheet
                 self.setStyleSheet(stylesheet)
                 
-                # Apply theme class to the application
+                # Apply theme class to the application (empty string for default light theme)
                 app = QApplication.instance()
                 if app:
-                    if self.current_theme == "light":
-                        app.setProperty("class", "light-theme")
-                    else:
-                        app.setProperty("class", "")  # Default to dark theme
+                    app.setProperty("class", "")  # Use :root (light theme)
                 
-                print(f"Stylesheet loaded successfully with {self.current_theme} theme")
+                print("Stylesheet loaded successfully with light theme")
             else:
                 print(f"Warning: Stylesheet not found at {stylesheet_path}")
         except Exception as e:
             print(f"Error loading stylesheet: {e}")
 
     def toggle_theme(self):
-        """Toggle between dark and light themes."""
-        if self.current_theme == "dark":
-            self.current_theme = "light"
-        else:
-            self.current_theme = "dark"
-        
-        # Update application property for CSS class
-        app = QApplication.instance()
-        if app:
-            if self.current_theme == "light":
-                app.setProperty("class", "light-theme")
-            else:
-                app.setProperty("class", "")  # Default to dark theme
-        
-        # Save theme preference
-        self.save_theme_preference()
-        
-        # Show theme change notification
-        QMessageBox.information(self, "Theme Changed", 
-                               f"Switched to {self.current_theme} theme. Restart the application for full effect.")
+        """Toggle theme (only light theme supported)."""
+        # Only light theme is supported, so just ensure light theme is set
+        self.set_theme("light")
 
     def save_theme_preference(self):
         """Save theme preference to settings."""
