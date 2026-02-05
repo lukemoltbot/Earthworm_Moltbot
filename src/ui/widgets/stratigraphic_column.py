@@ -116,8 +116,10 @@ class StratigraphicColumn(QGraphicsView):
             pixmap = self.svg_renderer.render_svg(svg_file, self.column_width, int(rect_height), bg_color)
             print(f"DEBUG (StratigraphicColumn): pixmap created: {pixmap is not None}")
             if pixmap:
+                print(f"DEBUG (StratigraphicColumn): Setting pixmap brush for unit {index}")
                 rect_item.setBrush(QBrush(pixmap))
             else:
+                print(f"DEBUG (StratigraphicColumn): Setting solid color brush for unit {index}: {bg_color.name()}")
                 rect_item.setBrush(QBrush(bg_color))
             
             self.scene.addItem(rect_item)
