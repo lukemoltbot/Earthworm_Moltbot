@@ -1024,6 +1024,9 @@ class Analyzer:
 
     def _group_standard_units(self, sorted_df, rules_map):
         """Standard unit grouping without interbedding detection using 37-column schema."""
+        print(f"DEBUG (group_standard_units): rules_map keys = {list(rules_map.keys())}")
+        for code, rule in rules_map.items():
+            print(f"  {code}: background_color={rule.get('background_color', 'MISSING')}, svg_path={rule.get('svg_path', 'MISSING')}")
         units = []
         current_unit = None
 
@@ -1031,6 +1034,9 @@ class Analyzer:
             lithology_code = row[LITHOLOGY_COLUMN]
             current_depth = row[DEPTH_COLUMN]
             rule = rules_map.get(lithology_code, {})
+            # DEBUG: Print rule info for problematic colors
+            if lithology_code in ['NL', 'XM', 'CO', 'SS', 'SH']:
+                print(f"DEBUG (group_standard_units): lithology_code={lithology_code}, rule keys={list(rule.keys())}, background_color={rule.get('background_color', 'MISSING')}, svg_path={rule.get('svg_path', 'MISSING')}")
 
             if current_unit is None:
                 # Start a new unit with all 37 columns

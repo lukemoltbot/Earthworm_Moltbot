@@ -85,7 +85,7 @@ class StratigraphicColumn(QGraphicsView):
             svg_file = unit.get('svg_path')
             bg_color = QColor(unit.get('background_color', '#FFFFFF'))
 
-            print(f"DEBUG (StratigraphicColumn): Drawing unit {index}: from={from_depth}, to={to_depth}, thickness={thickness}, code={lithology_code}, color={bg_color.name()}, svg={svg_file}")
+            print(f"DEBUG (StratigraphicColumn): Drawing unit {index}: from={from_depth}, to={to_depth}, thickness={thickness}, code={lithology_code}, background_color_raw={unit.get('background_color', 'MISSING')}, color={bg_color.name()}, svg={svg_file}")
 
             y_start = (from_depth - self.min_depth) * self.depth_scale
             rect_height = thickness * self.depth_scale

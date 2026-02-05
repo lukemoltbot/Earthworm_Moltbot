@@ -513,6 +513,10 @@ class Worker(QObject):
                 classified_dataframe = analyzer.classify_rows_simple(processed_dataframe, self.lithology_rules, full_mnemonic_map)
             else:
                 classified_dataframe = analyzer.classify_rows(processed_dataframe, self.lithology_rules, full_mnemonic_map, self.use_researched_defaults, self.use_fallback_classification)
+            # Debug: print lithology rules being passed
+            print(f"DEBUG (Worker): lithology_rules count = {len(self.lithology_rules)}")
+            for idx, rule in enumerate(self.lithology_rules):
+                print(f"  [{idx}] code={rule.get('code', 'N/A')}, name={rule.get('name', 'N/A')}, background_color={rule.get('background_color', 'MISSING')}, svg_path={rule.get('svg_path', 'MISSING')}")
             units_dataframe = analyzer.group_into_units(classified_dataframe, self.lithology_rules, self.smart_interbedding, self.smart_interbedding_max_sequence_length, self.smart_interbedding_thick_unit_threshold)
             if self.merge_thin_units:
                 units_dataframe = analyzer.merge_thin_units(units_dataframe, self.merge_threshold)
@@ -593,6 +597,9 @@ class MainWindow(QMainWindow):
         app_settings = load_settings()
         self.column_visibility = app_settings.get("column_visibility", {})
         self.lithology_rules = app_settings["lithology_rules"]
+        print(f"DEBUG (MainWindow): Loaded {len(self.lithology_rules)} lithology rules from settings")
+        for idx, rule in enumerate(self.lithology_rules):
+            print(f"  [{idx}] code={rule.get('code', 'N/A')}, background_color={rule.get('background_color', 'MISSING')}, svg_path={rule.get('svg_path', 'MISSING')}")
         self.initial_separator_thickness = app_settings["separator_thickness"]
         self.initial_draw_separators = app_settings["draw_separator_lines"]
         self.initial_curve_inversion_settings = app_settings["curve_inversion_settings"]
