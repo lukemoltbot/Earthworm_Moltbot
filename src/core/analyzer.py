@@ -1391,8 +1391,14 @@ class Analyzer:
         # Ensure all 37 columns are present
         if not result_df.empty:
             result_df = self._ensure_all_columns(result_df)
+            # Ensure visualization columns exist with defaults
+            if 'background_color' not in result_df.columns:
+                result_df['background_color'] = '#FFFFFF'
+            if 'svg_path' not in result_df.columns:
+                result_df['svg_path'] = ''
             # Reorder columns to match CoalLog v3.1 schema order
-            result_df = result_df[COALLOG_V31_COLUMNS]
+            # Keep background_color and svg_path for visualization
+            result_df = result_df[COALLOG_V31_COLUMNS + ["background_color", "svg_path"]]
 
         return result_df
 
