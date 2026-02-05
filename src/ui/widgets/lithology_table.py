@@ -400,9 +400,14 @@ class LithologyTableWidget(QTableView):
     
     def _cancel_validation(self):
         """Cancel any ongoing validation."""
-        if self.validation_thread and self.validation_thread.isRunning():
-            self.validation_thread.quit()
-            self.validation_thread.wait()
+        if self.validation_thread:
+            try:
+                if self.validation_thread.isRunning():
+                    self.validation_thread.quit()
+                    self.validation_thread.wait()
+            except RuntimeError:
+                # Thread has already been deleted (wrapped C/C++ object deleted)
+                pass
         self.validation_worker = None
         self.validation_thread = None
         self.is_validating = False
