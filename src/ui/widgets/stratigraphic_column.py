@@ -83,7 +83,12 @@ class StratigraphicColumn(QGraphicsView):
             lithology_code = unit[LITHOLOGY_COLUMN]
             lithology_qualifier = unit.get('lithology_qualifier', '')
             svg_file = unit.get('svg_path')
-            bg_color = QColor(unit.get('background_color', '#FFFFFF'))
+            if svg_file is None:
+                svg_file = ''
+            bg_color_str = unit.get('background_color')
+            if not bg_color_str:
+                bg_color_str = '#FFFFFF'
+            bg_color = QColor(bg_color_str)
 
             print(f"DEBUG (StratigraphicColumn): Drawing unit {index}: from={from_depth}, to={to_depth}, thickness={thickness}, code={lithology_code}, background_color_raw={unit.get('background_color', 'MISSING')}, color={bg_color.name()}, svg={svg_file}")
             print(f"DEBUG (StratigraphicColumn): Unit columns: {list(unit.keys()) if hasattr(unit, 'keys') else 'not a dict'}")

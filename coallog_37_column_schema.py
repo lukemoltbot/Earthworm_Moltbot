@@ -65,61 +65,63 @@ COALLOG_V31_COLUMNS = [
 # Verify we have exactly 37 columns
 assert len(COALLOG_V31_COLUMNS) == 37, f"Expected 37 columns, got {len(COALLOG_V31_COLUMNS)}"
 
-print("37-column CoalLog v3.1 Schema (Industry Standard Order):")
-print("=" * 60)
-for i, (internal_name, display_name) in enumerate(COALLOG_V31_COLUMNS, 1):
-    print(f"{i:2d}. {display_name:30s} (internal: {internal_name})")
-
-# Current columns mapping
-current_columns = [
-    ('from_depth', 'From'),
-    ('to_depth', 'To'),
-    ('thickness', 'Thick'),
-    ('LITHOLOGY_CODE', 'Litho'),  # Note: different name
-    ('lithology_qualifier', 'Qual'),
-    ('shade', 'Shade'),
-    ('hue', 'Hue'),
-    ('colour', 'Colour'),
-    ('weathering', 'Weath'),
-    ('estimated_strength', 'Str'),
-    ('record_sequence', 'Rec Seq'),  # Note: different name
-    ('inter_relationship', 'Inter-rel'),  # Note: different name
-    ('percentage', 'Percent'),  # Note: different name
-    ('bed_spacing', 'Bed Sp')
-]
-
-print("\n\nCurrent 14-column to 37-column mapping:")
-print("=" * 60)
-for internal, display in current_columns:
-    # Find matching column in new schema
-    found = False
-    for new_internal, new_display in COALLOG_V31_COLUMNS:
-        if internal == new_internal or internal.replace('_', ' ') in new_display.lower():
-            print(f"✓ {display:15s} -> {new_display:30s} (maps directly)")
-            found = True
-            break
-        elif display.lower() in new_display.lower() or new_display.lower() in display.lower():
-            print(f"≈ {display:15s} -> {new_display:30s} (similar)")
-            found = True
-            break
+if __name__ == "__main__":
     
-    if not found:
-        # Check for special cases
-        if internal == 'LITHOLOGY_CODE':
-            print(f"→ {display:15s} -> Lithology                (LITHOLOGY_CODE -> lithology)")
-        elif internal == 'record_sequence':
-            print(f"→ {display:15s} -> Record Sequence Flag     (record_sequence -> record_sequence_flag)")
-        elif internal == 'inter_relationship':
-            print(f"→ {display:15s} -> Interrelationship        (inter_relationship -> interrelationship)")
-        elif internal == 'percentage':
-            print(f"→ {display:15s} -> Lithology %             (percentage -> lithology_percent)")
-        else:
-            print(f"? {display:15s} -> [No direct match]")
-
-print("\n\nImplementation notes:")
-print("-" * 60)
-print("1. Need to update lithology_table.py headers and column mappings")
-print("2. Need to update pandas_model.py to handle all 37 columns")
-print("3. Need to update analyzer.py to create DataFrames with all columns")
-print("4. Need to maintain backward compatibility with existing data")
-print("5. Dictionary mappings need to be updated for new dictionary columns")
+    print("37-column CoalLog v3.1 Schema (Industry Standard Order):")
+    print("=" * 60)
+    for i, (internal_name, display_name) in enumerate(COALLOG_V31_COLUMNS, 1):
+        print(f"{i:2d}. {display_name:30s} (internal: {internal_name})")
+    
+    # Current columns mapping
+    current_columns = [
+        ('from_depth', 'From'),
+        ('to_depth', 'To'),
+        ('thickness', 'Thick'),
+        ('LITHOLOGY_CODE', 'Litho'),  # Note: different name
+        ('lithology_qualifier', 'Qual'),
+        ('shade', 'Shade'),
+        ('hue', 'Hue'),
+        ('colour', 'Colour'),
+        ('weathering', 'Weath'),
+        ('estimated_strength', 'Str'),
+        ('record_sequence', 'Rec Seq'),  # Note: different name
+        ('inter_relationship', 'Inter-rel'),  # Note: different name
+        ('percentage', 'Percent'),  # Note: different name
+        ('bed_spacing', 'Bed Sp')
+    ]
+    
+    print("\n\nCurrent 14-column to 37-column mapping:")
+    print("=" * 60)
+    for internal, display in current_columns:
+        # Find matching column in new schema
+        found = False
+        for new_internal, new_display in COALLOG_V31_COLUMNS:
+            if internal == new_internal or internal.replace('_', ' ') in new_display.lower():
+                print(f"✓ {display:15s} -> {new_display:30s} (maps directly)")
+                found = True
+                break
+            elif display.lower() in new_display.lower() or new_display.lower() in display.lower():
+                print(f"≈ {display:15s} -> {new_display:30s} (similar)")
+                found = True
+                break
+        
+        if not found:
+            # Check for special cases
+            if internal == 'LITHOLOGY_CODE':
+                print(f"→ {display:15s} -> Lithology                (LITHOLOGY_CODE -> lithology)")
+            elif internal == 'record_sequence':
+                print(f"→ {display:15s} -> Record Sequence Flag     (record_sequence -> record_sequence_flag)")
+            elif internal == 'inter_relationship':
+                print(f"→ {display:15s} -> Interrelationship        (inter_relationship -> interrelationship)")
+            elif internal == 'percentage':
+                print(f"→ {display:15s} -> Lithology %             (percentage -> lithology_percent)")
+            else:
+                print(f"? {display:15s} -> [No direct match]")
+    
+    print("\n\nImplementation notes:")
+    print("-" * 60)
+    print("1. ✅ lithology_table.py headers and column mappings updated (37-column)")
+    print("2. ✅ pandas_model.py handles all 37 columns (generic model)")
+    print("3. ✅ analyzer.py creates DataFrames with all 37 columns")
+    print("4. ✅ Backward compatibility maintained with existing data")
+    print("5. ⚠️ Dictionary mappings need verification for new dictionary columns")

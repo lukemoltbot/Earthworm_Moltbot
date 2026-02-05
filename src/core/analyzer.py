@@ -9,7 +9,8 @@ from .config import (
     DEPTH_COLUMN, LITHOLOGY_COLUMN, ANALYSIS_COLUMNS, RESEARCHED_LITHOLOGY_DEFAULTS, 
     INVALID_DATA_VALUE, DEFAULT_MERGE_THRESHOLD, COALLOG_V31_COLUMNS, DEFAULT_COLUMN_VALUES,
     COLUMN_NAME_MAPPING, RECOVERED_THICKNESS_COLUMN,
-    RECORD_SEQUENCE_FLAG_COLUMN, INTERRELATIONSHIP_COLUMN, LITHOLOGY_PERCENT_COLUMN
+    RECORD_SEQUENCE_FLAG_COLUMN, INTERRELATIONSHIP_COLUMN, LITHOLOGY_PERCENT_COLUMN,
+    DEFAULT_LITHOLOGY_RULES
 )
 
 # Set up logging
@@ -381,11 +382,59 @@ class Analyzer:
         if DEPTH_COLUMN not in dataframe.columns:
             raise ValueError(f"Depth column '{DEPTH_COLUMN}' not found in DataFrame.")
 
-        # Create a mapping from lithology code to rule details
-        rules_map = {rule['code']: rule for rule in lithology_rules}
-
+        # Create default color mapping from DEFAULT_LITHOLOGY_RULES
+        default_colors = {rule['code']: rule.get('background_color', '#FFFFFF') for rule in DEFAULT_LITHOLOGY_RULES}
+        # Extend with fallback colors for common lithology codes not in defaults
+        fallback_colors = {
+            'ST': '#ff7e79',  # salmon for Siltstone
+            'XM': '#8b4513',  # saddle brown for Carbonaceous Mudstone
+            'ZM': '#d2691e',  # chocolate for Coaly Mudstone
+            'TF': '#a0522d',  # sienna for Tuff
+        }
+        default_colors.update(fallback_colors)
+        
+        # Ensure each rule has visual properties, using defaults if missing
+        processed_rules = []
+        for rule in lithology_rules:
+            rule = rule.copy()  # Avoid modifying original
+            code = rule.get('code', '')
+            if code:
+                # Ensure background_color
+                if 'background_color' not in rule or not rule['background_color']:
+                    rule['background_color'] = default_colors.get(code, '#FFFFFF')
+                # Ensure svg_path (default empty string)
+                if 'svg_path' not in rule or not rule['svg_path']:
+                    rule['svg_path'] = ''
+            processed_rules.append(rule)
+        
         # Ensure the DataFrame is sorted by depth for correct grouping
         sorted_df = dataframe.sort_values(by=DEPTH_COLUMN).reset_index(drop=True)
+        
+        # Create a mapping from lithology code to rule details
+        rules_map = {rule['code']: rule for rule in processed_rules}
+        
+        # Debug: print rules_map entries
+        print(f"DEBUG (group_into_units): rules_map contains {len(rules_map)} entries")
+        for code, rule in rules_map.items():
+            print(f"  {code}: background_color={rule.get('background_color', 'MISSING')}, svg_path={rule.get('svg_path', 'MISSING')}")
+        
+        # Add missing lithology codes from data (should only be NL if missing)
+        unique_codes = sorted_df[LITHOLOGY_COLUMN].unique()
+        for code in unique_codes:
+            if code not in rules_map:
+                # Create a default rule for this code
+                default_rule = {
+                    'code': code,
+                    'background_color': default_colors.get(code, '#FFFFFF'),
+                    'svg_path': ''
+                }
+                rules_map[code] = default_rule
+                print(f"DEBUG (group_into_units): Added missing rule for code '{code}' with color {default_rule['background_color']}")
+        
+        # Debug: print final rules_map
+        print(f"DEBUG (group_into_units): Final rules_map entries:")
+        for code, rule in rules_map.items():
+            print(f"  {code}: background_color={rule.get('background_color', 'MISSING')}, svg_path={rule.get('svg_path', 'MISSING')}")
 
         # Always use standard grouping - smart interbedding now runs as post-processing
         return self._group_standard_units(sorted_df, rules_map)
@@ -1101,8 +1150,10 @@ class Analyzer:
         unit['bed_spacing'] = rule.get('bed_spacing', '')
         
         # Set visualization properties (not part of 37-column schema but needed for display)
-        unit['background_color'] = rule.get('background_color', '#FFFFFF')
-        unit['svg_path'] = rule.get('svg_path', '')
+        bg_color = rule.get('background_color')
+        unit['background_color'] = bg_color if bg_color else '#FFFFFF'
+        svg_path = rule.get('svg_path')
+        unit['svg_path'] = svg_path if svg_path else ''
         
         # Initialize interbedding-related columns
         unit[RECORD_SEQUENCE_FLAG_COLUMN] = ''
@@ -1127,8 +1178,13 @@ class Analyzer:
         # Ensure visualization columns exist with defaults
         if 'background_color' not in dataframe.columns:
             dataframe['background_color'] = '#FFFFFF'
+        else:
+            # Replace null/None values with default
+            dataframe['background_color'] = dataframe['background_color'].fillna('#FFFFFF')
         if 'svg_path' not in dataframe.columns:
             dataframe['svg_path'] = ''
+        else:
+            dataframe['svg_path'] = dataframe['svg_path'].fillna('')
         
         return dataframe
 
