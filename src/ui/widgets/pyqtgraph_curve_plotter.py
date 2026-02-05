@@ -37,6 +37,7 @@ class PyQtGraphCurvePlotter(QWidget):
         self.gamma_axis = None  # Top axis for Gamma Ray
         self.gamma_curves = []  # List of Gamma Ray curves
         self.density_curves = []  # List of Density curves
+        self.curve_items = {}  # Dictionary mapping curve_name -> curve item(s)
         
         # Curve type identification patterns
         self.gamma_patterns = ['gamma', 'gr', 'gamma_ray', 'gammaray']
@@ -163,8 +164,7 @@ class PyQtGraphCurvePlotter(QWidget):
         # Remove existing curve items without clearing the entire plot
         # This preserves the dual-axis setup
         
-        # Clear curve items dictionary
-        self.curve_items.clear()
+        
         
         # Clear anomaly regions (they will be recreated after curves are drawn)
         self.clear_anomaly_highlights()
