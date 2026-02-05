@@ -1077,6 +1077,8 @@ class Analyzer:
     
     def _create_unit_template(self, depth, lithology_code, rule):
         """Create a unit dictionary with all 37 columns initialized."""
+        # Debug: print rule info
+        print(f"DEBUG (_create_unit_template): lithology_code={lithology_code}, rule keys={list(rule.keys())}, background_color={rule.get('background_color', 'MISSING')}, svg_path={rule.get('svg_path', 'MISSING')}")
         # Start with default values for all columns
         unit = {col: DEFAULT_COLUMN_VALUES.get(col, '') for col in COALLOG_V31_COLUMNS}
         
@@ -1105,6 +1107,7 @@ class Analyzer:
         unit[INTERRELATIONSHIP_COLUMN] = ''
         unit[LITHOLOGY_PERCENT_COLUMN] = 0.0
         
+        print(f"DEBUG (_create_unit_template): unit background_color={unit['background_color']}, svg_path={unit['svg_path']}")
         return unit
     
     def _ensure_all_columns(self, dataframe):

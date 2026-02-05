@@ -495,6 +495,8 @@ class Worker(QObject):
 
     def run(self):
         try:
+            print(f"DEBUG (Worker): run() started with file={self.file_path}")
+            print(f"DEBUG (Worker): lithology_rules count={len(self.lithology_rules)}")
             data_processor = DataProcessor()
             analyzer = Analyzer()
             dataframe, _ = data_processor.load_las_file(self.file_path)
@@ -518,6 +520,12 @@ class Worker(QObject):
             for idx, rule in enumerate(self.lithology_rules):
                 print(f"  [{idx}] code={rule.get('code', 'N/A')}, name={rule.get('name', 'N/A')}, background_color={rule.get('background_color', 'MISSING')}, svg_path={rule.get('svg_path', 'MISSING')}")
             units_dataframe = analyzer.group_into_units(classified_dataframe, self.lithology_rules, self.smart_interbedding, self.smart_interbedding_max_sequence_length, self.smart_interbedding_thick_unit_threshold)
+            print(f"DEBUG (Worker): units_dataframe columns: {list(units_dataframe.columns)}")
+            print(f"DEBUG (Worker): background_color in columns? {'background_color' in units_dataframe.columns}")
+            print(f"DEBUG (Worker): svg_path in columns? {'svg_path' in units_dataframe.columns}")
+            if not units_dataframe.empty:
+                print(f"DEBUG (Worker): First unit background_color: {units_dataframe.iloc[0].get('background_color', 'MISSING')}")
+                print(f"DEBUG (Worker): First unit svg_path: {units_dataframe.iloc[0].get('svg_path', 'MISSING')}")
             if self.merge_thin_units:
                 units_dataframe = analyzer.merge_thin_units(units_dataframe, self.merge_threshold)
             template_path = os.path.join(os.getcwd(), 'src', 'assets', 'TEMPLATE.xlsx')
@@ -2968,6 +2976,16 @@ class MainWindow(QMainWindow):
         self.last_units_dataframe = units_dataframe.copy()
         self.last_analysis_file = self.las_file_path
         self.last_analysis_timestamp = pd.Timestamp.now()
+
+        # Debug: check columns
+        print(f"DEBUG (analysis_finished): units_dataframe columns: {list(units_dataframe.columns)}")
+        print(f"DEBUG (analysis_finished): background_color in columns? {'background_color' in units_dataframe.columns}")
+        print(f"DEBUG (analysis_finished): svg_path in columns? {'svg_path' in units_dataframe.columns}")
+        if not units_dataframe.empty:
+            print(f"DEBUG (analysis_finished): First few units:")
+            for idx in range(min(5, len(units_dataframe))):
+                unit = units_dataframe.iloc[idx]
+                print(f"  [{idx}] lithology={unit.get(LITHOLOGY_COLUMN, 'N/A')}, background_color={unit.get('background_color', 'MISSING')}, svg_path={unit.get('svg_path', 'MISSING')}")
 
         # Check for smart interbedding suggestions if enabled
         print(f"DEBUG: Smart interbedding enabled check: {self.smart_interbedding}")
