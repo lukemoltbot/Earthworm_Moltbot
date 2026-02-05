@@ -785,7 +785,8 @@ class Analyzer:
             # First ensure all columns are present
             result_df = self._ensure_all_columns(result_df)
             # Then reorder to match CoalLog v3.1 schema
-            result_df = result_df[COALLOG_V31_COLUMNS]
+            # Keep visualization columns
+            result_df = result_df[COALLOG_V31_COLUMNS + ["background_color", "svg_path"]]
 
         # Apply post-processing: merge adjacent interbedded sections with same dominant lithology
         result_df = self.merge_adjacent_interbedded_sections(result_df)
@@ -900,7 +901,8 @@ class Analyzer:
             # First ensure all columns are present
             result_df = self._ensure_all_columns(result_df)
             # Then reorder to match CoalLog v3.1 schema
-            result_df = result_df[COALLOG_V31_COLUMNS]
+            # Keep visualization columns
+            result_df = result_df[COALLOG_V31_COLUMNS + ["background_color", "svg_path"]]
 
         return result_df
 
