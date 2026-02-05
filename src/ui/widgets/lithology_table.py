@@ -124,8 +124,8 @@ class LithologyTableWidget(QTableView):
         self.total_depth: Optional[float] = None
         
         # Create PandasModel
-        self.model = PandasModel()
-        self.setModel(self.model)
+        self.pandas_model = PandasModel()
+        self.setModel(self.pandas_model)
         
         # Background validation
         self.validation_worker: Optional[ValidationWorker] = None
@@ -203,7 +203,7 @@ class LithologyTableWidget(QTableView):
         
         # Connect signals
         self.selectionModel().selectionChanged.connect(self._handle_selection_changed)
-        self.model.dataChanged.connect(self._handle_data_changed)
+        self.pandas_model.dataChanged.connect(self._handle_data_changed)
         
         # Install event filter for F3 key
         self.installEventFilter(self)
@@ -216,12 +216,12 @@ class LithologyTableWidget(QTableView):
         if self.current_dataframe is not None:
             # All columns are editable by default
             editable_columns = list(self.current_dataframe.columns)
-            self.model.set_editable_columns(editable_columns)
+            self.pandas_model.set_editable_columns(editable_columns)
     
     def _handle_data_changed(self, top_left, bottom_right, roles):
         """Handle data changes from the model."""
         # Update dataframe from model
-        self.current_dataframe = self.model.dataframe()
+        self.current_dataframe = self.pandas_model.dataframe()
         
         # Skip validation if change is only for background/tooltip/font (i.e., validation updates)
         # If roles is None or empty list, it means all roles changed (including display), so run validation
@@ -300,33 +300,33 @@ class LithologyTableWidget(QTableView):
             self.current_dataframe.loc[row_index, 'recovered_thickness'] = current_thickness
             
             # Update the model with new dataframe
-            self.model.set_dataframe(self.current_dataframe)
+            self.pandas_model.set_dataframe(self.current_dataframe)
             
             # Emit data changed for affected cells
             col_idx = self.col_map[column_name]
             thickness_col_idx = self.col_map['recovered_thickness']
             
             # Emit data changed for current row
-            top_left = self.model.index(row_index, min(col_idx, thickness_col_idx))
-            bottom_right = self.model.index(row_index, max(col_idx, thickness_col_idx))
-            self.model.dataChanged.emit(top_left, bottom_right, [])
+            top_left = self.pandas_model.index(row_index, min(col_idx, thickness_col_idx))
+            bottom_right = self.pandas_model.index(row_index, max(col_idx, thickness_col_idx))
+            self.pandas_model.dataChanged.emit(top_left, bottom_right, [])
             
             # Update adjacent rows if needed
             if boundary_type == 'top' and row_index > 0:
                 # Emit data changed for previous row
                 prev_to_col_idx = self.col_map['to_depth']
                 prev_thickness_col_idx = self.col_map['recovered_thickness']
-                prev_top_left = self.model.index(row_index - 1, min(prev_to_col_idx, prev_thickness_col_idx))
-                prev_bottom_right = self.model.index(row_index - 1, max(prev_to_col_idx, prev_thickness_col_idx))
-                self.model.dataChanged.emit(prev_top_left, prev_bottom_right, [])
+                prev_top_left = self.pandas_model.index(row_index - 1, min(prev_to_col_idx, prev_thickness_col_idx))
+                prev_bottom_right = self.pandas_model.index(row_index - 1, max(prev_to_col_idx, prev_thickness_col_idx))
+                self.pandas_model.dataChanged.emit(prev_top_left, prev_bottom_right, [])
                 
             elif boundary_type == 'bottom' and row_index < len(self.current_dataframe) - 1:
                 # Emit data changed for next row
                 next_from_col_idx = self.col_map['from_depth']
                 next_thickness_col_idx = self.col_map['recovered_thickness']
-                next_top_left = self.model.index(row_index + 1, min(next_from_col_idx, next_thickness_col_idx))
-                next_bottom_right = self.model.index(row_index + 1, max(next_from_col_idx, next_thickness_col_idx))
-                self.model.dataChanged.emit(next_top_left, next_bottom_right, [])
+                next_top_left = self.pandas_model.index(row_index + 1, min(next_from_col_idx, next_thickness_col_idx))
+                next_bottom_right = self.pandas_model.index(row_index + 1, max(next_from_col_idx, next_thickness_col_idx))
+                self.pandas_model.dataChanged.emit(next_top_left, next_bottom_right, [])
             
             # Run validation on affected rows
             affected_rows = [row_index]
@@ -352,7 +352,7 @@ class LithologyTableWidget(QTableView):
         self.total_depth = total_depth
         
         # Set dataframe in model
-        self.model.set_dataframe(self.current_dataframe)
+        self.pandas_model.set_dataframe(self.current_dataframe)
         
         # Update editable columns
         self._update_editable_columns()
@@ -370,7 +370,7 @@ class LithologyTableWidget(QTableView):
         if self.current_dataframe is None or self.current_dataframe.empty:
             self.validation_issues.clear()
             # Update PandasModel with empty validation issues
-            self.model.set_validation_issues({})
+            self.pandas_model.set_validation_issues({})
             return
         
         # Cancel any ongoing validation
@@ -440,7 +440,7 @@ class LithologyTableWidget(QTableView):
                     'message': issue.message
                 })
         
-        self.model.set_validation_issues(pandas_model_issues)
+        self.pandas_model.set_validation_issues(pandas_model_issues)
         
         # Emit signal with validation results
         self.validationChangedSignal.emit(result)
@@ -478,8 +478,8 @@ class LithologyTableWidget(QTableView):
                 
                 # Update model
                 thickness_col_idx = self.col_map['recovered_thickness']
-                index = self.model.index(row, thickness_col_idx)
-                self.model.setData(index, thickness, Qt.ItemDataRole.EditRole)
+                index = self.pandas_model.index(row, thickness_col_idx)
+                self.pandas_model.setData(index, thickness, Qt.ItemDataRole.EditRole)
         except (ValueError, KeyError):
             pass
     
@@ -527,7 +527,7 @@ class LithologyTableWidget(QTableView):
         
         if expected_category == category:
             # Direct match - just insert the code
-            self.model.setData(current_index, code, Qt.ItemDataRole.EditRole)
+            self.pandas_model.setData(current_index, code, Qt.ItemDataRole.EditRole)
         else:
             # Show message about category mismatch
             from PyQt6.QtWidgets import QMessageBox
