@@ -1571,7 +1571,8 @@ class MainWindow(QMainWindow):
         container_layout.addWidget(display_group)
         
         # 3. ANALYSIS SETTINGS GROUP
-        analysis_group = QGroupBox("Analysis Settings")
+        self.analysis_group = QGroupBox("Analysis Settings")
+        analysis_group = self.analysis_group
         analysis_layout = QVBoxLayout(analysis_group)
         analysis_layout.setSpacing(8)
         
@@ -1632,6 +1633,8 @@ class MainWindow(QMainWindow):
             self.analysisMethodComboBox.setCurrentText("Standard")
         method_layout.addRow("Analysis Method:", self.analysisMethodComboBox)
         analysis_layout.addWidget(method_widget)
+        
+        container_layout.addWidget(analysis_group)
         
         # 6. FILE OPERATIONS GROUP
         file_group = QGroupBox("File Operations")
@@ -2145,14 +2148,14 @@ class MainWindow(QMainWindow):
             'long_space_density': self.invertLongSpaceDensityCheckBox.isChecked()
         }
         
-        current_use_researched_defaults = self.useResearchedDefaultsCheckBox.isChecked()
-        current_analysis_method = self.analysisMethodComboBox.currentText().lower()
-        current_merge_thin_units = self.mergeThinUnitsCheckBox.isChecked()
+        current_use_researched_defaults = self.useResearchedDefaultsCheckBox.isChecked() if hasattr(self, 'useResearchedDefaultsCheckBox') else self.use_researched_defaults
+        current_analysis_method = self.analysisMethodComboBox.currentText().lower() if hasattr(self, 'analysisMethodComboBox') else self.analysis_method
+        current_merge_thin_units = self.mergeThinUnitsCheckBox.isChecked() if hasattr(self, 'mergeThinUnitsCheckBox') else self.merge_thin_units
         current_merge_threshold = self.merge_threshold  # Keep the loaded threshold
-        current_smart_interbedding = self.smartInterbeddingCheckBox.isChecked()
-        current_smart_interbedding_max_sequence = self.smartInterbeddingMaxSequenceSpinBox.value()
-        current_smart_interbedding_thick_unit = self.smartInterbeddingThickUnitSpinBox.value()
-        current_fallback_classification = self.fallbackClassificationCheckBox.isChecked()
+        current_smart_interbedding = self.smartInterbeddingCheckBox.isChecked() if hasattr(self, 'smartInterbeddingCheckBox') else self.smart_interbedding
+        current_smart_interbedding_max_sequence = self.smartInterbeddingMaxSequenceSpinBox.value() if hasattr(self, 'smartInterbeddingMaxSequenceSpinBox') else self.smart_interbedding_max_sequence_length
+        current_smart_interbedding_thick_unit = self.smartInterbeddingThickUnitSpinBox.value() if hasattr(self, 'smartInterbeddingThickUnitSpinBox') else self.smart_interbedding_thick_unit_threshold
+        current_fallback_classification = self.fallbackClassificationCheckBox.isChecked() if hasattr(self, 'fallbackClassificationCheckBox') else self.use_fallback_classification
         current_bit_size_mm = self.bitSizeSpinBox.value() if hasattr(self, 'bitSizeSpinBox') else self.bit_size_mm
         current_show_anomaly_highlights = self.showAnomalyHighlightsCheckBox.isChecked() if hasattr(self, 'showAnomalyHighlightsCheckBox') else self.show_anomaly_highlights
         current_casing_depth_enabled = self.casingDepthEnabledCheckBox.isChecked() if hasattr(self, 'casingDepthEnabledCheckBox') else self.casing_depth_enabled
