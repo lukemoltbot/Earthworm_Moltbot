@@ -514,7 +514,7 @@ class Worker(QObject):
             if hasattr(self, 'analysis_method') and self.analysis_method == "simple":
                 classified_dataframe = analyzer.classify_rows_simple(processed_dataframe, self.lithology_rules, full_mnemonic_map)
             else:
-                classified_dataframe = analyzer.classify_rows(processed_dataframe, self.lithology_rules, full_mnemonic_map, self.use_researched_defaults, self.use_fallback_classification)
+                classified_dataframe = analyzer.classify_rows(processed_dataframe, self.lithology_rules, full_mnemonic_map, self.use_researched_defaults, self.use_fallback_classification, self.casing_depth_enabled, self.casing_depth_m)
             # Debug: print lithology rules being passed
             print(f"DEBUG (Worker): lithology_rules count = {len(self.lithology_rules)}")
             for idx, rule in enumerate(self.lithology_rules):

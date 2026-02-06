@@ -270,7 +270,7 @@ class Analyzer:
 
         return classified_df
 
-    def classify_rows_simple(self, dataframe, lithology_rules, mnemonic_map):
+    def classify_rows_simple(self, dataframe, lithology_rules, mnemonic_map, casing_depth_enabled=False, casing_depth_m=0.0):
         """
         Classifies rows using the Simple method: first by density only, then by gamma only.
         
