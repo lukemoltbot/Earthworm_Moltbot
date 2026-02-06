@@ -625,6 +625,7 @@ class MainWindow(QMainWindow):
         self.casing_depth_enabled = app_settings.get("casing_depth_enabled", False)  # Load casing depth masking enabled state
         self.casing_depth_m = app_settings.get("casing_depth_m", 0.0)  # Load casing depth in meters
         self.avg_executable_path = app_settings.get("avg_executable_path", "")  # Load AVG executable path
+        self.svg_directory_path = app_settings.get("svg_directory_path", "")  # Load SVG directory path
         self.disable_svg = app_settings.get("disable_svg", False)  # Load SVG disable setting
         self.current_theme = app_settings.get("theme", "light")  # Load theme preference
 
@@ -2100,6 +2101,7 @@ class MainWindow(QMainWindow):
                     disable_svg=self.disable_svg,
                     show_anomaly_highlights=current_show_anomaly_highlights,
                     avg_executable_path=self.avg_executable_path,
+                    svg_directory_path=self.svg_directory_path,
                     column_visibility=self.column_visibility,
                     file_path=file_path
                 )
@@ -2151,7 +2153,8 @@ class MainWindow(QMainWindow):
             'smart_interbedding_thick_unit_threshold': current_smart_interbedding_thick_unit,
             'bit_size_mm': current_bit_size_mm,
             'disable_svg': current_disable_svg,
-            'avg_executable_path': self.avg_executable_path
+            'avg_executable_path': self.avg_executable_path,
+            'svg_directory_path': self.svg_directory_path
         }
         return settings
 
@@ -2177,6 +2180,7 @@ class MainWindow(QMainWindow):
         self.bit_size_mm = settings.get('bit_size_mm', self.bit_size_mm)
         self.avg_executable_path = settings.get('avg_executable_path', self.avg_executable_path)
         self.disable_svg = settings.get('disable_svg', self.disable_svg)
+        self.svg_directory_path = settings.get('svg_directory_path', self.svg_directory_path)
         # Update UI controls
         self.load_settings_rules_to_table()
         self.load_separator_settings()
@@ -2279,6 +2283,7 @@ class MainWindow(QMainWindow):
             casing_depth_m=current_casing_depth_m,
             disable_svg=self.disable_svg,
             avg_executable_path=self.avg_executable_path,
+            svg_directory_path=self.svg_directory_path,
             theme=self.current_theme,
             column_visibility=self.column_visibility
         )
@@ -2347,20 +2352,46 @@ class MainWindow(QMainWindow):
                 self.initial_curve_inversion_settings = loaded_settings["curve_inversion_settings"] # Load new setting
                 self.initial_curve_thickness = loaded_settings["curve_thickness"] # Load new setting
                 self.use_researched_defaults = loaded_settings["use_researched_defaults"]
-                self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
+                # Load additional settings
+                self.analysis_method = loaded_settings.get("analysis_method", "standard")
+                self.merge_thin_units = loaded_settings.get("merge_thin_units", False)
+                self.merge_threshold = loaded_settings.get("merge_threshold", 0.05)
+                self.smart_interbedding = loaded_settings.get("smart_interbedding", False)
+                self.smart_interbedding_max_sequence_length = loaded_settings.get("smart_interbedding_max_sequence_length", 10)
+                self.smart_interbedding_thick_unit_threshold = loaded_settings.get("smart_interbedding_thick_unit_threshold", 0.5)
+                self.use_fallback_classification = loaded_settings.get("fallback_classification", DEFAULT_FALLBACK_CLASSIFICATION)
                 self.bit_size_mm = loaded_settings.get("bit_size_mm", 150.0)
-                if hasattr(self, 'bitSizeSpinBox'):
-                    self.bitSizeSpinBox.setValue(self.bit_size_mm)
                 self.show_anomaly_highlights = loaded_settings.get("show_anomaly_highlights", True)
-                if hasattr(self, 'showAnomalyHighlightsCheckBox'):
-                    self.showAnomalyHighlightsCheckBox.setChecked(self.show_anomaly_highlights)
                 self.casing_depth_enabled = loaded_settings.get("casing_depth_enabled", False)
                 self.casing_depth_m = loaded_settings.get("casing_depth_m", 0.0)
+                self.column_visibility = loaded_settings.get("column_visibility", {})
+                self.disable_svg = loaded_settings.get("disable_svg", False)
+                self.avg_executable_path = loaded_settings.get("avg_executable_path", "")
+                self.svg_directory_path = loaded_settings.get("svg_directory_path", "")
+                
+                # Update UI controls
+                self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
+                if hasattr(self, 'analysisMethodComboBox'):
+                    self.analysisMethodComboBox.setCurrentText("Standard" if self.analysis_method == "standard" else "Simple")
+                if hasattr(self, 'mergeThinUnitsCheckBox'):
+                    self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
+                if hasattr(self, 'smartInterbeddingCheckBox'):
+                    self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
+                if hasattr(self, 'smartInterbeddingMaxSequenceSpinBox'):
+                    self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
+                if hasattr(self, 'smartInterbeddingThickUnitSpinBox'):
+                    self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
+                if hasattr(self, 'fallbackClassificationCheckBox'):
+                    self.fallbackClassificationCheckBox.setChecked(self.use_fallback_classification)
+                if hasattr(self, 'bitSizeSpinBox'):
+                    self.bitSizeSpinBox.setValue(self.bit_size_mm)
+                if hasattr(self, 'showAnomalyHighlightsCheckBox'):
+                    self.showAnomalyHighlightsCheckBox.setChecked(self.show_anomaly_highlights)
                 if hasattr(self, 'casingDepthEnabledCheckBox'):
                     self.casingDepthEnabledCheckBox.setChecked(self.casing_depth_enabled)
-                    self.casingDepthSpinBox.setValue(self.casing_depth_m)
-                    self.casingDepthSpinBox.setEnabled(self.casing_depth_enabled)
-                self.column_visibility = loaded_settings.get("column_visibility", {})
+                    if hasattr(self, 'casingDepthSpinBox'):
+                        self.casingDepthSpinBox.setValue(self.casing_depth_m)
+                        self.casingDepthSpinBox.setEnabled(self.casing_depth_enabled)
                 self.apply_column_visibility(self.column_visibility)
 
                 self.load_settings_rules_to_table()

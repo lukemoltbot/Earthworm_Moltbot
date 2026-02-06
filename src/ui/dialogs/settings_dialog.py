@@ -630,7 +630,9 @@ class SettingsDialog(QDialog):
         # This should delegate to parent MainWindow
         if self.parent():
             self.parent().load_settings_from_file()
-            # After loading, we should update dialog controls
+            # After loading, update current settings from parent
+            self.current_settings = self.parent().get_current_settings()
+            # Update dialog controls
             self.load_settings()
 
     def open_researched_defaults_dialog(self):
