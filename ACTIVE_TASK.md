@@ -76,5 +76,14 @@ Unify settings widgets (bit size, casing depth, NL review, column configurator, 
 2. Test with actual data to verify anomaly detection with bit size  
 3. Verify casing depth masking functionality with real logs  
 
+## Bug Fix: RuntimeError on close (2026‑02‑07)
+**Root cause:** Missing `container_layout.addWidget(analysis_group)` line (accidentally removed during unification), causing analysis group widgets to be orphaned and potentially deleted.
+
+**Fix applied:**
+1. Added missing `container_layout.addWidget(analysis_group)` after analysis method widget.
+2. Stored `self.analysis_group` to keep a reference.
+3. Added `hasattr` guards for all analysis widgets in `update_settings()` to prevent crashes if widgets are missing.
+4. Committed as `47a34b4`.
+
 ## Current Status
 **All phases complete.** Settings dialog unification successfully implemented and committed to GitHub. Ready for manual testing.
