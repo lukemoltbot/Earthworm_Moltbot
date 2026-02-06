@@ -85,5 +85,14 @@ Unify settings widgets (bit size, casing depth, NL review, column configurator, 
 3. Added `hasattr` guards for all analysis widgets in `update_settings()` to prevent crashes if widgets are missing.
 4. Committed as `47a34b4`.
 
+## Bug Fix: Worker missing casing depth and analysis method attributes (2026‑02‑07)
+**Root cause:** Worker class constructor lacked `analysis_method`, `casing_depth_enabled`, `casing_depth_m` parameters, causing AttributeError when analysis runs.
+
+**Fix applied:**
+1. Added three new parameters to Worker.__init__() with default values.
+2. Updated Worker instantiation in `run_analysis()` to pass current UI values (with hasattr fallbacks).
+3. Removed redundant `hasattr` check for `analysis_method` in Worker.run().
+4. Committed as `fae5339`.
+
 ## Current Status
 **All phases complete.** Settings dialog unification successfully implemented and committed to GitHub. Ready for manual testing.
