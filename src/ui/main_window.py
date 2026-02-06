@@ -604,6 +604,7 @@ class MainWindow(QMainWindow):
         # Load settings on startup
         app_settings = load_settings()
         self.column_visibility = app_settings.get("column_visibility", {})
+        self.curve_visibility = app_settings.get("curve_visibility", {})
         self.lithology_rules = app_settings["lithology_rules"]
         print(f"DEBUG (MainWindow): Loaded {len(self.lithology_rules)} lithology rules from settings")
         for idx, rule in enumerate(self.lithology_rules):
@@ -1119,6 +1120,7 @@ class MainWindow(QMainWindow):
             svg_directory_path=app_settings.get("svg_directory_path", ""),
             workspace_state=app_settings.get("workspace"),
             theme=self.current_theme,
+            curve_visibility=app_settings.get("curve_visibility", {}),
             column_visibility=app_settings.get("column_visibility", {})
         )
 
@@ -2083,6 +2085,21 @@ class MainWindow(QMainWindow):
                 # Get current anomaly highlights setting
                 current_show_anomaly_highlights = self.showAnomalyHighlightsCheckBox.isChecked() if hasattr(self, 'showAnomalyHighlightsCheckBox') else self.show_anomaly_highlights
 
+                # Get current casing depth settings
+                current_casing_depth_enabled = self.casingDepthEnabledCheckBox.isChecked() if hasattr(self, 'casingDepthEnabledCheckBox') else self.casing_depth_enabled
+                current_casing_depth_m = self.casingDepthSpinBox.value() if hasattr(self, 'casingDepthSpinBox') else self.casing_depth_m
+                
+                # Get current curve visibility
+                current_curve_visibility = {}
+                if hasattr(self, 'curve_visibility_checkboxes'):
+                    for curve_name, checkbox in self.curve_visibility_checkboxes.items():
+                        current_curve_visibility[curve_name] = checkbox.isChecked()
+                else:
+                    current_curve_visibility = self.curve_visibility
+                
+                # Get current workspace state
+                workspace_state = self.workspace if hasattr(self, 'workspace') else None
+
                 # Call save_settings with the chosen file path
                 save_settings(
                     lithology_rules=self.lithology_rules,
@@ -2101,9 +2118,14 @@ class MainWindow(QMainWindow):
                     bit_size_mm=current_bit_size_mm,
                     disable_svg=self.disable_svg,
                     show_anomaly_highlights=current_show_anomaly_highlights,
+                    casing_depth_enabled=current_casing_depth_enabled,
+                    casing_depth_m=current_casing_depth_m,
                     avg_executable_path=self.avg_executable_path,
                     svg_directory_path=self.svg_directory_path,
+                    workspace_state=workspace_state,
+                    theme=self.current_theme,
                     column_visibility=self.column_visibility,
+                    curve_visibility=current_curve_visibility,
                     file_path=file_path
                 )
                 QMessageBox.information(self, "Settings Saved", f"Settings saved to {os.path.basename(file_path)}")
@@ -2264,6 +2286,9 @@ class MainWindow(QMainWindow):
         current_show_anomaly_highlights = self.showAnomalyHighlightsCheckBox.isChecked() if hasattr(self, 'showAnomalyHighlightsCheckBox') else self.show_anomaly_highlights
         current_casing_depth_enabled = self.casingDepthEnabledCheckBox.isChecked() if hasattr(self, 'casingDepthEnabledCheckBox') else self.casing_depth_enabled
         current_casing_depth_m = self.casingDepthSpinBox.value() if hasattr(self, 'casingDepthSpinBox') else self.casing_depth_m
+        current_curve_visibility = self.curve_visibility
+        workspace_state = self.workspace if hasattr(self, 'workspace') else None
+        
         save_settings(
             lithology_rules=self.lithology_rules,
             separator_thickness=current_separator_thickness,
@@ -2285,8 +2310,10 @@ class MainWindow(QMainWindow):
             disable_svg=self.disable_svg,
             avg_executable_path=self.avg_executable_path,
             svg_directory_path=self.svg_directory_path,
+            workspace_state=workspace_state,
             theme=self.current_theme,
-            column_visibility=self.column_visibility
+            column_visibility=self.column_visibility,
+            curve_visibility=current_curve_visibility
         )
 
         # Update instance variables to ensure smart interbedding uses current values
@@ -2369,6 +2396,7 @@ class MainWindow(QMainWindow):
                 self.casing_depth_enabled = loaded_settings.get("casing_depth_enabled", False)
                 self.casing_depth_m = loaded_settings.get("casing_depth_m", 0.0)
                 self.column_visibility = loaded_settings.get("column_visibility", {})
+                self.curve_visibility = loaded_settings.get("curve_visibility", {})
                 self.disable_svg = loaded_settings.get("disable_svg", False)
                 self.avg_executable_path = loaded_settings.get("avg_executable_path", "")
                 self.svg_directory_path = loaded_settings.get("svg_directory_path", "")

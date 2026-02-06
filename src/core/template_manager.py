@@ -319,6 +319,7 @@ class TemplateManager:
                 avg_executable_path=current_settings.get("avg_executable_path", ""),
                 svg_directory_path=current_settings.get("svg_directory_path", ""),
                 column_visibility=current_settings.get("column_visibility", {}),
+                curve_visibility=current_settings.get("curve_visibility", {}),
                 workspace_state=current_settings.get("workspace"),
                 theme=current_settings.get("theme", "dark")
             )
