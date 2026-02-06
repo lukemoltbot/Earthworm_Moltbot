@@ -94,5 +94,12 @@ Unify settings widgets (bit size, casing depth, NL review, column configurator, 
 3. Removed redundant `hasattr` check for `analysis_method` in Worker.run().
 4. Committed as `fae5339`.
 
+## Bug Fix: classify_rows_simple missing casing depth parameters (2026‑02‑07)
+**Root cause:** Simple classification method call omitted `casing_depth_enabled` and `casing_depth_m` arguments, preventing casing depth masking in simple analysis mode.
+
+**Fix applied:**
+1. Added missing parameters to `analyzer.classify_rows_simple()` call in Worker.run().
+2. Committed as `c9ca4a4`.
+
 ## Current Status
 **All phases complete.** Settings dialog unification successfully implemented and committed to GitHub. Ready for manual testing.
