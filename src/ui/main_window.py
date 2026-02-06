@@ -515,7 +515,7 @@ class Worker(QObject):
             processed_dataframe = data_processor.preprocess_data(dataframe, full_mnemonic_map)
             # Use appropriate classification method based on settings
             if self.analysis_method == "simple":
-                classified_dataframe = analyzer.classify_rows_simple(processed_dataframe, self.lithology_rules, full_mnemonic_map)
+                classified_dataframe = analyzer.classify_rows_simple(processed_dataframe, self.lithology_rules, full_mnemonic_map, self.casing_depth_enabled, self.casing_depth_m)
             else:
                 classified_dataframe = analyzer.classify_rows(processed_dataframe, self.lithology_rules, full_mnemonic_map, self.use_researched_defaults, self.use_fallback_classification, self.casing_depth_enabled, self.casing_depth_m)
             # Debug: print lithology rules being passed
