@@ -623,6 +623,8 @@ class MainWindow(QMainWindow):
         self.show_anomaly_highlights = app_settings.get("show_anomaly_highlights", True)  # Load anomaly highlights setting
         self.casing_depth_enabled = app_settings.get("casing_depth_enabled", False)  # Load casing depth masking enabled state
         self.casing_depth_m = app_settings.get("casing_depth_m", 0.0)  # Load casing depth in meters
+        self.avg_executable_path = app_settings.get("avg_executable_path", "")  # Load AVG executable path
+        self.disable_svg = app_settings.get("disable_svg", False)  # Load SVG disable setting
         self.current_theme = app_settings.get("theme", "light")  # Load theme preference
 
         self.lithology_qualifier_map = self.load_lithology_qualifier_map()
@@ -702,7 +704,7 @@ class MainWindow(QMainWindow):
                                        QDockWidget.DockWidgetFeature.DockWidgetClosable)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.settings_dock)
         self.settings_dock.hide()  # Initially hidden
-        self.settings_dock.visibilityChanged.connect(self.update_settings_button_text)
+        # self.settings_dock.visibilityChanged.connect(self.update_settings_button_text)
 
         # Create dock widget for holes list (Phase 1, Task 2)
         self.holes_dock = QDockWidget("Project Explorer", self)
@@ -825,8 +827,8 @@ class MainWindow(QMainWindow):
         view_menu = self.menuBar().addMenu("&View")
         
         # Show/Hide docks
-        show_settings_action = QAction("Show/Hide Settings", self)
-        show_settings_action.triggered.connect(self.open_settings_dialog)
+        show_settings_action = QAction("Advanced Settings", self)
+        show_settings_action.triggered.connect(self.open_advanced_settings_dialog)
         view_menu.addAction(show_settings_action)
         
         show_explorer_action = QAction("Show/Hide Project Explorer", self)
@@ -885,7 +887,7 @@ class MainWindow(QMainWindow):
         
         settings_action = QAction("⚙️", self)
         settings_action.setToolTip("Settings")
-        settings_action.triggered.connect(self.open_settings_dialog)
+        settings_action.triggered.connect(self.open_advanced_settings_dialog)
         toolbar.addAction(settings_action)
 
     def _synchronize_views(self):
@@ -1043,7 +1045,7 @@ class MainWindow(QMainWindow):
     def connect_signals(self):
         self.loadLasButton.clicked.connect(self.load_las_file_dialog)
         self.runAnalysisButton.clicked.connect(self.run_analysis)
-        self.settingsButton.clicked.connect(self.open_settings_dialog)
+        self.settingsButton.clicked.connect(self.open_advanced_settings_dialog)
         self.exportCsvButton.clicked.connect(self.export_editor_data_to_csv)
         # self.tab_widget.currentChanged.connect(self.on_tab_changed)  # MDI removes tabs
         # Connect stratigraphic column unit clicks
@@ -1110,6 +1112,8 @@ class MainWindow(QMainWindow):
             show_anomaly_highlights=app_settings.get("show_anomaly_highlights", True),
             casing_depth_enabled=app_settings.get("casing_depth_enabled", False),
             casing_depth_m=app_settings.get("casing_depth_m", 0.0),
+            disable_svg=app_settings.get("disable_svg", False),
+            avg_executable_path=app_settings.get("avg_executable_path", ""),
             workspace_state=app_settings.get("workspace"),
             theme=self.current_theme,
             column_visibility=app_settings.get("column_visibility", {})
@@ -2087,7 +2091,9 @@ class MainWindow(QMainWindow):
                     smart_interbedding_max_sequence_length=current_smart_interbedding_max_sequence,
                     smart_interbedding_thick_unit_threshold=current_smart_interbedding_thick_unit,
                     bit_size_mm=current_bit_size_mm,
+                    disable_svg=self.disable_svg,
                     show_anomaly_highlights=current_show_anomaly_highlights,
+                    avg_executable_path=self.avg_executable_path,
                     column_visibility=self.column_visibility,
                     file_path=file_path
                 )
@@ -2119,6 +2125,7 @@ class MainWindow(QMainWindow):
         current_smart_interbedding_thick_unit = self.smartInterbeddingThickUnitSpinBox.value()
         current_fallback_classification = self.fallbackClassificationCheckBox.isChecked()
         current_bit_size_mm = self.bitSizeSpinBox.value() if hasattr(self, 'bitSizeSpinBox') else self.bit_size_mm
+        current_disable_svg = self.disable_svg
         
         # Build settings dict matching SettingsDialog expectations
         settings = {
@@ -2136,7 +2143,9 @@ class MainWindow(QMainWindow):
             'fallback_classification': current_fallback_classification,
             'smart_interbedding_max_sequence_length': current_smart_interbedding_max_sequence,
             'smart_interbedding_thick_unit_threshold': current_smart_interbedding_thick_unit,
-            'bit_size_mm': current_bit_size_mm
+            'bit_size_mm': current_bit_size_mm,
+            'disable_svg': current_disable_svg,
+            'avg_executable_path': self.avg_executable_path
         }
         return settings
 
@@ -2160,6 +2169,8 @@ class MainWindow(QMainWindow):
         self.smart_interbedding_thick_unit_threshold = settings.get('smart_interbedding_thick_unit_threshold', self.smart_interbedding_thick_unit_threshold)
         self.use_fallback_classification = settings.get('fallback_classification', self.use_fallback_classification)
         self.bit_size_mm = settings.get('bit_size_mm', self.bit_size_mm)
+        self.avg_executable_path = settings.get('avg_executable_path', self.avg_executable_path)
+        self.disable_svg = settings.get('disable_svg', self.disable_svg)
         # Update UI controls
         self.load_settings_rules_to_table()
         self.load_separator_settings()
@@ -2258,6 +2269,9 @@ class MainWindow(QMainWindow):
             show_anomaly_highlights=current_show_anomaly_highlights,
             casing_depth_enabled=current_casing_depth_enabled,
             casing_depth_m=current_casing_depth_m,
+            disable_svg=self.disable_svg,
+            avg_executable_path=self.avg_executable_path,
+            theme=self.current_theme,
             column_visibility=self.column_visibility
         )
 
@@ -3598,7 +3612,7 @@ class MainWindow(QMainWindow):
             if self.last_classified_dataframe is not None:
                 min_depth = self.last_classified_dataframe[DEPTH_COLUMN].min()
                 max_depth = self.last_classified_dataframe[DEPTH_COLUMN].max()
-                self.stratigraphicColumnView.draw_column(updated_df, min_depth, max_depth, separator_thickness, draw_separators)
+                self.stratigraphicColumnView.draw_column(updated_df, min_depth, max_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
 
         QMessageBox.information(self, "Interbedding Created", f"Successfully created interbedding with {len(new_rows)} components.")
 
@@ -3693,7 +3707,7 @@ class MainWindow(QMainWindow):
         max_overall_depth = classified_dataframe[DEPTH_COLUMN].max()
 
         # Pass the overall depth range to the stratigraphic column
-        self.stratigraphicColumnView.draw_column(units_dataframe, min_overall_depth, max_overall_depth, separator_thickness, draw_separators)
+        self.stratigraphicColumnView.draw_column(units_dataframe, min_overall_depth, max_overall_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
 
         # Prepare curve configurations for the single CurvePlotter
         curve_configs = []

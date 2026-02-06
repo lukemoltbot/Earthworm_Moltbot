@@ -42,10 +42,11 @@ class StratigraphicColumn(QGraphicsView):
         self.current_zoom_min = 0.0
         self.current_zoom_max = 100.0
 
-    def draw_column(self, units_dataframe, min_overall_depth, max_overall_depth, separator_thickness=0.5, draw_separators=True):
+    def draw_column(self, units_dataframe, min_overall_depth, max_overall_depth, separator_thickness=0.5, draw_separators=True, disable_svg=False):
         print(f"DEBUG (StratigraphicColumn): draw_column called with {len(units_dataframe)} units")
         if units_dataframe is not None and not units_dataframe.empty:
             print(f"DEBUG (StratigraphicColumn): columns present: {list(units_dataframe.columns)}")
+        self.disable_svg = disable_svg
         self.scene.clear()
         # Clear references to deleted items
         self.highlight_rect_item = None
@@ -113,7 +114,12 @@ class StratigraphicColumn(QGraphicsView):
             # Add a subtle border to make units visible
             rect_item.setPen(QPen(QColor(Qt.GlobalColor.gray), 0.5))
 
-            pixmap = self.svg_renderer.render_svg(svg_file, self.column_width, int(rect_height), bg_color)
+            # Check if SVG patterns are disabled
+            if self.disable_svg:
+                print(f"DEBUG (StratigraphicColumn): SVG patterns disabled, using solid color")
+                pixmap = None
+            else:
+                pixmap = self.svg_renderer.render_svg(svg_file, self.column_width, int(rect_height), bg_color)
             print(f"DEBUG (StratigraphicColumn): pixmap created: {pixmap is not None}")
             if pixmap:
                 print(f"DEBUG (StratigraphicColumn): Setting pixmap brush for unit {index}")

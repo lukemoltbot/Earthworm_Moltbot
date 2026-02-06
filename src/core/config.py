@@ -140,3 +140,6 @@ DEFAULT_SHOW_ANOMALY_HIGHLIGHTS = True # Show anomaly highlights by default
 # Casing depth masking
 DEFAULT_CASING_DEPTH_ENABLED = False # Whether casing depth masking is enabled by default
 DEFAULT_CASING_DEPTH_M = 0.0 # Default casing depth in meters
+
+# SVG patterns
+DISABLE_SVG_DEFAULT = False # Whether to disable SVG patterns and use solid colors only
