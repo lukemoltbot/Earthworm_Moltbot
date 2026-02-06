@@ -19,7 +19,7 @@ import traceback
 from ..core.data_processor import DataProcessor
 from ..core.analyzer import Analyzer
 from ..core.workers import LASLoaderWorker, ValidationWorker
-from ..core.config import DEFAULT_LITHOLOGY_RULES, DEPTH_COLUMN, DEFAULT_SEPARATOR_THICKNESS, DRAW_SEPARATOR_LINES, DEFAULT_CURVE_THICKNESS, CURVE_RANGES, INVALID_DATA_VALUE, DEFAULT_MERGE_THIN_UNITS, DEFAULT_MERGE_THRESHOLD, DEFAULT_SMART_INTERBEDDING, DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH, DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD, DEFAULT_BIT_SIZE_MM, DEFAULT_SHOW_ANOMALY_HIGHLIGHTS, DEFAULT_CASING_DEPTH_ENABLED, DEFAULT_CASING_DEPTH_M, LITHOLOGY_COLUMN, RECOVERED_THICKNESS_COLUMN, RECORD_SEQUENCE_FLAG_COLUMN, INTERRELATIONSHIP_COLUMN, LITHOLOGY_PERCENT_COLUMN, COALLOG_V31_COLUMNS
+from ..core.config import DEFAULT_LITHOLOGY_RULES, DEPTH_COLUMN, DEFAULT_SEPARATOR_THICKNESS, DRAW_SEPARATOR_LINES, DEFAULT_CURVE_THICKNESS, CURVE_RANGES, INVALID_DATA_VALUE, DEFAULT_MERGE_THIN_UNITS, DEFAULT_MERGE_THRESHOLD, DEFAULT_SMART_INTERBEDDING, DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH, DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD, DEFAULT_FALLBACK_CLASSIFICATION, DEFAULT_BIT_SIZE_MM, DEFAULT_SHOW_ANOMALY_HIGHLIGHTS, DEFAULT_CASING_DEPTH_ENABLED, DEFAULT_CASING_DEPTH_M, LITHOLOGY_COLUMN, RECOVERED_THICKNESS_COLUMN, RECORD_SEQUENCE_FLAG_COLUMN, INTERRELATIONSHIP_COLUMN, LITHOLOGY_PERCENT_COLUMN, COALLOG_V31_COLUMNS
 from ..core.coallog_utils import load_coallog_dictionaries
 from .widgets.stratigraphic_column import StratigraphicColumn
 from .widgets.svg_renderer import SvgRenderer
@@ -619,6 +619,7 @@ class MainWindow(QMainWindow):
         self.smart_interbedding = app_settings.get("smart_interbedding", False)
         self.smart_interbedding_max_sequence_length = app_settings.get("smart_interbedding_max_sequence_length", 10)
         self.smart_interbedding_thick_unit_threshold = app_settings.get("smart_interbedding_thick_unit_threshold", 0.5)
+        self.use_fallback_classification = app_settings.get("fallback_classification", DEFAULT_FALLBACK_CLASSIFICATION)
         self.bit_size_mm = app_settings.get("bit_size_mm", 150.0)  # Load bit size in millimeters
         self.show_anomaly_highlights = app_settings.get("show_anomaly_highlights", True)  # Load anomaly highlights setting
         self.casing_depth_enabled = app_settings.get("casing_depth_enabled", False)  # Load casing depth masking enabled state
@@ -1107,7 +1108,7 @@ class MainWindow(QMainWindow):
             smart_interbedding=app_settings.get("smart_interbedding", False),
             smart_interbedding_max_sequence_length=app_settings.get("smart_interbedding_max_sequence_length", 10),
             smart_interbedding_thick_unit_threshold=app_settings.get("smart_interbedding_thick_unit_threshold", 0.5),
-            fallback_classification=app_settings.get("fallback_classification", "Unknown"),
+            fallback_classification=app_settings.get("fallback_classification", DEFAULT_FALLBACK_CLASSIFICATION),
             bit_size_mm=app_settings.get("bit_size_mm", 150.0),
             show_anomaly_highlights=app_settings.get("show_anomaly_highlights", True),
             casing_depth_enabled=app_settings.get("casing_depth_enabled", False),
@@ -1584,7 +1585,7 @@ class MainWindow(QMainWindow):
         check_grid.addWidget(self.smartInterbeddingCheckBox, 2, 0, 1, 2)
         
         self.fallbackClassificationCheckBox = QCheckBox("Enable Fallback Classification")
-        self.fallbackClassificationCheckBox.setChecked(False)
+        self.fallbackClassificationCheckBox.setChecked(self.use_fallback_classification)
         self.fallbackClassificationCheckBox.setToolTip("Apply fallback classification to reduce 'NL' (Not Logged) results")
         check_grid.addWidget(self.fallbackClassificationCheckBox, 3, 0, 1, 2)
         
@@ -1930,6 +1931,8 @@ class MainWindow(QMainWindow):
             self.smart_interbedding = DEFAULT_SMART_INTERBEDDING
             self.smart_interbedding_max_sequence_length = DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH
             self.smart_interbedding_thick_unit_threshold = DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD
+            # Reset fallback classification
+            self.use_fallback_classification = DEFAULT_FALLBACK_CLASSIFICATION
             # Reset bit size and anomaly highlights
             self.bit_size_mm = DEFAULT_BIT_SIZE_MM
             self.show_anomaly_highlights = DEFAULT_SHOW_ANOMALY_HIGHLIGHTS
@@ -1947,7 +1950,7 @@ class MainWindow(QMainWindow):
             self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
             self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
             self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
-            self.fallbackClassificationCheckBox.setChecked(False)
+            self.fallbackClassificationCheckBox.setChecked(self.use_fallback_classification)
             if hasattr(self, 'bitSizeSpinBox'):
                 self.bitSizeSpinBox.setValue(self.bit_size_mm)
             if hasattr(self, 'showAnomalyHighlightsCheckBox'):
@@ -1996,6 +1999,7 @@ class MainWindow(QMainWindow):
         self.smart_interbedding = app_settings.get("smart_interbedding", False)
         self.smart_interbedding_max_sequence_length = app_settings.get("smart_interbedding_max_sequence_length", 10)
         self.smart_interbedding_thick_unit_threshold = app_settings.get("smart_interbedding_thick_unit_threshold", 0.5)
+        self.use_fallback_classification = app_settings.get("fallback_classification", DEFAULT_FALLBACK_CLASSIFICATION)
         self.bit_size_mm = app_settings.get("bit_size_mm", 215.9)
         self.show_anomaly_highlights = app_settings.get("show_anomaly_highlights", False)
         self.casing_depth_enabled = app_settings.get("casing_depth_enabled", False)
@@ -2022,7 +2026,7 @@ class MainWindow(QMainWindow):
         self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
         self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
         self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
-        self.fallbackClassificationCheckBox.setChecked(False)  # Default
+        self.fallbackClassificationCheckBox.setChecked(self.use_fallback_classification)  # Default
         
         # Update optional widgets if they exist
         if hasattr(self, 'bitSizeSpinBox'):
@@ -2069,6 +2073,7 @@ class MainWindow(QMainWindow):
                 current_smart_interbedding = self.smartInterbeddingCheckBox.isChecked()
                 current_smart_interbedding_max_sequence = self.smartInterbeddingMaxSequenceSpinBox.value()
                 current_smart_interbedding_thick_unit = self.smartInterbeddingThickUnitSpinBox.value()
+                current_fallback_classification = self.fallbackClassificationCheckBox.isChecked()
                 
                 # Get current bit size
                 current_bit_size_mm = self.bitSizeSpinBox.value() if hasattr(self, 'bitSizeSpinBox') else self.bit_size_mm
@@ -2090,6 +2095,7 @@ class MainWindow(QMainWindow):
                     smart_interbedding=current_smart_interbedding,
                     smart_interbedding_max_sequence_length=current_smart_interbedding_max_sequence,
                     smart_interbedding_thick_unit_threshold=current_smart_interbedding_thick_unit,
+                    fallback_classification=current_fallback_classification,
                     bit_size_mm=current_bit_size_mm,
                     disable_svg=self.disable_svg,
                     show_anomaly_highlights=current_show_anomaly_highlights,
@@ -2248,6 +2254,7 @@ class MainWindow(QMainWindow):
         current_smart_interbedding = self.smartInterbeddingCheckBox.isChecked()
         current_smart_interbedding_max_sequence = self.smartInterbeddingMaxSequenceSpinBox.value()
         current_smart_interbedding_thick_unit = self.smartInterbeddingThickUnitSpinBox.value()
+        current_fallback_classification = self.fallbackClassificationCheckBox.isChecked()
         current_bit_size_mm = self.bitSizeSpinBox.value() if hasattr(self, 'bitSizeSpinBox') else self.bit_size_mm
         current_show_anomaly_highlights = self.showAnomalyHighlightsCheckBox.isChecked() if hasattr(self, 'showAnomalyHighlightsCheckBox') else self.show_anomaly_highlights
         current_casing_depth_enabled = self.casingDepthEnabledCheckBox.isChecked() if hasattr(self, 'casingDepthEnabledCheckBox') else self.casing_depth_enabled
@@ -2265,6 +2272,7 @@ class MainWindow(QMainWindow):
             smart_interbedding=current_smart_interbedding,
             smart_interbedding_max_sequence_length=current_smart_interbedding_max_sequence,
             smart_interbedding_thick_unit_threshold=current_smart_interbedding_thick_unit,
+            fallback_classification=current_fallback_classification,
             bit_size_mm=current_bit_size_mm,
             show_anomaly_highlights=current_show_anomaly_highlights,
             casing_depth_enabled=current_casing_depth_enabled,
@@ -2279,6 +2287,7 @@ class MainWindow(QMainWindow):
         self.smart_interbedding = current_smart_interbedding
         self.smart_interbedding_max_sequence_length = current_smart_interbedding_max_sequence
         self.smart_interbedding_thick_unit_threshold = current_smart_interbedding_thick_unit
+        self.use_fallback_classification = current_fallback_classification
         self.bit_size_mm = current_bit_size_mm
         self.show_anomaly_highlights = current_show_anomaly_highlights
         self.casing_depth_enabled = current_casing_depth_enabled
