@@ -476,6 +476,9 @@ class SettingsDialog(QDialog):
         """Load current settings into dialog controls."""
         if not self.current_settings:
             return
+        print(f"[DEBUG] SettingsDialog.load_settings called, keys: {list(self.current_settings.keys())}")
+        if 'lithology_rules' in self.current_settings:
+            print(f"[DEBUG] Lithology rules count: {len(self.current_settings['lithology_rules'])}")
 
         # Load lithology rules into table
         if 'lithology_rules' in self.current_settings:
@@ -629,9 +632,11 @@ class SettingsDialog(QDialog):
         """Open file dialog to load settings from a JSON file."""
         # This should delegate to parent MainWindow
         if self.parent():
+            print(f"[DEBUG] SettingsDialog.load_settings_from_file delegating to parent")
             self.parent().load_settings_from_file()
             # After loading, update current settings from parent
             self.current_settings = self.parent().get_current_settings()
+            print(f"[DEBUG] Updated current_settings, keys: {list(self.current_settings.keys())}")
             # Update dialog controls
             self.load_settings()
 

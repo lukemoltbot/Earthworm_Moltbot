@@ -2343,10 +2343,13 @@ class MainWindow(QMainWindow):
 
 
     def load_settings_from_file(self):
+        print(f"[DEBUG] MainWindow.load_settings_from_file called")
         file_path, _ = QFileDialog.getOpenFileName(self, "Load Settings", "", "JSON Files (*.json);;All Files (*)")
         if file_path:
+            print(f"[DEBUG] Loading settings from {file_path}")
             try:
                 loaded_settings = load_settings(file_path) # Pass file_path to load_settings
+                print(f"[DEBUG] Loaded settings keys: {list(loaded_settings.keys())}")
                 self.lithology_rules = loaded_settings["lithology_rules"]
                 self.initial_separator_thickness = loaded_settings["separator_thickness"]
                 self.initial_draw_separators = loaded_settings["draw_separator_lines"]
