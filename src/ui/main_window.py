@@ -1116,6 +1116,7 @@ class MainWindow(QMainWindow):
             casing_depth_m=app_settings.get("casing_depth_m", 0.0),
             disable_svg=app_settings.get("disable_svg", False),
             avg_executable_path=app_settings.get("avg_executable_path", ""),
+            svg_directory_path=app_settings.get("svg_directory_path", ""),
             workspace_state=app_settings.get("workspace"),
             theme=self.current_theme,
             column_visibility=app_settings.get("column_visibility", {})
