@@ -480,7 +480,7 @@ class Worker(QObject):
     finished = pyqtSignal(pd.DataFrame, pd.DataFrame)
     error = pyqtSignal(str)
 
-    def __init__(self, file_path, mnemonic_map, lithology_rules, use_researched_defaults, merge_thin_units=False, merge_threshold=0.05, smart_interbedding=False, smart_interbedding_max_sequence_length=10, smart_interbedding_thick_unit_threshold=0.5, use_fallback_classification=False):
+    def __init__(self, file_path, mnemonic_map, lithology_rules, use_researched_defaults, merge_thin_units=False, merge_threshold=0.05, smart_interbedding=False, smart_interbedding_max_sequence_length=10, smart_interbedding_thick_unit_threshold=0.5, use_fallback_classification=False, analysis_method="standard", casing_depth_enabled=False, casing_depth_m=0.0):
         super().__init__()
         self.file_path = file_path
         self.mnemonic_map = mnemonic_map
@@ -492,6 +492,9 @@ class Worker(QObject):
         self.smart_interbedding_max_sequence_length = smart_interbedding_max_sequence_length
         self.smart_interbedding_thick_unit_threshold = smart_interbedding_thick_unit_threshold
         self.use_fallback_classification = use_fallback_classification
+        self.analysis_method = analysis_method
+        self.casing_depth_enabled = casing_depth_enabled
+        self.casing_depth_m = casing_depth_m
 
     def run(self):
         try:
@@ -511,7 +514,7 @@ class Worker(QObject):
 
             processed_dataframe = data_processor.preprocess_data(dataframe, full_mnemonic_map)
             # Use appropriate classification method based on settings
-            if hasattr(self, 'analysis_method') and self.analysis_method == "simple":
+            if self.analysis_method == "simple":
                 classified_dataframe = analyzer.classify_rows_simple(processed_dataframe, self.lithology_rules, full_mnemonic_map)
             else:
                 classified_dataframe = analyzer.classify_rows(processed_dataframe, self.lithology_rules, full_mnemonic_map, self.use_researched_defaults, self.use_fallback_classification, self.casing_depth_enabled, self.casing_depth_m)
@@ -2916,7 +2919,13 @@ class MainWindow(QMainWindow):
         self.thread = QThread()
         # Pass mnemonic_map to the Worker
         use_fallback_classification = self.fallbackClassificationCheckBox.isChecked()
-        self.worker = Worker(self.las_file_path, mnemonic_map, self.lithology_rules, self.use_researched_defaults, self.merge_thin_units, self.merge_threshold, self.smart_interbedding, self.smart_interbedding_max_sequence_length, self.smart_interbedding_thick_unit_threshold, use_fallback_classification)
+        # Get current analysis method from UI or stored attribute
+        analysis_method = self.analysisMethodComboBox.currentText().lower() if hasattr(self, 'analysisMethodComboBox') else self.analysis_method
+        # Get current casing depth settings from UI or stored attributes
+        casing_depth_enabled = self.casingDepthEnabledCheckBox.isChecked() if hasattr(self, 'casingDepthEnabledCheckBox') else self.casing_depth_enabled
+        casing_depth_m = self.casingDepthSpinBox.value() if hasattr(self, 'casingDepthSpinBox') else self.casing_depth_m
+        
+        self.worker = Worker(self.las_file_path, mnemonic_map, self.lithology_rules, self.use_researched_defaults, self.merge_thin_units, self.merge_threshold, self.smart_interbedding, self.smart_interbedding_max_sequence_length, self.smart_interbedding_thick_unit_threshold, use_fallback_classification, analysis_method, casing_depth_enabled, casing_depth_m)
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
         self.worker.finished.connect(self.analysis_finished)
