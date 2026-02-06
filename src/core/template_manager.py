@@ -282,7 +282,8 @@ class TemplateManager:
         
         try:
             # Apply lithology rules
-            from .settings_manager import save_settings, load_settings
+            from .settings_manager import save_settings, load_settings, USE_RESEARCHED_DEFAULTS_DEFAULT
+            from .config import DEFAULT_BIT_SIZE_MM, DEFAULT_SHOW_ANOMALY_HIGHLIGHTS, DEFAULT_CASING_DEPTH_ENABLED, DEFAULT_CASING_DEPTH_M, DISABLE_SVG_DEFAULT, DEFAULT_FALLBACK_CLASSIFICATION, DEFAULT_SEPARATOR_THICKNESS, DEFAULT_CURVE_THICKNESS, DEFAULT_MERGE_THRESHOLD, DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH, DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD
             
             # Load current settings
             current_settings = load_settings()
@@ -309,7 +310,15 @@ class TemplateManager:
                 smart_interbedding=current_settings.get("smart_interbedding", False),
                 smart_interbedding_max_sequence_length=current_settings.get("smart_interbedding_max_sequence_length", 10),
                 smart_interbedding_thick_unit_threshold=current_settings.get("smart_interbedding_thick_unit_threshold", 0.5),
-                fallback_classification=current_settings.get("fallback_classification", False),
+                fallback_classification=current_settings.get("fallback_classification", DEFAULT_FALLBACK_CLASSIFICATION),
+                bit_size_mm=current_settings.get("bit_size_mm", DEFAULT_BIT_SIZE_MM),
+                show_anomaly_highlights=current_settings.get("show_anomaly_highlights", DEFAULT_SHOW_ANOMALY_HIGHLIGHTS),
+                casing_depth_enabled=current_settings.get("casing_depth_enabled", DEFAULT_CASING_DEPTH_ENABLED),
+                casing_depth_m=current_settings.get("casing_depth_m", DEFAULT_CASING_DEPTH_M),
+                disable_svg=current_settings.get("disable_svg", DISABLE_SVG_DEFAULT),
+                avg_executable_path=current_settings.get("avg_executable_path", ""),
+                svg_directory_path=current_settings.get("svg_directory_path", ""),
+                column_visibility=current_settings.get("column_visibility", {}),
                 workspace_state=current_settings.get("workspace"),
                 theme=current_settings.get("theme", "dark")
             )
