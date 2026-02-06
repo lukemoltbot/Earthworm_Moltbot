@@ -1485,6 +1485,8 @@ class MainWindow(QMainWindow):
             if item.widget():
                 item.widget().deleteLater()
         
+        # Initialize curve visibility checkboxes dict (empty since moved to dialog)
+        self.curve_visibility_checkboxes = {}
         # Create scroll area for settings with vertical-only scrolling
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -1631,112 +1633,6 @@ class MainWindow(QMainWindow):
         method_layout.addRow("Analysis Method:", self.analysisMethodComboBox)
         analysis_layout.addWidget(method_widget)
         
-        # Bit size input field
-        bit_size_widget = QWidget()
-        bit_size_layout = QFormLayout(bit_size_widget)
-        bit_size_layout.setSpacing(8)
-        bit_size_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
-        
-        self.bitSizeSpinBox = QDoubleSpinBox()
-        self.bitSizeSpinBox.setRange(50.0, 500.0)  # Reasonable range for bit sizes in mm
-        self.bitSizeSpinBox.setValue(self.bit_size_mm)
-        self.bitSizeSpinBox.setSingleStep(10.0)
-        self.bitSizeSpinBox.setSuffix(" mm")
-        self.bitSizeSpinBox.setToolTip("Bit size in millimeters for caliper anomaly detection (CAL - BitSize > 20)")
-        bit_size_layout.addRow("Bit Size:", self.bitSizeSpinBox)
-        
-        # Anomaly highlighting checkbox
-        self.showAnomalyHighlightsCheckBox = QCheckBox("Show anomaly highlights")
-        self.showAnomalyHighlightsCheckBox.setChecked(self.show_anomaly_highlights)
-        self.showAnomalyHighlightsCheckBox.setToolTip("Show/hide red highlighting for caliper anomalies (CAL - BitSize > 20 mm)")
-        bit_size_layout.addRow("", self.showAnomalyHighlightsCheckBox)
-        
-        analysis_layout.addWidget(bit_size_widget)
-        
-        # Casing depth masking
-        casing_depth_widget = QWidget()
-        casing_depth_layout = QFormLayout(casing_depth_widget)
-        casing_depth_layout.setSpacing(8)
-        casing_depth_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
-        
-        # Enable casing depth masking checkbox
-        self.casingDepthEnabledCheckBox = QCheckBox("Enable Casing Depth Masking")
-        self.casingDepthEnabledCheckBox.setChecked(self.casing_depth_enabled)
-        self.casingDepthEnabledCheckBox.setToolTip("Mask intervals above casing depth as 'NL' (Not Logged)")
-        casing_depth_layout.addRow("", self.casingDepthEnabledCheckBox)
-        
-        # Casing depth input (only enabled when checkbox is checked)
-        self.casingDepthSpinBox = QDoubleSpinBox()
-        self.casingDepthSpinBox.setRange(0.0, 5000.0)  # Reasonable range for casing depth in meters
-        self.casingDepthSpinBox.setValue(self.casing_depth_m)
-        self.casingDepthSpinBox.setSingleStep(1.0)
-        self.casingDepthSpinBox.setSuffix(" m")
-        self.casingDepthSpinBox.setToolTip("Casing depth in meters. Intervals above this depth will be masked as 'NL'")
-        self.casingDepthSpinBox.setEnabled(self.casing_depth_enabled)  # Initially disabled if not checked
-        casing_depth_layout.addRow("Casing Depth:", self.casingDepthSpinBox)
-        
-        analysis_layout.addWidget(casing_depth_widget)
-        
-        # NL Review button
-        nl_review_widget = QWidget()
-        nl_review_layout = QHBoxLayout(nl_review_widget)
-        nl_review_layout.setSpacing(8)
-        nl_review_layout.setContentsMargins(0, 0, 0, 0)
-        
-        self.nlReviewButton = QPushButton("📊 Review NL Intervals")
-        self.nlReviewButton.setToolTip("Review 'NL' (Not Logged) intervals with statistics")
-        self.nlReviewButton.clicked.connect(self.open_nl_review_dialog)
-        nl_review_layout.addWidget(self.nlReviewButton)
-        nl_review_layout.addStretch()
-        
-        analysis_layout.addWidget(nl_review_widget)
-        
-        container_layout.addWidget(analysis_group)
-        
-        # 4. TABLE SETTINGS GROUP
-        table_group = QGroupBox("Table Settings")
-        table_layout = QVBoxLayout(table_group)
-        table_layout.setSpacing(8)
-        
-        # Column Configurator button
-        self.columnConfiguratorButton = QPushButton("⚙️ Column Configurator")
-        self.columnConfiguratorButton.setToolTip("Configure visible columns in the lithology table")
-        self.columnConfiguratorButton.clicked.connect(self.open_column_configurator_dialog)
-        table_layout.addWidget(self.columnConfiguratorButton)
-        
-        container_layout.addWidget(table_group)
-        
-        # 5. CURVE VISIBILITY GROUP
-        curve_visibility_group = QGroupBox("Curve Visibility")
-        curve_visibility_layout = QVBoxLayout(curve_visibility_group)
-        curve_visibility_layout.setSpacing(6)
-        
-        # Create checkboxes for each curve type
-        self.curve_visibility_checkboxes = {}
-        
-        # Curve types with their display names and abbreviations
-        curve_types = [
-            ("SS", "Short Space Density", "short_space_density"),
-            ("LS", "Long Space Density", "long_space_density"),
-            ("GR", "Gamma Ray", "gamma"),
-            ("CD", "Caliper", "cd"),
-            ("RES", "Resistivity", "res"),
-            ("CAL", "Caliper", "cal")
-        ]
-        
-        for abbr, display_name, curve_name in curve_types:
-            checkbox = QCheckBox(f"[{abbr}] {display_name}")
-            checkbox.setChecked(True)  # All curves visible by default
-            checkbox.curve_name = curve_name  # Store the internal curve name
-            self.curve_visibility_checkboxes[curve_name] = checkbox
-            curve_visibility_layout.addWidget(checkbox)
-            
-            # Connect checkbox state change to update curve visibility
-            checkbox.stateChanged.connect(self.on_curve_visibility_changed)
-        
-        curve_visibility_layout.addStretch()
-        container_layout.addWidget(curve_visibility_group)
-        
         # 6. FILE OPERATIONS GROUP
         file_group = QGroupBox("File Operations")
         file_layout = QVBoxLayout(file_group)
@@ -1848,31 +1744,6 @@ class MainWindow(QMainWindow):
         self.analysisMethodComboBox.currentTextChanged.connect(lambda: self.update_settings(auto_save=True))
         self.fallbackClassificationCheckBox.stateChanged.connect(self.mark_settings_dirty)
         self.fallbackClassificationCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
-        # Connect bit size spin box if it exists
-        if hasattr(self, 'bitSizeSpinBox'):
-            self.bitSizeSpinBox.valueChanged.connect(self.mark_settings_dirty)
-            self.bitSizeSpinBox.valueChanged.connect(lambda: self.update_settings(auto_save=True))
-            self.bitSizeSpinBox.valueChanged.connect(self.update_plotter_bit_size)
-        
-        # Connect anomaly highlights checkbox if it exists
-        if hasattr(self, 'showAnomalyHighlightsCheckBox'):
-            self.showAnomalyHighlightsCheckBox.stateChanged.connect(self.mark_settings_dirty)
-            self.showAnomalyHighlightsCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
-            self.showAnomalyHighlightsCheckBox.stateChanged.connect(self.update_plotter_anomaly_visibility)
-        
-        # Connect casing depth controls if they exist
-        if hasattr(self, 'casingDepthEnabledCheckBox'):
-            self.casingDepthEnabledCheckBox.stateChanged.connect(self.mark_settings_dirty)
-            self.casingDepthEnabledCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
-            self.casingDepthEnabledCheckBox.stateChanged.connect(self.toggle_casing_depth_input)
-            # Connect casing depth spin box
-            self.casingDepthSpinBox.valueChanged.connect(self.mark_settings_dirty)
-            self.casingDepthSpinBox.valueChanged.connect(lambda: self.update_settings(auto_save=True))
-        
-        # Connect curve visibility checkboxes to mark settings as dirty
-        for checkbox in self.curve_visibility_checkboxes.values():
-            checkbox.stateChanged.connect(self.mark_settings_dirty)
-        
         # Initialize range visualization
         self.refresh_range_visualization()
     

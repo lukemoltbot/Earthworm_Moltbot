@@ -13,12 +13,17 @@ from PyQt6.QtGui import QFont
 from ..widgets.enhanced_range_gap_visualizer import EnhancedRangeGapVisualizer
 from ...utils.range_analyzer import RangeAnalyzer
 
+# Import dialogs for column configurator and NL review
+from ..dialogs.column_configurator_dialog import ColumnConfiguratorDialog
+from ..dialogs.nl_review_dialog import NLReviewDialog
+
 class SettingsDialog(QDialog):
     # Signal to notify MainWindow when settings are updated
     settings_updated = pyqtSignal(dict)
 
     def __init__(self, parent=None, current_settings=None):
         super().__init__(parent)
+        print("[DEBUG] SettingsDialog.__init__ called")
         self.setWindowTitle("Earthworm Settings")
         self.setGeometry(100, 100, 900, 650)  # Reasonable size for settings dialog
         self.setMinimumSize(800, 600)
@@ -120,6 +125,7 @@ class SettingsDialog(QDialog):
 
     def create_display_tab(self):
         """Create display settings tab."""
+        print("[DEBUG] create_display_tab called")
         tab = QWidget()
         main_layout = QVBoxLayout(tab)
         main_layout.setContentsMargins(4, 4, 4, 4)
@@ -193,6 +199,49 @@ class SettingsDialog(QDialog):
         
         layout.addWidget(svg_group)
 
+        # Curve Visibility group
+        curve_visibility_group = QGroupBox("Curve Visibility")
+        curve_visibility_layout = QVBoxLayout(curve_visibility_group)
+        curve_visibility_layout.setSpacing(6)
+        
+        # Create checkboxes for each curve type
+        self.curve_visibility_checkboxes = {}
+        
+        # Curve types with their display names and abbreviations
+        curve_types = [
+            ("SS", "Short Space Density", "short_space_density"),
+            ("LS", "Long Space Density", "long_space_density"),
+            ("GR", "Gamma Ray", "gamma"),
+            ("CD", "Caliper", "cd"),
+            ("RES", "Resistivity", "res"),
+            ("CAL", "Caliper", "cal")
+        ]
+        
+        for abbr, display_name, curve_name in curve_types:
+            checkbox = QCheckBox(f"[{abbr}] {display_name}")
+            checkbox.setChecked(True)  # All curves visible by default
+            checkbox.curve_name = curve_name  # Store the internal curve name
+            self.curve_visibility_checkboxes[curve_name] = checkbox
+            curve_visibility_layout.addWidget(checkbox)
+        
+        curve_visibility_layout.addStretch()
+        layout.addWidget(curve_visibility_group)
+        print(f"[DEBUG] Added curve visibility group with {len(self.curve_visibility_checkboxes)} checkboxes")
+
+        # Table Settings group
+        table_group = QGroupBox("Table Settings")
+        table_layout = QVBoxLayout(table_group)
+        table_layout.setSpacing(8)
+        
+        # Column Configurator button
+        self.columnConfiguratorButton = QPushButton("⚙️ Column Configurator")
+        self.columnConfiguratorButton.setToolTip("Configure visible columns in the lithology table")
+        self.columnConfiguratorButton.clicked.connect(self.open_column_configurator_dialog)
+        table_layout.addWidget(self.columnConfiguratorButton)
+        
+        layout.addWidget(table_group)
+        print("[DEBUG] Added table settings group with column configurator button")
+
         layout.addStretch()
 
         # Set container as scroll widget
@@ -203,6 +252,7 @@ class SettingsDialog(QDialog):
 
     def create_analysis_tab(self):
         """Create analysis settings tab."""
+        print("[DEBUG] create_analysis_tab called")
         tab = QWidget()
         main_layout = QVBoxLayout(tab)
         main_layout.setContentsMargins(4, 4, 4, 4)
@@ -254,6 +304,70 @@ class SettingsDialog(QDialog):
 
         layout.addWidget(self.interbedding_group)
 
+        # Bit size input field and anomaly detection
+        bit_size_widget = QWidget()
+        bit_size_layout = QFormLayout(bit_size_widget)
+        bit_size_layout.setSpacing(8)
+        bit_size_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
+        
+        self.bitSizeSpinBox = QDoubleSpinBox()
+        self.bitSizeSpinBox.setRange(50.0, 500.0)  # Reasonable range for bit sizes in mm
+        self.bitSizeSpinBox.setValue(150.0)  # Default will be overridden by load_settings
+        self.bitSizeSpinBox.setSingleStep(10.0)
+        self.bitSizeSpinBox.setSuffix(" mm")
+        self.bitSizeSpinBox.setToolTip("Bit size in millimeters for caliper anomaly detection (CAL - BitSize > 20)")
+        bit_size_layout.addRow("Bit Size:", self.bitSizeSpinBox)
+        
+        # Anomaly highlighting checkbox
+        self.showAnomalyHighlightsCheckBox = QCheckBox("Show anomaly highlights")
+        self.showAnomalyHighlightsCheckBox.setChecked(True)  # Default
+        self.showAnomalyHighlightsCheckBox.setToolTip("Show/hide red highlighting for caliper anomalies (CAL - BitSize > 20 mm)")
+        bit_size_layout.addRow("", self.showAnomalyHighlightsCheckBox)
+        
+        layout.addWidget(bit_size_widget)
+        print("[DEBUG] Added bit size widget with spinbox and anomaly checkbox")
+        
+        # Casing depth masking
+        casing_depth_widget = QWidget()
+        casing_depth_layout = QFormLayout(casing_depth_widget)
+        casing_depth_layout.setSpacing(8)
+        casing_depth_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
+        
+        # Enable casing depth masking checkbox
+        self.casingDepthEnabledCheckBox = QCheckBox("Enable Casing Depth Masking")
+        self.casingDepthEnabledCheckBox.setChecked(False)  # Default
+        self.casingDepthEnabledCheckBox.setToolTip("Mask intervals above casing depth as 'NL' (Not Logged)")
+        casing_depth_layout.addRow("", self.casingDepthEnabledCheckBox)
+        self.casingDepthEnabledCheckBox.stateChanged.connect(self.toggle_casing_depth_spinbox)
+        
+        # Casing depth input (only enabled when checkbox is checked)
+        self.casingDepthSpinBox = QDoubleSpinBox()
+        self.casingDepthSpinBox.setRange(0.0, 5000.0)  # Reasonable range for casing depth in meters
+        self.casingDepthSpinBox.setValue(0.0)  # Default
+        self.casingDepthSpinBox.setSingleStep(1.0)
+        self.casingDepthSpinBox.setSuffix(" m")
+        self.casingDepthSpinBox.setToolTip("Casing depth in meters. Intervals above this depth will be masked as 'NL'")
+        self.casingDepthSpinBox.setEnabled(False)  # Initially disabled if not checked
+        casing_depth_layout.addRow("Casing Depth:", self.casingDepthSpinBox)
+        
+        layout.addWidget(casing_depth_widget)
+        print("[DEBUG] Added casing depth widget with checkbox and spinbox")
+        
+        # NL Review button
+        nl_review_widget = QWidget()
+        nl_review_layout = QHBoxLayout(nl_review_widget)
+        nl_review_layout.setSpacing(8)
+        nl_review_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.nlReviewButton = QPushButton("📊 Review NL Intervals")
+        self.nlReviewButton.setToolTip("Review 'NL' (Not Logged) intervals with statistics")
+        self.nlReviewButton.clicked.connect(self.open_nl_review_dialog)
+        nl_review_layout.addWidget(self.nlReviewButton)
+        nl_review_layout.addStretch()
+        
+        layout.addWidget(nl_review_widget)
+        print("[DEBUG] Added NL review button")
+
         # Analysis method
         method_group = QGroupBox("Analysis Method")
         method_layout = QFormLayout(method_group)
@@ -280,6 +394,33 @@ class SettingsDialog(QDialog):
         """Show/hide smart interbedding parameters based on checkbox state."""
         visible = self.smartInterbeddingCheckBox.isChecked()
         self.interbedding_group.setVisible(visible)
+
+    def open_column_configurator_dialog(self):
+        """Open the column configurator dialog."""
+        dialog = ColumnConfiguratorDialog(self, main_window=self.parent(), current_visibility=self.current_settings.get("column_visibility", {}))
+        dialog.visibility_changed.connect(self.on_column_visibility_changed)
+        dialog.exec()
+
+    def on_column_visibility_changed(self, visibility_map):
+        """Handle column visibility changes from the configurator dialog."""
+        self.current_settings["column_visibility"] = visibility_map
+        # Emit settings updated signal if needed
+        # self.settings_updated.emit(self.current_settings)
+
+    def open_nl_review_dialog(self):
+        """Open the NL review dialog."""
+        # Check if there's a main window with data
+        main_window = self.parent()
+        if main_window and hasattr(main_window, 'dataframe') and main_window.dataframe is not None:
+            dialog = NLReviewDialog(parent=self, main_window=main_window)
+            dialog.exec()
+        else:
+            QMessageBox.warning(self, "No Data", "Please load data first to review NL intervals.")
+
+    def toggle_casing_depth_spinbox(self):
+        """Enable/disable casing depth spinbox based on checkbox state."""
+        enabled = self.casingDepthEnabledCheckBox.isChecked()
+        self.casingDepthSpinBox.setEnabled(enabled)
 
     def refresh_range_analysis(self):
         """Refresh the range gap analysis with current lithology rules."""
@@ -540,6 +681,28 @@ class SettingsDialog(QDialog):
         if 'svg_directory_path' in self.current_settings:
             self.svgDirectoryPathEdit.setText(self.current_settings['svg_directory_path'])
 
+        # Load curve visibility settings
+        if 'curve_visibility' in self.current_settings:
+            for curve_name, visible in self.current_settings['curve_visibility'].items():
+                if curve_name in self.curve_visibility_checkboxes:
+                    self.curve_visibility_checkboxes[curve_name].setChecked(visible)
+        
+        # Load column visibility (store in current_settings for later gathering)
+        # No UI to load, just keep in current_settings
+        
+        # Load bit size and anomaly detection settings
+        if 'bit_size_mm' in self.current_settings:
+            self.bitSizeSpinBox.setValue(self.current_settings['bit_size_mm'])
+        if 'show_anomaly_highlights' in self.current_settings:
+            self.showAnomalyHighlightsCheckBox.setChecked(self.current_settings['show_anomaly_highlights'])
+        
+        # Load casing depth settings
+        if 'casing_depth_enabled' in self.current_settings:
+            self.casingDepthEnabledCheckBox.setChecked(self.current_settings['casing_depth_enabled'])
+            self.casingDepthSpinBox.setEnabled(self.current_settings['casing_depth_enabled'])
+        if 'casing_depth_m' in self.current_settings:
+            self.casingDepthSpinBox.setValue(self.current_settings['casing_depth_m'])
+
         # Update interbedding parameters visibility based on checkbox
         self.toggle_interbedding_params_visibility()
 
@@ -601,6 +764,26 @@ class SettingsDialog(QDialog):
         
         # Gather SVG directory path
         settings['svg_directory_path'] = self.svgDirectoryPathEdit.text()
+        
+        # Gather curve visibility settings
+        curve_visibility = {}
+        for curve_name, checkbox in self.curve_visibility_checkboxes.items():
+            curve_visibility[curve_name] = checkbox.isChecked()
+        settings['curve_visibility'] = curve_visibility
+        
+        # Gather column visibility (stored in current_settings)
+        if 'column_visibility' in self.current_settings:
+            settings['column_visibility'] = self.current_settings['column_visibility']
+        else:
+            settings['column_visibility'] = {}
+        
+        # Gather bit size and anomaly detection settings
+        settings['bit_size_mm'] = self.bitSizeSpinBox.value()
+        settings['show_anomaly_highlights'] = self.showAnomalyHighlightsCheckBox.isChecked()
+        
+        # Gather casing depth settings
+        settings['casing_depth_enabled'] = self.casingDepthEnabledCheckBox.isChecked()
+        settings['casing_depth_m'] = self.casingDepthSpinBox.value()
 
         return settings
 
