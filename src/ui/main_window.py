@@ -455,6 +455,10 @@ class HoleEditorWindow(QWidget):
         # Load data into table
         self.editorTable.load_data(dataframe)
         
+        # Apply column visibility settings if main_window is available
+        if self.main_window and hasattr(self.main_window, 'column_visibility'):
+            self.main_window.apply_column_visibility(self.main_window.column_visibility)
+        
         # TODO: Update curve plotter and stratigraphic column with data
         print(f"File loaded successfully: {filename} ({len(dataframe)} rows)")
         
@@ -3046,6 +3050,7 @@ class MainWindow(QMainWindow):
 
     def on_column_visibility_changed(self, visibility_map):
         """Handle column visibility changes from configurator dialog."""
+        print(f"DEBUG: on_column_visibility_changed called with {len(visibility_map)} columns")
         # Update stored visibility
         self.column_visibility = visibility_map
         
@@ -3069,6 +3074,7 @@ class MainWindow(QMainWindow):
     
     def apply_column_visibility(self, visibility_map):
         """Apply column visibility mapping to all lithology tables."""
+        print(f"DEBUG: apply_column_visibility called, editorTable exists? {hasattr(self, 'editorTable')}, model? {self.editorTable.model() if hasattr(self, 'editorTable') else None}")
         # Apply to main editor table (first hole)
         if hasattr(self, 'editorTable') and self.editorTable.model() is not None:
             self._apply_visibility_to_table(self.editorTable, visibility_map)
@@ -3084,22 +3090,31 @@ class MainWindow(QMainWindow):
         """Apply visibility mapping to a specific table."""
         model = table.model()
         if not hasattr(model, '_dataframe'):
+            print(f"DEBUG: model has no _dataframe attribute")
             return
         
         column_names = model._dataframe.columns.tolist()
+        print(f"DEBUG: column_names ({len(column_names)}): {column_names}")
         
         # Map internal names to column indices
         for internal_name, is_visible in visibility_map.items():
             if internal_name in column_names:
                 col_index = column_names.index(internal_name)
+                print(f"DEBUG: hiding column '{internal_name}' (index {col_index})? {not is_visible}")
                 table.setColumnHidden(col_index, not is_visible)
             else:
                 # Try to find by display name (replace underscores with spaces)
                 display_name = internal_name.replace('_', ' ').title()
+                print(f"DEBUG: column '{internal_name}' not found, trying display name '{display_name}'")
+                found = False
                 for idx, col in enumerate(column_names):
                     if col == internal_name or col == display_name:
+                        print(f"DEBUG: matched column '{col}' at index {idx}, hiding? {not is_visible}")
                         table.setColumnHidden(idx, not is_visible)
+                        found = True
                         break
+                if not found:
+                    print(f"DEBUG: column '{internal_name}' not found in table")
     
     def refresh_range_visualization(self):
         """Refresh the range gap visualization with current lithology rules"""
@@ -3555,6 +3570,8 @@ class MainWindow(QMainWindow):
         # Use the full 37-column schema
         editor_dataframe = updated_df[COALLOG_V31_COLUMNS]
         self.editorTable.load_data(editor_dataframe)
+        # Apply column visibility settings
+        self.apply_column_visibility(self.column_visibility)
         
         # Update curve plotter with lithology data for boundary lines (Phase 4)
         if hasattr(self.curvePlotter, 'set_lithology_data'):
@@ -3720,6 +3737,8 @@ class MainWindow(QMainWindow):
         # Use the full 37-column schema
         editor_dataframe = units_dataframe[COALLOG_V31_COLUMNS]
         self.editorTable.load_data(editor_dataframe)
+        # Apply column visibility settings
+        self.apply_column_visibility(self.column_visibility)
         
         # Set lithology data on curve plotter for boundary lines (Phase 4)
         if hasattr(self.curvePlotter, 'set_lithology_data'):
