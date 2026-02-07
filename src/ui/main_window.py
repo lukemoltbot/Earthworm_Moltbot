@@ -700,21 +700,7 @@ class MainWindow(QMainWindow):
         # MDI area for multiple hole windows (1PD UI/UX Phase 1)
         self.mdi_area = QMdiArea()
         self.mdi_area.setViewMode(QMdiArea.ViewMode.SubWindowView)
-        self.settings_tab = QWidget()
-        self.settings_layout = QVBoxLayout(self.settings_tab)
-        # Settings tab is NOT added to tab widget - will be used in dock widget instead
-        # self.tab_widget.addTab(self.settings_tab, "Settings")
-
-        # Create dock widget for settings
-        self.settings_dock = QDockWidget("Settings", self)
-        self.settings_dock.setWidget(self.settings_tab)
-        self.settings_dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
-        self.settings_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable |
-                                       QDockWidget.DockWidgetFeature.DockWidgetFloatable |
-                                       QDockWidget.DockWidgetFeature.DockWidgetClosable)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.settings_dock)
-        self.settings_dock.hide()  # Initially hidden
-        # self.settings_dock.visibilityChanged.connect(self.update_settings_button_text)
+        # Settings dock has been removed per user request - only SettingsDialog remains
 
         # Create dock widget for holes list (Phase 1, Task 2)
         self.holes_dock = QDockWidget("Project Explorer", self)
@@ -759,7 +745,7 @@ class MainWindow(QMainWindow):
 
         self.connect_signals()
         self.load_default_lithology_rules()
-        self.setup_settings_tab()
+        # self.setup_settings_tab()  # Settings dock removed per user request
         # self.setup_editor_tab()  # Not needed: hole editor has its own layout
         # self.tab_widget.currentChanged.connect(self.on_tab_changed)  # MDI removes tabs
         self._synchronize_views()
@@ -1131,14 +1117,6 @@ class MainWindow(QMainWindow):
             column_visibility=app_settings.get("column_visibility", {})
         )
 
-    def open_settings_dialog(self):
-        """Toggle visibility of settings dock widget."""
-        if self.settings_dock.isVisible():
-            self.settings_dock.hide()
-        else:
-            self.settings_dock.show()
-            self.settings_dock.raise_()  # Bring to front if floating
-
     def open_session_dialog(self):
         """Open the session management dialog."""
         dialog = SessionDialog(parent=self, main_window=self)
@@ -1179,13 +1157,6 @@ class MainWindow(QMainWindow):
         dialog = SettingsDialog(parent=self, current_settings=current_settings)
         dialog.settings_updated.connect(self.update_settings_from_dialog)
         dialog.exec()
-
-    def update_settings_button_text(self):
-        """Update settings button text based on dock visibility."""
-        if self.settings_dock.isVisible():
-            self.settingsButton.setText("Hide Settings")
-        else:
-            self.settingsButton.setText("Settings")
 
     def on_hole_double_clicked(self, index):
         """Handle double-click on a file in the project explorer tree."""
@@ -1485,280 +1456,6 @@ class MainWindow(QMainWindow):
 
     # Tab widget removed in MDI refactoring - method kept for compatibility
 
-    def setup_settings_tab(self):
-        # Clear existing layout (just in case)
-        while self.settings_layout.count():
-            item = self.settings_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-
-        # Initialize curve visibility checkboxes dict (empty since moved to dialog)
-        self.curve_visibility_checkboxes = {}
-        # Create scroll area for settings with vertical-only scrolling
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)  # Force vertical-only scrolling
-        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-
-        # Container widget for all settings groups
-        container = QWidget()
-        container_layout = QVBoxLayout(container)
-        container_layout.setSpacing(10)
-        container_layout.setContentsMargins(8, 8, 8, 8)
-
-        # 1. LITHOLOGY RULES GROUP
-        litho_group = QGroupBox("Lithology Rules")
-        litho_layout = QVBoxLayout(litho_group)
-        litho_layout.setSpacing(6)
-
-        self.settings_rules_table = QTableWidget()
-        self.settings_rules_table.setColumnCount(9)
-        self.settings_rules_table.setHorizontalHeaderLabels([
-            "Name", "Code", "Qualifier", "Gamma Range", "Density Range",
-            "Visual Props", "Background", "Preview", "Actions"
-        ])
-        # Let columns resize to content, but set minimum widths
-        header = self.settings_rules_table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        header.setMinimumSectionSize(60)
-        header.setStretchLastSection(True)
-        self.settings_rules_table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        # Connect cell changes to update code and qualifier
-        self.settings_rules_table.cellChanged.connect(self.on_settings_cell_changed)
-
-        litho_layout.addWidget(self.settings_rules_table)
-
-        # Add/Remove buttons
-        rule_buttons_layout = QHBoxLayout()
-        rule_buttons_layout.setSpacing(6)
-        self.addRuleButton = QPushButton("Add Rule")
-        self.removeRuleButton = QPushButton("Remove Rule")
-        rule_buttons_layout.addWidget(self.addRuleButton)
-        rule_buttons_layout.addWidget(self.removeRuleButton)
-        rule_buttons_layout.addStretch()
-        litho_layout.addLayout(rule_buttons_layout)
-
-        container_layout.addWidget(litho_group)
-
-        # 2. DISPLAY SETTINGS GROUP
-        display_group = QGroupBox("Display Settings")
-        display_layout = QFormLayout(display_group)
-        display_layout.setSpacing(8)
-        display_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
-
-        # Separator thickness
-        self.separatorThicknessSpinBox = QDoubleSpinBox()
-        self.separatorThicknessSpinBox.setRange(0.0, 5.0)
-        self.separatorThicknessSpinBox.setSingleStep(0.1)
-        self.separatorThicknessSpinBox.setMaximumWidth(100)
-        display_layout.addRow("Separator Line Thickness:", self.separatorThicknessSpinBox)
-
-        # Draw separators checkbox
-        self.drawSeparatorsCheckBox = QCheckBox("Draw Separator Lines")
-        display_layout.addRow(self.drawSeparatorsCheckBox)
-
-        # Curve thickness
-        self.curveThicknessSpinBox = QDoubleSpinBox()
-        self.curveThicknessSpinBox.setRange(0.1, 5.0)
-        self.curveThicknessSpinBox.setSingleStep(0.1)
-        self.curveThicknessSpinBox.setMaximumWidth(100)
-        display_layout.addRow("Curve Line Thickness:", self.curveThicknessSpinBox)
-
-        # Curve inversion checkboxes
-        curve_inv_widget = QWidget()
-        curve_inv_layout = QVBoxLayout(curve_inv_widget)
-        curve_inv_layout.setSpacing(4)
-        curve_inv_layout.setContentsMargins(0, 0, 0, 0)
-        self.invertGammaCheckBox = QCheckBox("Invert Gamma")
-        self.invertShortSpaceDensityCheckBox = QCheckBox("Invert Short Space Density")
-        self.invertLongSpaceDensityCheckBox = QCheckBox("Invert Long Space Density")
-        curve_inv_layout.addWidget(self.invertGammaCheckBox)
-        curve_inv_layout.addWidget(self.invertShortSpaceDensityCheckBox)
-        curve_inv_layout.addWidget(self.invertLongSpaceDensityCheckBox)
-        display_layout.addRow("Curve Inversion:", curve_inv_widget)
-
-        container_layout.addWidget(display_group)
-
-        # 3. ANALYSIS SETTINGS GROUP
-        self.analysis_group = QGroupBox("Analysis Settings")
-        analysis_group = self.analysis_group
-        analysis_layout = QVBoxLayout(analysis_group)
-        analysis_layout.setSpacing(8)
-
-        # Checkboxes in a grid
-        check_grid = QGridLayout()
-        check_grid.setSpacing(6)
-        self.useResearchedDefaultsCheckBox = QCheckBox("Apply Researched Defaults for Missing Ranges")
-        self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
-        check_grid.addWidget(self.useResearchedDefaultsCheckBox, 0, 0, 1, 2)
-
-        self.mergeThinUnitsCheckBox = QCheckBox("Merge thin lithology units (< 5cm)")
-        self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
-        check_grid.addWidget(self.mergeThinUnitsCheckBox, 1, 0, 1, 2)
-
-        self.smartInterbeddingCheckBox = QCheckBox("Smart Interbedding")
-        self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
-        check_grid.addWidget(self.smartInterbeddingCheckBox, 2, 0, 1, 2)
-
-        self.fallbackClassificationCheckBox = QCheckBox("Enable Fallback Classification")
-        self.fallbackClassificationCheckBox.setChecked(self.use_fallback_classification)
-        self.fallbackClassificationCheckBox.setToolTip("Apply fallback classification to reduce 'NL' (Not Logged) results")
-        check_grid.addWidget(self.fallbackClassificationCheckBox, 3, 0, 1, 2)
-
-        analysis_layout.addLayout(check_grid)
-
-        # Smart interbedding parameters (only visible when smart interbedding is checked)
-        self.interbedding_params_widget = QWidget()
-        interbedding_params_layout = QHBoxLayout(self.interbedding_params_widget)
-        interbedding_params_layout.setSpacing(8)
-        interbedding_params_layout.addWidget(QLabel("Max Sequence Length:"))
-        self.smartInterbeddingMaxSequenceSpinBox = QSpinBox()
-        self.smartInterbeddingMaxSequenceSpinBox.setRange(5, 50)
-        self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
-        interbedding_params_layout.addWidget(self.smartInterbeddingMaxSequenceSpinBox)
-
-        interbedding_params_layout.addWidget(QLabel("Thick Unit Threshold (m):"))
-        self.smartInterbeddingThickUnitSpinBox = QDoubleSpinBox()
-        self.smartInterbeddingThickUnitSpinBox.setRange(0.1, 5.0)
-        self.smartInterbeddingThickUnitSpinBox.setSingleStep(0.1)
-        self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
-        interbedding_params_layout.addWidget(self.smartInterbeddingThickUnitSpinBox)
-        interbedding_params_layout.addStretch()
-        analysis_layout.addWidget(self.interbedding_params_widget)
-        # Hide initially if smart interbedding is off
-        self.interbedding_params_widget.setVisible(self.smart_interbedding)
-
-        # Analysis method
-        method_widget = QWidget()
-        method_layout = QFormLayout(method_widget)
-        method_layout.setSpacing(8)
-        method_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
-
-        self.analysisMethodComboBox = QComboBox()
-        self.analysisMethodComboBox.addItems(["Standard", "Simple"])
-        if hasattr(self, 'analysis_method') and self.analysis_method == "simple":
-            self.analysisMethodComboBox.setCurrentText("Simple")
-        else:
-            self.analysisMethodComboBox.setCurrentText("Standard")
-        method_layout.addRow("Analysis Method:", self.analysisMethodComboBox)
-        analysis_layout.addWidget(method_widget)
-
-        container_layout.addWidget(analysis_group)
-
-        # 6. FILE OPERATIONS GROUP
-        file_group = QGroupBox("File Operations")
-        file_layout = QVBoxLayout(file_group)
-        file_layout.setSpacing(8)
-
-        # Row 1: Save/Load/Update buttons
-        row1_layout = QHBoxLayout()
-        row1_layout.setSpacing(6)
-        self.saveAsSettingsButton = QPushButton("Save Settings As...")
-        self.updateSettingsButton = QPushButton("Update Settings")
-        self.loadSettingsButton = QPushButton("Load Settings...")
-        self.saveAsSettingsButton.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self.updateSettingsButton.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self.loadSettingsButton.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        row1_layout.addWidget(self.saveAsSettingsButton)
-        row1_layout.addWidget(self.updateSettingsButton)
-        row1_layout.addWidget(self.loadSettingsButton)
-        file_layout.addLayout(row1_layout)
-
-        # Row 2: Researched defaults, export, reset buttons
-        row2_layout = QHBoxLayout()
-        row2_layout.setSpacing(6)
-        self.researchedDefaultsButton = QPushButton("Researched Defaults...")
-        self.exportLithologyReportButton = QPushButton("Export Lithology Report")
-        self.resetDefaultsButton = QPushButton("Reset to Defaults")
-        self.researchedDefaultsButton.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self.exportLithologyReportButton.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self.resetDefaultsButton.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        row2_layout.addWidget(self.researchedDefaultsButton)
-        row2_layout.addWidget(self.exportLithologyReportButton)
-        row2_layout.addWidget(self.resetDefaultsButton)
-        file_layout.addLayout(row2_layout)
-
-        # Row 3: Advanced settings button
-        row3_layout = QHBoxLayout()
-        row3_layout.setSpacing(6)
-        self.advancedSettingsButton = QPushButton("Advanced Settings...")
-        self.advancedSettingsButton.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        row3_layout.addWidget(self.advancedSettingsButton)
-        file_layout.addLayout(row3_layout)
-
-        container_layout.addWidget(file_group)
-
-        # 7. RANGE ANALYSIS GROUP
-        range_group = QGroupBox("Range Analysis")
-        range_layout = QVBoxLayout(range_group)
-        range_layout.setSpacing(8)
-
-        self.refreshRangeAnalysisButton = QPushButton("Refresh Range Analysis")
-        self.refreshRangeAnalysisButton.clicked.connect(self.refresh_range_visualization)
-        range_layout.addWidget(self.refreshRangeAnalysisButton)
-
-        range_layout.addWidget(self.range_visualizer)
-
-        container_layout.addWidget(range_group)
-
-        container_layout.addStretch()
-
-        # Set container as scroll widget
-        scroll.setWidget(container)
-        self.settings_layout.addWidget(scroll)
-
-        # Initialize connections
-        self.addRuleButton.clicked.connect(self.add_settings_rule)
-        self.removeRuleButton.clicked.connect(self.remove_settings_rule)
-
-        self.saveAsSettingsButton.clicked.connect(self.save_settings_as_file)
-        self.updateSettingsButton.clicked.connect(self.update_settings)
-        self.loadSettingsButton.clicked.connect(self.load_settings_from_file)
-        self.researchedDefaultsButton.clicked.connect(self.open_researched_defaults_dialog)
-        self.exportLithologyReportButton.clicked.connect(self.export_lithology_report)
-        self.resetDefaultsButton.clicked.connect(self.reset_settings_to_defaults)
-        self.advancedSettingsButton.clicked.connect(self.open_advanced_settings_dialog)
-
-        # Connect smart interbedding checkbox to toggle parameters visibility
-        self.smartInterbeddingCheckBox.stateChanged.connect(self.toggle_interbedding_params_visibility)
-
-        # Load current settings into controls
-        self.load_settings_rules_to_table()
-        self.load_separator_settings()
-        self.load_curve_thickness_settings()
-        self.load_curve_inversion_settings()
-        self._apply_researched_defaults_if_needed()
-
-        # Connect value change signals to auto-save and mark settings as dirty
-        self.separatorThicknessSpinBox.valueChanged.connect(self.mark_settings_dirty)
-        self.separatorThicknessSpinBox.valueChanged.connect(lambda: self.update_settings(auto_save=True))
-        self.drawSeparatorsCheckBox.stateChanged.connect(self.mark_settings_dirty)
-        self.drawSeparatorsCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
-        self.curveThicknessSpinBox.valueChanged.connect(self.mark_settings_dirty)
-        self.curveThicknessSpinBox.valueChanged.connect(lambda: self.update_settings(auto_save=True))
-        self.invertGammaCheckBox.stateChanged.connect(self.mark_settings_dirty)
-        self.invertGammaCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
-        self.invertShortSpaceDensityCheckBox.stateChanged.connect(self.mark_settings_dirty)
-        self.invertShortSpaceDensityCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
-        self.invertLongSpaceDensityCheckBox.stateChanged.connect(self.mark_settings_dirty)
-        self.invertLongSpaceDensityCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
-        self.useResearchedDefaultsCheckBox.stateChanged.connect(self.mark_settings_dirty)
-        self.useResearchedDefaultsCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
-        self.mergeThinUnitsCheckBox.stateChanged.connect(self.mark_settings_dirty)
-        self.mergeThinUnitsCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
-        self.smartInterbeddingCheckBox.stateChanged.connect(self.mark_settings_dirty)
-        self.smartInterbeddingCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
-        self.smartInterbeddingMaxSequenceSpinBox.valueChanged.connect(self.mark_settings_dirty)
-        self.smartInterbeddingMaxSequenceSpinBox.valueChanged.connect(lambda: self.update_settings(auto_save=True))
-        self.smartInterbeddingThickUnitSpinBox.valueChanged.connect(self.mark_settings_dirty)
-        self.smartInterbeddingThickUnitSpinBox.valueChanged.connect(lambda: self.update_settings(auto_save=True))
-        self.analysisMethodComboBox.currentTextChanged.connect(self.mark_settings_dirty)
-        self.analysisMethodComboBox.currentTextChanged.connect(lambda: self.update_settings(auto_save=True))
-        self.fallbackClassificationCheckBox.stateChanged.connect(self.mark_settings_dirty)
-        self.fallbackClassificationCheckBox.stateChanged.connect(lambda: self.update_settings(auto_save=True))
-        # Initialize range visualization
-        self.refresh_range_visualization()
-
     def toggle_interbedding_params_visibility(self):
         """Show/hide smart interbedding parameters based on checkbox state."""
         visible = self.smartInterbeddingCheckBox.isChecked()
@@ -1856,18 +1553,6 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'updateSettingsButton'):
                 self.updateSettingsButton.setText("Update Settings")
             QMessageBox.information(self, "Settings Reset", "All settings have been reset to defaults.")
-
-    def load_separator_settings(self):
-        self.separatorThicknessSpinBox.setValue(self.initial_separator_thickness)
-        self.drawSeparatorsCheckBox.setChecked(self.initial_draw_separators)
-
-    def load_curve_thickness_settings(self):
-        self.curveThicknessSpinBox.setValue(self.initial_curve_thickness)
-
-    def load_curve_inversion_settings(self):
-        self.invertGammaCheckBox.setChecked(self.initial_curve_inversion_settings.get('gamma', False))
-        self.invertShortSpaceDensityCheckBox.setChecked(self.initial_curve_inversion_settings.get('short_space_density', False))
-        self.invertLongSpaceDensityCheckBox.setChecked(self.initial_curve_inversion_settings.get('long_space_density', False))
 
     def revert_to_saved_settings(self):
         """Revert UI to last saved settings from disk (Phase 5 Task 5.2.4)."""
@@ -2017,28 +1702,24 @@ class MainWindow(QMainWindow):
 
     def get_current_settings(self):
         """Return current settings as a dictionary compatible with SettingsDialog."""
-        # Ensure rules are saved from table
-        self.save_settings_rules_from_table(show_message=False)
+        # Settings dock has been removed - use instance variables instead of UI controls
+        # Note: lithology rules are already saved in self.lithology_rules
+        
+        # Get settings from instance variables (set by update_settings_from_dialog)
+        current_separator_thickness = self.initial_separator_thickness
+        current_draw_separators = self.initial_draw_separators
+        current_curve_thickness = self.initial_curve_thickness
+        current_curve_inversion_settings = self.initial_curve_inversion_settings
 
-        # Gather settings from UI controls
-        current_separator_thickness = self.separatorThicknessSpinBox.value()
-        current_draw_separators = self.drawSeparatorsCheckBox.isChecked()
-        current_curve_thickness = self.curveThicknessSpinBox.value()
-        current_curve_inversion_settings = {
-            'gamma': self.invertGammaCheckBox.isChecked(),
-            'short_space_density': self.invertShortSpaceDensityCheckBox.isChecked(),
-            'long_space_density': self.invertLongSpaceDensityCheckBox.isChecked()
-        }
-
-        current_use_researched_defaults = self.useResearchedDefaultsCheckBox.isChecked()
-        current_analysis_method = self.analysisMethodComboBox.currentText().lower()
-        current_merge_thin_units = self.mergeThinUnitsCheckBox.isChecked()
+        current_use_researched_defaults = self.use_researched_defaults
+        current_analysis_method = self.analysis_method
+        current_merge_thin_units = self.merge_thin_units
         current_merge_threshold = self.merge_threshold  # Keep the loaded threshold
-        current_smart_interbedding = self.smartInterbeddingCheckBox.isChecked()
-        current_smart_interbedding_max_sequence = self.smartInterbeddingMaxSequenceSpinBox.value()
-        current_smart_interbedding_thick_unit = self.smartInterbeddingThickUnitSpinBox.value()
-        current_fallback_classification = self.fallbackClassificationCheckBox.isChecked()
-        current_bit_size_mm = self.bitSizeSpinBox.value() if hasattr(self, 'bitSizeSpinBox') else self.bit_size_mm
+        current_smart_interbedding = self.smart_interbedding
+        current_smart_interbedding_max_sequence = self.smart_interbedding_max_sequence_length
+        current_smart_interbedding_thick_unit = self.smart_interbedding_thick_unit_threshold
+        current_fallback_classification = self.use_fallback_classification
+        current_bit_size_mm = self.bit_size_mm
         current_disable_svg = self.disable_svg
 
         # Build settings dict matching SettingsDialog expectations
@@ -2091,20 +1772,7 @@ class MainWindow(QMainWindow):
         self.svg_directory_path = settings.get('svg_directory_path', self.svg_directory_path)
         self.column_visibility = settings.get('column_visibility', self.column_visibility)
         self.curve_visibility = settings.get('curve_visibility', self.curve_visibility)
-        # Update UI controls
-        self.load_settings_rules_to_table()
-        self.load_separator_settings()
-        self.load_curve_thickness_settings()
-        self.load_curve_inversion_settings()
-        self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
-        if hasattr(self, 'analysisMethodComboBox'):
-            if self.analysis_method == "simple":
-                self.analysisMethodComboBox.setCurrentText("Simple")
-            else:
-                self.analysisMethodComboBox.setCurrentText("Standard")
-        if hasattr(self, 'bitSizeSpinBox'):
-            self.bitSizeSpinBox.setValue(self.bit_size_mm)
-        
+        # UI controls removed (settings dock no longer exists)
         # Save updated settings to disk
         self.update_settings(auto_save=True)
 
@@ -2470,73 +2138,9 @@ class MainWindow(QMainWindow):
 #
 
     def save_settings_rules_from_table(self, show_message=True):
-        rules = []
-        for row_idx in range(self.settings_rules_table.rowCount()):
-            rule = {}
-
-            # Column 0: Name (text item)
-            name_item = self.settings_rules_table.item(row_idx, 0)
-            rule['name'] = name_item.text() if name_item else ''
-
-            # Column 1: Code (read-only item)
-            rule['code'] = self.settings_rules_table.item(row_idx, 1).text() if self.settings_rules_table.item(row_idx, 1) else ''
-
-            # Column 2: Qualifier (QComboBox)
-            rule['qualifier'] = self.settings_rules_table.cellWidget(row_idx, 2).currentData(Qt.ItemDataRole.UserRole)
-
-            # Column 3: Gamma Range (CompactRangeWidget)
-            gamma_widget = self.settings_rules_table.cellWidget(row_idx, 3)
-            if isinstance(gamma_widget, CompactRangeWidget):
-                gamma_min, gamma_max = gamma_widget.get_values()
-                rule['gamma_min'] = gamma_min
-                rule['gamma_max'] = gamma_max
-            else:
-                rule['gamma_min'] = INVALID_DATA_VALUE
-                rule['gamma_max'] = INVALID_DATA_VALUE
-
-            # Column 4: Density Range (CompactRangeWidget)
-            density_widget = self.settings_rules_table.cellWidget(row_idx, 4)
-            if isinstance(density_widget, CompactRangeWidget):
-                density_min, density_max = density_widget.get_values()
-                rule['density_min'] = density_min
-                rule['density_max'] = density_max
-            else:
-                rule['density_min'] = INVALID_DATA_VALUE
-                rule['density_max'] = INVALID_DATA_VALUE
-
-            # Column 5: Visual Props (MultiAttributeWidget)
-            visual_widget = self.settings_rules_table.cellWidget(row_idx, 5)
-            if isinstance(visual_widget, MultiAttributeWidget):
-                visual_props = visual_widget.get_properties()
-                rule.update(visual_props)
-            else:
-                # Fallback to empty strings if widget not available
-                rule['shade'] = ''
-                rule['hue'] = ''
-                rule['colour'] = ''
-                rule['weathering'] = ''
-                rule['strength'] = ''
-
-            # Column 6: Background (QPushButton)
-            color_button = self.settings_rules_table.cellWidget(row_idx, 6)
-            if color_button:
-                try:
-                    rule['background_color'] = QColor(color_button.styleSheet().split(':')[-1].strip()).name()
-                except:
-                    rule['background_color'] = '#FFFFFF'
-            else:
-                rule['background_color'] = '#FFFFFF'
-
-            # Find and store the absolute path to the SVG file directly in the rule, using qualifier
-            print(f"DEBUG (MainWindow): Finding SVG for code={rule['code']}, qualifier={rule['qualifier']}")
-            rule['svg_path'] = self.find_svg_file(rule['code'], rule['qualifier'])
-            print(f"DEBUG (MainWindow): SVG path assigned: {rule['svg_path']}")
-
-            rules.append(rule)
-        self.lithology_rules = rules
-        # Only show message if explicitly called, not on every tab change or auto-save
-        if show_message:
-            QMessageBox.information(self, "Settings Saved", "Lithology rules updated.")
+        """Settings dock removed - lithology rules are managed by SettingsDialog."""
+        # No-op: rules are already stored in self.lithology_rules
+        pass
 
     def create_actions_widget(self, row):
         """Create a widget with edit/delete buttons for the Actions column."""
