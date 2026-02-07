@@ -406,6 +406,10 @@ class SettingsDialog(QDialog):
         self.current_settings["column_visibility"] = visibility_map
         # Emit settings updated signal if needed
         # self.settings_updated.emit(self.current_settings)
+        # Apply visibility to table via main window
+        main_window = self.parent()
+        if main_window and hasattr(main_window, 'on_column_visibility_changed'):
+            main_window.on_column_visibility_changed(visibility_map)
 
     def open_nl_review_dialog(self):
         """Open the NL review dialog."""
@@ -881,8 +885,10 @@ class SettingsDialog(QDialog):
         settings = self.gather_settings()
         self.settings_updated.emit(settings)
         # Also notify parent if it has an update_settings method
-        if self.parent() and hasattr(self.parent(), 'update_settings'):
-            self.parent().update_settings(settings)
+        # Note: This call passes a dict to update_settings which expects auto_save parameter
+        # Disabled because settings_updated signal already triggers update_settings_from_dialog
+        # if self.parent() and hasattr(self.parent(), 'update_settings'):
+        #     self.parent().update_settings(settings)
 
     def accept(self):
         """Override accept to ensure settings are saved."""
