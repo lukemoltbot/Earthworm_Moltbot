@@ -872,10 +872,12 @@ class SettingsDialog(QDialog):
 
     def on_cell_changed(self, row, column):
         """Handle cell changes in the lithology rules table."""
+        print(f"[DEBUG] on_cell_changed row={row}, column={column}")
         if column == 1:  # Litho Code column changed
             item = self.rulesTable.item(row, column)
             if item:
                 litho_code = item.text().strip()
+                print(f"[DEBUG] Litho code changed to '{litho_code}', updating qualifier dropdown")
                 self.update_qualifier_dropdown(row, litho_code)
 
     def update_qualifier_dropdown(self, row, litho_code):
@@ -884,6 +886,11 @@ class SettingsDialog(QDialog):
         existing_widget = self.rulesTable.cellWidget(row, 2)
         if existing_widget:
             existing_widget.deleteLater()
+        # DEBUG: Also check for stray widget in column 0 (reported bug)
+        stray_widget = self.rulesTable.cellWidget(row, 0)
+        if stray_widget:
+            print(f"[DEBUG] Removing stray widget from column 0, row {row}")
+            stray_widget.deleteLater()
         
         # Create a new combobox with qualifier options for this lithology code
         combo = QComboBox()
@@ -923,6 +930,7 @@ class SettingsDialog(QDialog):
         combo.currentIndexChanged.connect(lambda: self.on_qualifier_changed(row, combo))
         
         # Set combobox as cell widget
+        print(f"[DEBUG] Setting combo box at row {row}, column 2 (litho_code='{litho_code}')")
         self.rulesTable.setCellWidget(row, 2, combo)
 
     def on_qualifier_changed(self, row, combo):
