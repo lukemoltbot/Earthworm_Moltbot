@@ -3096,25 +3096,44 @@ class MainWindow(QMainWindow):
         column_names = model._dataframe.columns.tolist()
         print(f"DEBUG: column_names ({len(column_names)}): {column_names}")
         
+        # Check if table has col_map (LithologyTableWidget mapping)
+        col_map = getattr(table, 'col_map', None)
+        if col_map:
+            print(f"DEBUG: table has col_map with {len(col_map)} entries")
+        
         # Map internal names to column indices
         for internal_name, is_visible in visibility_map.items():
+            col_index = None
+            
+            # 1. Try direct column name match
             if internal_name in column_names:
                 col_index = column_names.index(internal_name)
-                print(f"DEBUG: hiding column '{internal_name}' (index {col_index})? {not is_visible}")
-                table.setColumnHidden(col_index, not is_visible)
-            else:
-                # Try to find by display name (replace underscores with spaces)
+                print(f"DEBUG: column '{internal_name}' found at index {col_index}")
+            
+            # 2. Try col_map if available
+            if col_index is None and col_map and internal_name in col_map:
+                col_index = col_map[internal_name]
+                print(f"DEBUG: column '{internal_name}' mapped via col_map to index {col_index}")
+            
+            # 3. Try display name (replace underscores with spaces)
+            if col_index is None:
                 display_name = internal_name.replace('_', ' ').title()
                 print(f"DEBUG: column '{internal_name}' not found, trying display name '{display_name}'")
-                found = False
                 for idx, col in enumerate(column_names):
                     if col == internal_name or col == display_name:
-                        print(f"DEBUG: matched column '{col}' at index {idx}, hiding? {not is_visible}")
-                        table.setColumnHidden(idx, not is_visible)
-                        found = True
+                        col_index = idx
+                        print(f"DEBUG: matched column '{col}' at index {idx}")
                         break
-                if not found:
-                    print(f"DEBUG: column '{internal_name}' not found in table")
+            
+            if col_index is not None:
+                # Ensure column index is within table column count
+                if 0 <= col_index < table.model().columnCount():
+                    print(f"DEBUG: hiding column '{internal_name}' (index {col_index})? {not is_visible}")
+                    table.setColumnHidden(col_index, not is_visible)
+                else:
+                    print(f"DEBUG: column index {col_index} out of range (0-{table.model().columnCount()-1})")
+            else:
+                print(f"DEBUG: column '{internal_name}' not found in table")
     
     def refresh_range_visualization(self):
         """Refresh the range gap visualization with current lithology rules"""
