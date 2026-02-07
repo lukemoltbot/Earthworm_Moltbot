@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView, QColorDialog, QGraphicsScene, QDoubleSpinBox, QCheckBox, QSlider, QSpinBox, QFrame, QSplitter, QAbstractItemView,
     QGroupBox, QGridLayout, QSizePolicy,
     QMdiArea, QMdiSubWindow, QMenu,
-    QTreeView, QProgressBar, QApplication, QToolBar
+    QTreeView, QProgressBar, QApplication, QToolBar, QFormLayout
 )
 from PyQt6.QtGui import QPainter, QPixmap, QColor, QFont, QBrush, QFileSystemModel, QAction
 from PyQt6.QtSvg import QSvgRenderer

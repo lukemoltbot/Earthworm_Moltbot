@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, QTabWidget,
     QTableWidgetItem, QPushButton, QHeaderView, QWidget, QLabel,
     QDoubleSpinBox, QCheckBox, QComboBox, QSpinBox, QFrame,
-    QScrollArea, QGroupBox, QGridLayout, QFileDialog, QMessageBox
+    QScrollArea, QGroupBox, QGridLayout, QFileDialog, QMessageBox, QFormLayout
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
