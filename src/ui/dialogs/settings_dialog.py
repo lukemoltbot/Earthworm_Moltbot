@@ -1,3 +1,6 @@
+import json
+import os
+
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, QTabWidget,
     QTableWidgetItem, QPushButton, QHeaderView, QWidget, QLabel,
@@ -30,6 +33,12 @@ class SettingsDialog(QDialog):
 
         # Store current settings passed from MainWindow
         self.current_settings = current_settings or {}
+
+        # Load CoalLog qualifiers from JSON file
+        self.lithology_qualifiers = self.load_qualifiers()
+        
+        # Store extra fields for lithology rules (background_color, svg_path, etc.)
+        self.rule_extra_data = []
 
         # Store references to controls for later access
         self.controls = {}
@@ -76,6 +85,24 @@ class SettingsDialog(QDialog):
         # Load initial settings into controls
         self.load_settings()
 
+    def load_qualifiers(self):
+        """Load lithology qualifiers from the CoalLog standards JSON file."""
+        qualifiers_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            'assets', 'litho_lithoQuals.json'
+        )
+        try:
+            with open(qualifiers_path, 'r') as f:
+                data = json.load(f)
+                # Extract mapping from lithology code to qualifier dict (code->description)
+                qualifier_map = {}
+                for litho_code, litho_data in data.get('lithology_qualifiers', {}).items():
+                    qualifier_map[litho_code] = litho_data.get('qualifiers', {})
+                return qualifier_map
+        except Exception as e:
+            print(f"[WARNING] Could not load lithology qualifiers from {qualifiers_path}: {e}")
+            return {}
+
     def create_lithology_tab(self):
         """Create the lithology rules tab with table and controls."""
         tab = QWidget()
@@ -96,13 +123,18 @@ class SettingsDialog(QDialog):
 
         # Table for lithology rules
         self.rulesTable = QTableWidget()
-        self.rulesTable.setColumnCount(6)
+        self.rulesTable.setColumnCount(10)
+        # Column indices: 0: Lithology Name, 1: Litho Code, 2: Litho Qualifier, 3: Shade, 4: Hue, 5: Colour,
+        # 6: Gamma Min, 7: Gamma Max, 8: Density Min, 9: Density Max
         self.rulesTable.setHorizontalHeaderLabels([
-            "Lithology Name", "2-Letter Code", "Gamma Min", "Gamma Max",
-            "Density Min", "Density Max"
+            "Lithology Name", "Litho Code", "Litho Qualifier", "Shade", "Hue", "Colour",
+            "Gamma Min", "Gamma Max", "Density Min", "Density Max"
         ])
         self.rulesTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.rulesTable)
+
+        # Connect cell changed signal to update qualifier dropdown when lithology code changes
+        self.rulesTable.cellChanged.connect(self.on_cell_changed)
 
         # Buttons for adding/removing rules
         button_layout = QHBoxLayout()
@@ -435,21 +467,21 @@ class SettingsDialog(QDialog):
             rule['name'] = self.rulesTable.item(row_idx, 0).text() if self.rulesTable.item(row_idx, 0) else ''
             rule['code'] = self.rulesTable.item(row_idx, 1).text() if self.rulesTable.item(row_idx, 1) else ''
 
-            # Convert numeric fields
+            # Convert numeric fields (indices shifted due to new columns)
             try:
-                rule['gamma_min'] = float(self.rulesTable.item(row_idx, 2).text()) if self.rulesTable.item(row_idx, 2) and self.rulesTable.item(row_idx, 2).text() else 0.0
+                rule['gamma_min'] = float(self.rulesTable.item(row_idx, 6).text()) if self.rulesTable.item(row_idx, 6) and self.rulesTable.item(row_idx, 6).text() else 0.0
             except ValueError:
                 rule['gamma_min'] = 0.0
             try:
-                rule['gamma_max'] = float(self.rulesTable.item(row_idx, 3).text()) if self.rulesTable.item(row_idx, 3) and self.rulesTable.item(row_idx, 3).text() else 0.0
+                rule['gamma_max'] = float(self.rulesTable.item(row_idx, 7).text()) if self.rulesTable.item(row_idx, 7) and self.rulesTable.item(row_idx, 7).text() else 0.0
             except ValueError:
                 rule['gamma_max'] = 0.0
             try:
-                rule['density_min'] = float(self.rulesTable.item(row_idx, 4).text()) if self.rulesTable.item(row_idx, 4) and self.rulesTable.item(row_idx, 4).text() else 0.0
+                rule['density_min'] = float(self.rulesTable.item(row_idx, 8).text()) if self.rulesTable.item(row_idx, 8) and self.rulesTable.item(row_idx, 8).text() else 0.0
             except ValueError:
                 rule['density_min'] = 0.0
             try:
-                rule['density_max'] = float(self.rulesTable.item(row_idx, 5).text()) if self.rulesTable.item(row_idx, 5) and self.rulesTable.item(row_idx, 5).text() else 0.0
+                rule['density_max'] = float(self.rulesTable.item(row_idx, 9).text()) if self.rulesTable.item(row_idx, 9) and self.rulesTable.item(row_idx, 9).text() else 0.0
             except ValueError:
                 rule['density_max'] = 0.0
 
@@ -629,16 +661,30 @@ class SettingsDialog(QDialog):
         if 'lithology_rules' in self.current_settings:
             rules = self.current_settings['lithology_rules']
             self.rulesTable.setRowCount(0)  # Clear existing rows
+            self.rule_extra_data = []  # Reset extra fields storage
             for rule in rules:
                 row_position = self.rulesTable.rowCount()
                 self.rulesTable.insertRow(row_position)
-                # Set items for each column
+                # Set items for each column (10 columns)
                 self.rulesTable.setItem(row_position, 0, QTableWidgetItem(rule.get('name', '')))
                 self.rulesTable.setItem(row_position, 1, QTableWidgetItem(rule.get('code', '')))
-                self.rulesTable.setItem(row_position, 2, QTableWidgetItem(str(rule.get('gamma_min', 0.0))))
-                self.rulesTable.setItem(row_position, 3, QTableWidgetItem(str(rule.get('gamma_max', 0.0))))
-                self.rulesTable.setItem(row_position, 4, QTableWidgetItem(str(rule.get('density_min', 0.0))))
-                self.rulesTable.setItem(row_position, 5, QTableWidgetItem(str(rule.get('density_max', 0.0))))
+                # Qualifier column will have a dropdown widget; set item text for storage
+                self.rulesTable.setItem(row_position, 2, QTableWidgetItem(rule.get('qualifier', '')))
+                self.rulesTable.setItem(row_position, 3, QTableWidgetItem(rule.get('shade', '')))
+                self.rulesTable.setItem(row_position, 4, QTableWidgetItem(rule.get('hue', '')))
+                self.rulesTable.setItem(row_position, 5, QTableWidgetItem(rule.get('colour', '')))
+                self.rulesTable.setItem(row_position, 6, QTableWidgetItem(str(rule.get('gamma_min', 0.0))))
+                self.rulesTable.setItem(row_position, 7, QTableWidgetItem(str(rule.get('gamma_max', 0.0))))
+                self.rulesTable.setItem(row_position, 8, QTableWidgetItem(str(rule.get('density_min', 0.0))))
+                self.rulesTable.setItem(row_position, 9, QTableWidgetItem(str(rule.get('density_max', 0.0))))
+                # Update qualifier dropdown based on lithology code
+                self.update_qualifier_dropdown(row_position, rule.get('code', ''))
+                # Store extra fields not represented in the table (background_color, svg_path, etc.)
+                extra = {k: v for k, v in rule.items() if k not in [
+                    'name', 'code', 'qualifier', 'shade', 'hue', 'colour',
+                    'gamma_min', 'gamma_max', 'density_min', 'density_max'
+                ]}
+                self.rule_extra_data.append(extra)
 
         # Load display settings
         if 'separator_thickness' in self.current_settings:
@@ -723,24 +769,32 @@ class SettingsDialog(QDialog):
             rule = {}
             rule['name'] = self.rulesTable.item(row_idx, 0).text() if self.rulesTable.item(row_idx, 0) else ''
             rule['code'] = self.rulesTable.item(row_idx, 1).text() if self.rulesTable.item(row_idx, 1) else ''
+            rule['qualifier'] = self.rulesTable.item(row_idx, 2).text() if self.rulesTable.item(row_idx, 2) else ''
+            rule['shade'] = self.rulesTable.item(row_idx, 3).text() if self.rulesTable.item(row_idx, 3) else ''
+            rule['hue'] = self.rulesTable.item(row_idx, 4).text() if self.rulesTable.item(row_idx, 4) else ''
+            rule['colour'] = self.rulesTable.item(row_idx, 5).text() if self.rulesTable.item(row_idx, 5) else ''
 
-            # Convert numeric fields
+            # Convert numeric fields (indices shifted)
             try:
-                rule['gamma_min'] = float(self.rulesTable.item(row_idx, 2).text()) if self.rulesTable.item(row_idx, 2) and self.rulesTable.item(row_idx, 2).text() else 0.0
+                rule['gamma_min'] = float(self.rulesTable.item(row_idx, 6).text()) if self.rulesTable.item(row_idx, 6) and self.rulesTable.item(row_idx, 6).text() else 0.0
             except ValueError:
                 rule['gamma_min'] = 0.0
             try:
-                rule['gamma_max'] = float(self.rulesTable.item(row_idx, 3).text()) if self.rulesTable.item(row_idx, 3) and self.rulesTable.item(row_idx, 3).text() else 0.0
+                rule['gamma_max'] = float(self.rulesTable.item(row_idx, 7).text()) if self.rulesTable.item(row_idx, 7) and self.rulesTable.item(row_idx, 7).text() else 0.0
             except ValueError:
                 rule['gamma_max'] = 0.0
             try:
-                rule['density_min'] = float(self.rulesTable.item(row_idx, 4).text()) if self.rulesTable.item(row_idx, 4) and self.rulesTable.item(row_idx, 4).text() else 0.0
+                rule['density_min'] = float(self.rulesTable.item(row_idx, 8).text()) if self.rulesTable.item(row_idx, 8) and self.rulesTable.item(row_idx, 8).text() else 0.0
             except ValueError:
                 rule['density_min'] = 0.0
             try:
-                rule['density_max'] = float(self.rulesTable.item(row_idx, 5).text()) if self.rulesTable.item(row_idx, 5) and self.rulesTable.item(row_idx, 5).text() else 0.0
+                rule['density_max'] = float(self.rulesTable.item(row_idx, 9).text()) if self.rulesTable.item(row_idx, 9) and self.rulesTable.item(row_idx, 9).text() else 0.0
             except ValueError:
                 rule['density_max'] = 0.0
+
+            # Merge extra fields (background_color, svg_path, etc.)
+            if row_idx < len(self.rule_extra_data):
+                rule.update(self.rule_extra_data[row_idx])
 
             rules.append(rule)
         settings['lithology_rules'] = rules
@@ -798,6 +852,10 @@ class SettingsDialog(QDialog):
         # Pre-fill with empty QTableWidgetItems
         for col in range(self.rulesTable.columnCount()):
             self.rulesTable.setItem(row_position, col, QTableWidgetItem(""))
+        # Set qualifier dropdown (empty initially)
+        self.update_qualifier_dropdown(row_position, "")
+        # Add empty extra fields dict for this row
+        self.rule_extra_data.append({})
         # Refresh range analysis to include new (empty) rule
         self.refresh_range_analysis()
 
@@ -806,8 +864,79 @@ class SettingsDialog(QDialog):
         current_row = self.rulesTable.currentRow()
         if current_row >= 0:
             self.rulesTable.removeRow(current_row)
+            # Remove corresponding extra fields
+            if current_row < len(self.rule_extra_data):
+                del self.rule_extra_data[current_row]
             # Refresh range analysis after removal
             self.refresh_range_analysis()
+
+    def on_cell_changed(self, row, column):
+        """Handle cell changes in the lithology rules table."""
+        if column == 1:  # Litho Code column changed
+            item = self.rulesTable.item(row, column)
+            if item:
+                litho_code = item.text().strip()
+                self.update_qualifier_dropdown(row, litho_code)
+
+    def update_qualifier_dropdown(self, row, litho_code):
+        """Update the qualifier dropdown for a given row based on lithology code."""
+        # Remove existing widget if any
+        existing_widget = self.rulesTable.cellWidget(row, 2)
+        if existing_widget:
+            existing_widget.deleteLater()
+        
+        # Create a new combobox with qualifier options for this lithology code
+        combo = QComboBox()
+        combo.setEditable(True)  # Allow custom qualifiers
+        combo.addItem("", "")  # Empty option with empty data
+        
+        # Get current qualifier text from table item (if any)
+        qualifier_item = self.rulesTable.item(row, 2)
+        current_qualifier = qualifier_item.text() if qualifier_item else ""
+        
+        # Normalize lithology code to uppercase for lookup (JSON keys are uppercase)
+        lookup_code = litho_code.strip().upper() if litho_code else ""
+        
+        # Add standard qualifiers from CoalLog standards
+        if lookup_code in self.lithology_qualifiers:
+            qualifier_dict = self.lithology_qualifiers[lookup_code]
+            for code, description in qualifier_dict.items():
+                display_text = f"{code} - {description}"
+                combo.addItem(display_text, code)
+        
+        # Add current qualifier as an extra item if not already present
+        if current_qualifier and current_qualifier not in [combo.itemData(i) for i in range(combo.count())]:
+            combo.addItem(current_qualifier, current_qualifier)
+        
+        # Set current selection based on qualifier item
+        if current_qualifier:
+            # Find by data (qualifier code) - case-insensitive match
+            index = combo.findData(current_qualifier, Qt.ItemDataRole.UserRole)
+            if index >= 0:
+                combo.setCurrentIndex(index)
+            else:
+                # If not found, set editable text
+                combo.setCurrentText(current_qualifier)
+        
+        # Connect combobox changes to update table item
+        combo.currentIndexChanged.connect(lambda: self.on_qualifier_changed(row, combo))
+        
+        # Set combobox as cell widget
+        self.rulesTable.setCellWidget(row, 2, combo)
+
+    def on_qualifier_changed(self, row, combo):
+        """Handle qualifier combobox selection change."""
+        # Get the qualifier code from combobox data or text
+        current_data = combo.currentData()
+        qualifier_code = current_data if current_data is not None else combo.currentText()
+        
+        # Ensure a table item exists for the qualifier column
+        item = self.rulesTable.item(row, 2)
+        if not item:
+            item = QTableWidgetItem(qualifier_code)
+            self.rulesTable.setItem(row, 2, item)
+        else:
+            item.setText(qualifier_code)
 
     def save_settings_as_file(self):
         """Open file dialog to save settings to a JSON file."""

@@ -91,10 +91,10 @@ INVALID_DATA_VALUE = -999.25
 # Default lithology classification rules/ranges
 # These rules define the criteria for classifying different lithology types
 DEFAULT_LITHOLOGY_RULES = [
-    {'name': 'Coal', 'code': 'CO', 'gamma_min': 0, 'gamma_max': 20, 'density_min': 0, 'density_max': 1.8, 'background_color': '#000000'},
-    {'name': 'Sandstone', 'code': 'SS', 'gamma_min': 21, 'gamma_max': 50, 'density_min': 2.0, 'density_max': 2.7, 'background_color': '#FFFF00'},
-    {'name': 'Shale', 'code': 'SH', 'gamma_min': 51, 'gamma_max': 100, 'density_min': 2.5, 'density_max': 3.0, 'background_color': '#A9A9A9'},
-    {'name': 'Not Logged', 'code': 'NL', 'gamma_min': -1, 'gamma_max': -1, 'density_min': -1, 'density_max': -1, 'background_color': '#E0E0E0'}
+    {'name': 'Coal', 'code': 'CO', 'qualifier': '', 'shade': '', 'hue': '', 'colour': '', 'gamma_min': 0, 'gamma_max': 20, 'density_min': 0, 'density_max': 1.8, 'background_color': '#000000'},
+    {'name': 'Sandstone', 'code': 'SS', 'qualifier': '', 'shade': '', 'hue': '', 'colour': '', 'gamma_min': 21, 'gamma_max': 50, 'density_min': 2.0, 'density_max': 2.7, 'background_color': '#FFFF00'},
+    {'name': 'Shale', 'code': 'SH', 'qualifier': '', 'shade': '', 'hue': '', 'colour': '', 'gamma_min': 51, 'gamma_max': 100, 'density_min': 2.5, 'density_max': 3.0, 'background_color': '#A9A9A9'},
+    {'name': 'Not Logged', 'code': 'NL', 'qualifier': '', 'shade': '', 'hue': '', 'colour': '', 'gamma_min': -1, 'gamma_max': -1, 'density_min': -1, 'density_max': -1, 'background_color': '#E0E0E0'}
 ]
 
 # Well-researched default ranges for common lithologies when user-defined ranges are missing or zero
