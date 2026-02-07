@@ -1523,6 +1523,8 @@ class MainWindow(QMainWindow):
         header.setMinimumSectionSize(60)
         header.setStretchLastSection(True)
         self.settings_rules_table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        # Connect cell changes to update code and qualifier
+        self.settings_rules_table.cellChanged.connect(self.on_settings_cell_changed)
 
         litho_layout.addWidget(self.settings_rules_table)
 
@@ -2405,17 +2407,10 @@ class MainWindow(QMainWindow):
     def load_settings_rules_to_table(self):
         self.settings_rules_table.setRowCount(len(self.lithology_rules))
         for row_idx, rule in enumerate(self.lithology_rules):
-            # Column 0: Name (QComboBox)
-            litho_desc_combo = QComboBox()
-            litho_desc_combo.setEditable(True)
-            litho_desc_combo.addItems(self.coallog_data['Litho_Type']['Description'].tolist())
-            if rule.get('name', '') in self.coallog_data['Litho_Type']['Description'].tolist():
-                litho_desc_combo.setCurrentText(rule.get('name', ''))
-            self.settings_rules_table.setCellWidget(row_idx, 0, litho_desc_combo)
-            litho_desc_combo.currentTextChanged.connect(self.update_litho_code)
-            litho_desc_combo.currentTextChanged.connect(lambda _, r=row_idx: self.update_rule_preview(r))
-            litho_desc_combo.currentTextChanged.connect(lambda text, r=row_idx: self.update_qualifier_dropdown(r, text))
-            litho_desc_combo.currentTextChanged.connect(self.mark_settings_dirty)  # Mark as dirty when changed
+            # Column 0: Name (editable text)
+            name_item = QTableWidgetItem(rule.get('name', ''))
+            self.settings_rules_table.setItem(row_idx, 0, name_item)
+            # No need for connections; cellChanged signal will handle updates
 
             # Column 1: Code (read-only QLabel)
             self.settings_rules_table.setItem(row_idx, 1, QTableWidgetItem(str(rule.get('code', ''))))
@@ -2472,23 +2467,16 @@ class MainWindow(QMainWindow):
             actions_widget = self.create_actions_widget(row_idx)
             self.settings_rules_table.setCellWidget(row_idx, 8, actions_widget)
 
-            # Dynamically populate qualifiers and set the saved value
-            self.update_qualifier_dropdown(row_idx, litho_desc_combo.currentText())
-            saved_qualifier = rule.get('qualifier', '')
-            # Find the index of the saved qualifier code and set it
-            index = qual_combo.findData(saved_qualifier, Qt.ItemDataRole.UserRole)
-            if index != -1:
-                qual_combo.setCurrentIndex(index)
-            else:
-                qual_combo.setCurrentIndex(0) # Select the blank item if not found
+#
 
     def save_settings_rules_from_table(self, show_message=True):
         rules = []
         for row_idx in range(self.settings_rules_table.rowCount()):
             rule = {}
 
-            # Column 0: Name (QComboBox)
-            rule['name'] = self.settings_rules_table.cellWidget(row_idx, 0).currentText()
+            # Column 0: Name (text item)
+            name_item = self.settings_rules_table.item(row_idx, 0)
+            rule['name'] = name_item.text() if name_item else ''
 
             # Column 1: Code (read-only item)
             rule['code'] = self.settings_rules_table.item(row_idx, 1).text() if self.settings_rules_table.item(row_idx, 1) else ''
@@ -2612,15 +2600,9 @@ class MainWindow(QMainWindow):
         row_position = self.settings_rules_table.rowCount()
         self.settings_rules_table.insertRow(row_position)
 
-        # Column 0: Name (QComboBox)
-        litho_desc_combo = QComboBox()
-        litho_desc_combo.setEditable(True)
-        litho_desc_combo.addItems(self.coallog_data['Litho_Type']['Description'].tolist())
-        self.settings_rules_table.setCellWidget(row_position, 0, litho_desc_combo)
-        litho_desc_combo.currentTextChanged.connect(self.update_litho_code)
-        litho_desc_combo.currentTextChanged.connect(lambda _, r=row_position: self.update_rule_preview(r))
-        litho_desc_combo.currentTextChanged.connect(lambda text, r=row_position: self.update_qualifier_dropdown(r, text))
-        litho_desc_combo.currentTextChanged.connect(self.mark_settings_dirty)  # Mark as dirty when changed
+        # Column 0: Name (editable text)
+        name_item = QTableWidgetItem("")
+        self.settings_rules_table.setItem(row_position, 0, name_item)
 
         # Column 1: Code (read-only)
         self.settings_rules_table.setItem(row_position, 1, QTableWidgetItem(""))
@@ -2671,6 +2653,45 @@ class MainWindow(QMainWindow):
         # Column 8: Actions (QWidget with buttons)
         actions_widget = self.create_actions_widget(row_position)
         self.settings_rules_table.setCellWidget(row_position, 8, actions_widget)
+
+    def on_settings_cell_changed(self, row, column):
+        """Handle cell changes in the settings rules table."""
+        if column == 0:  # Name column changed
+            item = self.settings_rules_table.item(row, column)
+            if not item:
+                return
+            name = item.text().strip()
+            
+            # Block signals to prevent recursion
+            self.settings_rules_table.blockSignals(True)
+            
+            # Update lithology code based on name
+            matches = self.coallog_data['Litho_Type'].loc[self.coallog_data['Litho_Type']['Description'] == name, 'Code']
+            if not matches.empty:
+                litho_code = matches.iloc[0]
+                self.settings_rules_table.setItem(row, 1, QTableWidgetItem(litho_code))
+            else:
+                # Clear code if description not found
+                self.settings_rules_table.setItem(row, 1, QTableWidgetItem(""))
+            
+            # Restore signals
+            self.settings_rules_table.blockSignals(False)
+            
+            # Update qualifier dropdown
+            # Get current qualifier code from column 2 combobox
+            qual_combo = self.settings_rules_table.cellWidget(row, 2)
+            current_qualifier = None
+            if isinstance(qual_combo, QComboBox):
+                current_qualifier = qual_combo.currentData(Qt.ItemDataRole.UserRole)
+                if current_qualifier is None:
+                    current_qualifier = qual_combo.currentText()
+            self.update_qualifier_dropdown(row, name, current_qualifier)
+            
+            # Update rule preview
+            self.update_rule_preview(row)
+            
+            # Mark settings as dirty
+            self.mark_settings_dirty()
 
     def update_litho_code(self, text):
         sender = self.sender()
@@ -3183,7 +3204,8 @@ class MainWindow(QMainWindow):
         current_rules = []
         for row_idx in range(self.settings_rules_table.rowCount()):
             rule = {}
-            rule['name'] = self.settings_rules_table.cellWidget(row_idx, 0).currentText()
+            name_item = self.settings_rules_table.item(row_idx, 0)
+            rule['name'] = name_item.text() if name_item else ''
             rule['code'] = self.settings_rules_table.item(row_idx, 1).text() if self.settings_rules_table.item(row_idx, 1) else ''
 
             # Get gamma range from CompactRangeWidget (column 3)
