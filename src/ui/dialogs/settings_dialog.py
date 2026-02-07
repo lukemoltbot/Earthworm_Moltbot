@@ -914,6 +914,7 @@ class SettingsDialog(QDialog):
             index = combo.findData(current_qualifier, Qt.ItemDataRole.UserRole)
             if index >= 0:
                 combo.setCurrentIndex(index)
+                combo.setEditText(current_qualifier)  # Show code, not description
             else:
                 # If not found, set editable text
                 combo.setCurrentText(current_qualifier)
@@ -937,6 +938,8 @@ class SettingsDialog(QDialog):
             self.rulesTable.setItem(row, 2, item)
         else:
             item.setText(qualifier_code)
+        # Update combobox display to show code, not description
+        combo.setEditText(qualifier_code)
 
     def save_settings_as_file(self):
         """Open file dialog to save settings to a JSON file."""

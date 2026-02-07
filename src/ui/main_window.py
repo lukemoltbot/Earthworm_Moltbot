@@ -2407,6 +2407,7 @@ class MainWindow(QMainWindow):
         for row_idx, rule in enumerate(self.lithology_rules):
             # Column 0: Name (QComboBox)
             litho_desc_combo = QComboBox()
+            litho_desc_combo.setEditable(True)
             litho_desc_combo.addItems(self.coallog_data['Litho_Type']['Description'].tolist())
             if rule.get('name', '') in self.coallog_data['Litho_Type']['Description'].tolist():
                 litho_desc_combo.setCurrentText(rule.get('name', ''))
@@ -2422,8 +2423,11 @@ class MainWindow(QMainWindow):
 
             # Column 2: Qualifier (QComboBox)
             qual_combo = QComboBox()
+            qual_combo.setEditable(True)  # Allow showing code only after selection
             self.settings_rules_table.setCellWidget(row_idx, 2, qual_combo)
             qual_combo.currentTextChanged.connect(self.mark_settings_dirty)  # Mark as dirty when changed
+            # Populate qualifier dropdown based on lithology name and set saved qualifier
+            self.update_qualifier_dropdown(row_idx, rule.get('name', ''), rule.get('qualifier', ''))
 
             # Column 3: Gamma Range (CompactRangeWidget)
             gamma_widget = CompactRangeWidget()
@@ -2610,6 +2614,7 @@ class MainWindow(QMainWindow):
 
         # Column 0: Name (QComboBox)
         litho_desc_combo = QComboBox()
+        litho_desc_combo.setEditable(True)
         litho_desc_combo.addItems(self.coallog_data['Litho_Type']['Description'].tolist())
         self.settings_rules_table.setCellWidget(row_position, 0, litho_desc_combo)
         litho_desc_combo.currentTextChanged.connect(self.update_litho_code)
@@ -2671,10 +2676,16 @@ class MainWindow(QMainWindow):
         sender = self.sender()
         if sender:
             row = self.settings_rules_table.indexAt(sender.pos()).row()
-            litho_code = self.coallog_data['Litho_Type'].loc[self.coallog_data['Litho_Type']['Description'] == text, 'Code'].iloc[0]
-            self.settings_rules_table.setItem(row, 1, QTableWidgetItem(litho_code))
+            # Look up lithology code from description
+            matches = self.coallog_data['Litho_Type'].loc[self.coallog_data['Litho_Type']['Description'] == text, 'Code']
+            if not matches.empty:
+                litho_code = matches.iloc[0]
+                self.settings_rules_table.setItem(row, 1, QTableWidgetItem(litho_code))
+            else:
+                # Clear code if description not found
+                self.settings_rules_table.setItem(row, 1, QTableWidgetItem(""))
 
-    def update_qualifier_dropdown(self, row, selected_litho_name):
+    def update_qualifier_dropdown(self, row, selected_litho_name, current_qualifier_code=None):
         # Find the corresponding litho code
         litho_code = None
         litho_type_df = self.coallog_data.get('Litho_Type')
@@ -2686,8 +2697,15 @@ class MainWindow(QMainWindow):
         qual_combo = self.settings_rules_table.cellWidget(row, 2)
         if not isinstance(qual_combo, QComboBox):
             return
+        
+        # Ensure combobox is editable so we can show code instead of description
+        if not qual_combo.isEditable():
+            qual_combo.setEditable(True)
 
-        current_qualifier_code = qual_combo.currentData(Qt.ItemDataRole.UserRole) # Get the currently selected code
+        # Use provided qualifier code or current selection
+        if current_qualifier_code is None:
+            current_qualifier_code = qual_combo.currentData(Qt.ItemDataRole.UserRole) # Get the currently selected code
+        
         qual_combo.clear()
 
         qual_combo.addItem("", "") # Add a blank option with empty code
@@ -2704,8 +2722,25 @@ class MainWindow(QMainWindow):
         index = qual_combo.findData(current_qualifier_code, Qt.ItemDataRole.UserRole)
         if index != -1:
             qual_combo.setCurrentIndex(index)
+            qual_combo.setEditText(current_qualifier_code)  # Show code, not description
         else:
             qual_combo.setCurrentIndex(0) # Select the blank item if not found
+            if current_qualifier_code:
+                qual_combo.setEditText(current_qualifier_code)  # Show custom qualifier
+        
+        # Connect index change to update edit text
+        # Disconnect existing connections to avoid duplicates
+        try:
+            qual_combo.currentIndexChanged.disconnect()
+        except:
+            pass
+        qual_combo.currentIndexChanged.connect(lambda idx, r=row, c=qual_combo: self.on_qualifier_index_changed(r, c))
+    
+    def on_qualifier_index_changed(self, row, combo):
+        """Update combobox edit text to show code, not description."""
+        current_data = combo.currentData()
+        if current_data is not None:
+            combo.setEditText(current_data)
 
     def remove_settings_rule(self):
         current_row = self.settings_rules_table.currentRow()
