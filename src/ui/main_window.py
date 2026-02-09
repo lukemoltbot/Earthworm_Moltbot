@@ -1528,7 +1528,8 @@ class MainWindow(QMainWindow):
             self.load_separator_settings()
             self.load_curve_thickness_settings()
             self.load_curve_inversion_settings()
-            self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
+            if hasattr(self, 'useResearchedDefaultsCheckBox'):
+                self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
             self.analysisMethodComboBox.setCurrentText("Standard")
             self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
             self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
@@ -1592,7 +1593,8 @@ class MainWindow(QMainWindow):
             print("Warning: coallog_data not available, skipping load_settings_rules_to_table()")
 
         # Update other UI widgets that don't have helper methods
-        self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
+        if hasattr(self, 'useResearchedDefaultsCheckBox'):
+            self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
         self.analysisMethodComboBox.setCurrentText("Standard" if self.analysis_method == "standard" else "Simple")
         self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
         self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
@@ -1632,7 +1634,7 @@ class MainWindow(QMainWindow):
                 }
 
                 # Get current value of researched defaults checkbox
-                current_use_researched_defaults = self.useResearchedDefaultsCheckBox.isChecked()
+                current_use_researched_defaults = self.useResearchedDefaultsCheckBox.isChecked() if hasattr(self, 'useResearchedDefaultsCheckBox') else self.use_researched_defaults
 
                 # Get current analysis method
                 current_analysis_method = self.analysisMethodComboBox.currentText().lower()
@@ -1901,7 +1903,8 @@ class MainWindow(QMainWindow):
             self.initial_curve_inversion_settings = app_settings["curve_inversion_settings"]
             self.initial_curve_thickness = app_settings["curve_thickness"] # Reload new setting
             self.use_researched_defaults = app_settings["use_researched_defaults"]
-            self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
+            if hasattr(self, 'useResearchedDefaultsCheckBox'):
+                self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
             self.analysis_method = app_settings.get("analysis_method", "standard")
             if hasattr(self, 'analysisMethodComboBox'):
                 if self.analysis_method == "simple":
@@ -1960,7 +1963,8 @@ class MainWindow(QMainWindow):
                 self.svg_directory_path = loaded_settings.get("svg_directory_path", "")
 
                 # Update UI controls
-                self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
+                if hasattr(self, 'useResearchedDefaultsCheckBox'):
+                    self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
                 if hasattr(self, 'analysisMethodComboBox'):
                     self.analysisMethodComboBox.setCurrentText("Standard" if self.analysis_method == "standard" else "Simple")
                 if hasattr(self, 'mergeThinUnitsCheckBox'):
