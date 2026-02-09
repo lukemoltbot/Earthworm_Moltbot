@@ -1528,8 +1528,7 @@ class MainWindow(QMainWindow):
             self.load_separator_settings()
             self.load_curve_thickness_settings()
             self.load_curve_inversion_settings()
-            if hasattr(self, 'useResearchedDefaultsCheckBox'):
-                self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
+            # use_researched_defaults is already set to False above
             self.analysisMethodComboBox.setCurrentText("Standard")
             self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
             self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
@@ -1593,8 +1592,7 @@ class MainWindow(QMainWindow):
             print("Warning: coallog_data not available, skipping load_settings_rules_to_table()")
 
         # Update other UI widgets that don't have helper methods
-        if hasattr(self, 'useResearchedDefaultsCheckBox'):
-            self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
+        # use_researched_defaults is managed as an attribute, not a UI widget in main window
         self.analysisMethodComboBox.setCurrentText("Standard" if self.analysis_method == "standard" else "Simple")
         self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
         self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
@@ -1633,8 +1631,8 @@ class MainWindow(QMainWindow):
                     'long_space_density': self.invertLongSpaceDensityCheckBox.isChecked()
                 }
 
-                # Get current value of researched defaults checkbox
-                current_use_researched_defaults = self.useResearchedDefaultsCheckBox.isChecked() if hasattr(self, 'useResearchedDefaultsCheckBox') else self.use_researched_defaults
+                # Get current value of researched defaults setting
+                current_use_researched_defaults = self.use_researched_defaults
 
                 # Get current analysis method
                 current_analysis_method = self.analysisMethodComboBox.currentText().lower()
@@ -1834,7 +1832,7 @@ class MainWindow(QMainWindow):
             'long_space_density': self.invertLongSpaceDensityCheckBox.isChecked()
         }
 
-        current_use_researched_defaults = self.useResearchedDefaultsCheckBox.isChecked() if hasattr(self, 'useResearchedDefaultsCheckBox') else self.use_researched_defaults
+        current_use_researched_defaults = self.use_researched_defaults
         current_analysis_method = self.analysisMethodComboBox.currentText().lower() if hasattr(self, 'analysisMethodComboBox') else self.analysis_method
         current_merge_thin_units = self.mergeThinUnitsCheckBox.isChecked() if hasattr(self, 'mergeThinUnitsCheckBox') else self.merge_thin_units
         current_merge_threshold = self.merge_threshold  # Keep the loaded threshold
@@ -1903,8 +1901,7 @@ class MainWindow(QMainWindow):
             self.initial_curve_inversion_settings = app_settings["curve_inversion_settings"]
             self.initial_curve_thickness = app_settings["curve_thickness"] # Reload new setting
             self.use_researched_defaults = app_settings["use_researched_defaults"]
-            if hasattr(self, 'useResearchedDefaultsCheckBox'):
-                self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
+            # useResearchedDefaultsCheckBox only exists in SettingsDialog, not MainWindow
             self.analysis_method = app_settings.get("analysis_method", "standard")
             if hasattr(self, 'analysisMethodComboBox'):
                 if self.analysis_method == "simple":
@@ -1963,8 +1960,7 @@ class MainWindow(QMainWindow):
                 self.svg_directory_path = loaded_settings.get("svg_directory_path", "")
 
                 # Update UI controls
-                if hasattr(self, 'useResearchedDefaultsCheckBox'):
-                    self.useResearchedDefaultsCheckBox.setChecked(self.use_researched_defaults)
+                # useResearchedDefaultsCheckBox only exists in SettingsDialog, not MainWindow
                 if hasattr(self, 'analysisMethodComboBox'):
                     self.analysisMethodComboBox.setCurrentText("Standard" if self.analysis_method == "standard" else "Simple")
                 if hasattr(self, 'mergeThinUnitsCheckBox'):
