@@ -22,6 +22,7 @@ from ..core.workers import LASLoaderWorker, ValidationWorker
 from ..core.config import DEFAULT_LITHOLOGY_RULES, DEPTH_COLUMN, DEFAULT_SEPARATOR_THICKNESS, DRAW_SEPARATOR_LINES, DEFAULT_CURVE_THICKNESS, CURVE_RANGES, INVALID_DATA_VALUE, DEFAULT_MERGE_THIN_UNITS, DEFAULT_MERGE_THRESHOLD, DEFAULT_SMART_INTERBEDDING, DEFAULT_SMART_INTERBEDDING_MAX_SEQUENCE_LENGTH, DEFAULT_SMART_INTERBEDDING_THICK_UNIT_THRESHOLD, DEFAULT_FALLBACK_CLASSIFICATION, DEFAULT_BIT_SIZE_MM, DEFAULT_SHOW_ANOMALY_HIGHLIGHTS, DEFAULT_CASING_DEPTH_ENABLED, DEFAULT_CASING_DEPTH_M, LITHOLOGY_COLUMN, RECOVERED_THICKNESS_COLUMN, RECORD_SEQUENCE_FLAG_COLUMN, INTERRELATIONSHIP_COLUMN, LITHOLOGY_PERCENT_COLUMN, COALLOG_V31_COLUMNS
 from ..core.coallog_utils import load_coallog_dictionaries
 from .widgets.stratigraphic_column import StratigraphicColumn
+from .widgets.enhanced_stratigraphic_column import EnhancedStratigraphicColumn
 from .widgets.svg_renderer import SvgRenderer
 from .widgets.curve_plotter import CurvePlotter # Import CurvePlotter
 from .widgets.pyqtgraph_curve_plotter import PyQtGraphCurvePlotter # Import PyQtGraph-based plotter
@@ -77,7 +78,8 @@ class HoleEditorWindow(QWidget):
 
         # Create widgets - using PyQtGraphCurvePlotter for better performance
         self.curvePlotter = PyQtGraphCurvePlotter()
-        self.stratigraphicColumnView = StratigraphicColumn()
+        self.stratigraphicColumnView = StratigraphicColumn()  # Overview column (entire hole)
+        self.enhancedStratColumnView = EnhancedStratigraphicColumn()  # Enhanced column (detailed, synchronized)
         self.editorTable = LithologyTableWidget()
         self.exportCsvButton = QPushButton("Export to CSV")
 
@@ -109,6 +111,9 @@ class HoleEditorWindow(QWidget):
         # Set stratigraphic column to overview mode (showing entire hole)
         self.stratigraphicColumnView.set_overview_mode(True, hole_min_depth=0.0, hole_max_depth=500.0)
 
+        # Set up synchronization between curve plotter and enhanced stratigraphic column
+        self._setup_enhanced_column_sync()
+
         self.setup_ui()
 
         if file_path:
@@ -116,7 +121,7 @@ class HoleEditorWindow(QWidget):
             self.load_file_background(file_path)
 
     def setup_ui(self):
-        """Create the 3-pane layout with zoom controls according to roadmap: [Plot View | Data Table | Overview View]."""
+        """Create the 4-pane layout with zoom controls: [Plot View | Enhanced Strat Column | Data Table | Overview View]."""
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -136,7 +141,13 @@ class HoleEditorWindow(QWidget):
         plot_layout.setContentsMargins(0, 0, 0, 0)
         plot_layout.addWidget(self.curvePlotter)
 
-        # Middle Container: Data Table (Lithology Editor)
+        # Second Container: Enhanced Stratigraphic Column (detailed, synchronized)
+        enhanced_column_container = QWidget()
+        enhanced_column_layout = QVBoxLayout(enhanced_column_container)
+        enhanced_column_layout.setContentsMargins(0, 0, 0, 0)
+        enhanced_column_layout.addWidget(self.enhancedStratColumnView)
+
+        # Third Container: Data Table (Lithology Editor)
         table_container = QWidget()
         table_layout = QVBoxLayout(table_container)
         table_layout.setContentsMargins(0, 0, 0, 0)
@@ -158,13 +169,15 @@ class HoleEditorWindow(QWidget):
         overview_layout.setContentsMargins(0, 0, 0, 0)
         overview_layout.addWidget(self.stratigraphicColumnView)
 
-        # Add to Splitter in correct order: Plot | Table | Overview
+        # Add to Splitter in correct order: Plot | Enhanced Column | Table | Overview
         main_splitter.addWidget(plot_container)
+        main_splitter.addWidget(enhanced_column_container)
         main_splitter.addWidget(table_container)
         main_splitter.addWidget(overview_container)
         main_splitter.setStretchFactor(0, 2)  # Plot view gets more space
-        main_splitter.setStretchFactor(1, 3)  # Table gets most space
-        main_splitter.setStretchFactor(2, 1)  # Overview gets less space
+        main_splitter.setStretchFactor(1, 2)  # Enhanced column gets more space
+        main_splitter.setStretchFactor(2, 3)  # Table gets most space
+        main_splitter.setStretchFactor(3, 1)  # Overview gets less space
 
         # Create container for main content and zoom controls
         main_content_widget = QWidget()
@@ -211,14 +224,65 @@ class HoleEditorWindow(QWidget):
         # The model will handle row count automatically
         self.editorTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
 
+    def _setup_enhanced_column_sync(self):
+        """Set up synchronization between curve plotter and enhanced stratigraphic column."""
+        # Connect curve plotter signals to enhanced column
+        if hasattr(self.curvePlotter, 'viewRangeChanged'):
+            self.curvePlotter.viewRangeChanged.connect(self._on_plot_view_range_changed_for_enhanced)
+        
+        if hasattr(self.curvePlotter, 'pointClicked'):
+            self.curvePlotter.pointClicked.connect(self._on_plot_point_clicked_for_enhanced)
+        
+        # Connect enhanced column signals to curve plotter
+        self.enhancedStratColumnView.depthScrolled.connect(self._on_enhanced_column_scrolled)
+        self.enhancedStratColumnView.syncRequested.connect(self._on_enhanced_sync_requested)
+        
+        # Set enhanced column to show detailed view (not overview)
+        self.enhancedStratColumnView.set_overview_mode(False)
+        
+        # Store reference to curve plotter in enhanced column for direct sync
+        self.enhancedStratColumnView.sync_curve_plotter = self.curvePlotter
+
+    def _on_plot_view_range_changed_for_enhanced(self, x_range, y_range):
+        """Handle plot view range changes to sync enhanced column."""
+        if hasattr(self, 'enhancedStratColumnView') and self.enhancedStratColumnView.sync_enabled:
+            # Update enhanced column with current visible depth range
+            min_depth, max_depth = y_range
+            self.enhancedStratColumnView._on_curve_plotter_scrolled(min_depth, max_depth)
+
+    def _on_plot_point_clicked_for_enhanced(self, depth):
+        """Handle plot point clicks to sync enhanced column."""
+        if hasattr(self, 'enhancedStratColumnView'):
+            # Scroll enhanced column to this depth
+            self.enhancedStratColumnView.scroll_to_depth(depth)
+
+    def _on_enhanced_column_scrolled(self, center_depth):
+        """Handle enhanced column scrolling to sync curve plotter."""
+        if hasattr(self, 'curvePlotter') and self.enhancedStratColumnView.sync_enabled:
+            # Scroll curve plotter to same depth
+            self.curvePlotter.scroll_to_depth(center_depth)
+
+    def _on_enhanced_sync_requested(self):
+        """Handle sync request from enhanced column."""
+        # Trigger full synchronization
+        if hasattr(self, 'curvePlotter') and hasattr(self.curvePlotter, 'get_view_range'):
+            x_range, y_range = self.curvePlotter.get_view_range()
+            if y_range:
+                min_depth, max_depth = y_range
+                self.enhancedStratColumnView._on_curve_plotter_scrolled(min_depth, max_depth)
+
     def _on_table_row_selected(self, row):
         """Handle table row selection to highlight stratigraphic column and scroll plot view (Subtask 4.1)."""
         if row == -1:
             # No selection - clear highlight
             self.stratigraphicColumnView.highlight_unit(None)
+            if hasattr(self, 'enhancedStratColumnView'):
+                self.enhancedStratColumnView.highlight_unit(None)
         else:
-            # Highlight the corresponding unit in stratigraphic column
+            # Highlight the corresponding unit in both stratigraphic columns
             self.stratigraphicColumnView.highlight_unit(row)
+            if hasattr(self, 'enhancedStratColumnView'):
+                self.enhancedStratColumnView.highlight_unit(row)
 
             # Scroll plot view to the selected unit's depth (Subtask 4.1)
             # Get depth information from the table's dataframe
@@ -243,6 +307,10 @@ class HoleEditorWindow(QWidget):
                         self.editorTable.selectRow(idx)
                         # Scroll to make the selected row visible
                         self.editorTable.scrollTo(self.editorTable.model().index(idx, 0))
+                        # Highlight the unit in both stratigraphic columns
+                        self.stratigraphicColumnView.highlight_unit(idx)
+                        if hasattr(self, 'enhancedStratColumnView'):
+                            self.enhancedStratColumnView.highlight_unit(idx)
                         print(f"Plot clicked at depth: {depth}m -> Selected table row {idx}")
                         return
 
@@ -3133,6 +3201,8 @@ class MainWindow(QMainWindow):
                 min_depth = self.last_classified_dataframe[DEPTH_COLUMN].min()
                 max_depth = self.last_classified_dataframe[DEPTH_COLUMN].max()
                 self.stratigraphicColumnView.draw_column(updated_df, min_depth, max_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
+                if hasattr(self, 'enhancedStratColumnView'):
+                    self.enhancedStratColumnView.draw_column(updated_df, min_depth, max_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
 
         QMessageBox.information(self, "Interbedding Created", f"Successfully created interbedding with {len(new_rows)} components.")
 
@@ -3226,8 +3296,10 @@ class MainWindow(QMainWindow):
         min_overall_depth = classified_dataframe[DEPTH_COLUMN].min()
         max_overall_depth = classified_dataframe[DEPTH_COLUMN].max()
 
-        # Pass the overall depth range to the stratigraphic column
+        # Pass the overall depth range to both stratigraphic columns
         self.stratigraphicColumnView.draw_column(units_dataframe, min_overall_depth, max_overall_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
+        if hasattr(self, 'enhancedStratColumnView'):
+            self.enhancedStratColumnView.draw_column(units_dataframe, min_overall_depth, max_overall_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
 
         # Prepare curve configurations for the single CurvePlotter
         curve_configs = []
