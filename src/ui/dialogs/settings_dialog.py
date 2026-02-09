@@ -1,5 +1,6 @@
 import json
 import os
+import pandas as pd
 
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, QTabWidget,
@@ -36,6 +37,9 @@ class SettingsDialog(QDialog):
 
         # Load CoalLog qualifiers from JSON file
         self.lithology_qualifiers = self.load_qualifiers()
+        
+        # Load dropdown options from Excel file
+        self.dropdown_options = self.load_dropdown_options()
         
         # Store extra fields for lithology rules (background_color, svg_path, etc.)
         self.rule_extra_data = []
@@ -103,6 +107,63 @@ class SettingsDialog(QDialog):
             print(f"[WARNING] Could not load lithology qualifiers from {qualifiers_path}: {e}")
             return {}
 
+    def load_dropdown_options(self):
+        """Load dropdown options from CoalLog Excel dictionary file."""
+        excel_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            'assets', 'CoalLog v3.1 Dictionaries.xlsx'
+        )
+        
+        options = {
+            'shade': [],
+            'hue': [],
+            'colour': [],
+            'estimated_strength': []
+        }
+        
+        try:
+            # Load Shade options
+            shade_df = pd.read_excel(excel_path, sheet_name='Shade')
+            # Filter out header row and get code-description pairs
+            for _, row in shade_df.iterrows():
+                code = row.get('Sorted on Code', '')
+                desc = row.get('Sorted on Description', '')
+                if pd.notna(code) and pd.notna(desc) and code != 'Code' and desc != 'Shade':
+                    options['shade'].append((str(code).strip(), str(desc).strip()))
+            
+            # Load Hue options
+            hue_df = pd.read_excel(excel_path, sheet_name='Hue')
+            for _, row in hue_df.iterrows():
+                code = row.get('Sorted on Code', '')
+                desc = row.get('Sorted on Description', '')
+                if pd.notna(code) and pd.notna(desc) and code != 'Code' and desc != 'Hue':
+                    options['hue'].append((str(code).strip(), str(desc).strip()))
+            
+            # Load Colour options
+            colour_df = pd.read_excel(excel_path, sheet_name='Colour')
+            for _, row in colour_df.iterrows():
+                code = row.get('Sorted on Code', '')
+                desc = row.get('Sorted on Description', '')
+                if pd.notna(code) and pd.notna(desc) and code != 'Code' and desc != 'Colour':
+                    options['colour'].append((str(code).strip(), str(desc).strip()))
+            
+            # Load Estimated Strength options
+            strength_df = pd.read_excel(excel_path, sheet_name='Est_Strength')
+            for _, row in strength_df.iterrows():
+                code = row.get('Sorted on Code', '')
+                desc = row.get('Unnamed: 1', '')
+                if pd.notna(code) and pd.notna(desc) and code != 'Code' and desc != 'Estimated Strength':
+                    options['estimated_strength'].append((str(code).strip(), str(desc).strip()))
+            
+            print(f"[DEBUG] Loaded dropdown options: Shade={len(options['shade'])}, Hue={len(options['hue'])}, Colour={len(options['colour'])}, Est Strength={len(options['estimated_strength'])}")
+            
+        except Exception as e:
+            print(f"[WARNING] Could not load dropdown options from Excel: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        return options
+
     def create_lithology_tab(self):
         """Create the lithology rules tab with table and controls."""
         tab = QWidget()
@@ -123,11 +184,14 @@ class SettingsDialog(QDialog):
 
         # Table for lithology rules
         self.rulesTable = QTableWidget()
-        self.rulesTable.setColumnCount(10)
-        # Column indices: 0: Lithology Name, 1: Litho Code, 2: Litho Qualifier, 3: Shade, 4: Hue, 5: Colour,
-        # 6: Gamma Min, 7: Gamma Max, 8: Density Min, 9: Density Max
+        self.rulesTable.setColumnCount(11)
+        # Column indices: 
+        # 0: Lithology Name, 1: Litho Code, 2: Litho Qualifier, 
+        # 3: Shade, 4: Hue, 5: Colour, 6: Estimated Strength,
+        # 7: Gamma Min, 8: Gamma Max, 9: Density Min, 10: Density Max
         self.rulesTable.setHorizontalHeaderLabels([
-            "Lithology Name", "Litho Code", "Litho Qualifier", "Shade", "Hue", "Colour",
+            "Lithology Name", "Litho Code", "Litho Qualifier", 
+            "Shade", "Hue", "Colour", "Estimated Strength",
             "Gamma Min", "Gamma Max", "Density Min", "Density Max"
         ])
         self.rulesTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -469,19 +533,19 @@ class SettingsDialog(QDialog):
 
             # Convert numeric fields (indices shifted due to new columns)
             try:
-                rule['gamma_min'] = float(self.rulesTable.item(row_idx, 6).text()) if self.rulesTable.item(row_idx, 6) and self.rulesTable.item(row_idx, 6).text() else 0.0
+                rule['gamma_min'] = float(self.rulesTable.item(row_idx, 7).text()) if self.rulesTable.item(row_idx, 7) and self.rulesTable.item(row_idx, 7).text() else 0.0
             except ValueError:
                 rule['gamma_min'] = 0.0
             try:
-                rule['gamma_max'] = float(self.rulesTable.item(row_idx, 7).text()) if self.rulesTable.item(row_idx, 7) and self.rulesTable.item(row_idx, 7).text() else 0.0
+                rule['gamma_max'] = float(self.rulesTable.item(row_idx, 8).text()) if self.rulesTable.item(row_idx, 8) and self.rulesTable.item(row_idx, 8).text() else 0.0
             except ValueError:
                 rule['gamma_max'] = 0.0
             try:
-                rule['density_min'] = float(self.rulesTable.item(row_idx, 8).text()) if self.rulesTable.item(row_idx, 8) and self.rulesTable.item(row_idx, 8).text() else 0.0
+                rule['density_min'] = float(self.rulesTable.item(row_idx, 9).text()) if self.rulesTable.item(row_idx, 9) and self.rulesTable.item(row_idx, 9).text() else 0.0
             except ValueError:
                 rule['density_min'] = 0.0
             try:
-                rule['density_max'] = float(self.rulesTable.item(row_idx, 9).text()) if self.rulesTable.item(row_idx, 9) and self.rulesTable.item(row_idx, 9).text() else 0.0
+                rule['density_max'] = float(self.rulesTable.item(row_idx, 10).text()) if self.rulesTable.item(row_idx, 10) and self.rulesTable.item(row_idx, 10).text() else 0.0
             except ValueError:
                 rule['density_max'] = 0.0
 
@@ -665,23 +729,38 @@ class SettingsDialog(QDialog):
             for rule in rules:
                 row_position = self.rulesTable.rowCount()
                 self.rulesTable.insertRow(row_position)
-                # Set items for each column (10 columns)
+                # Set items for each column (11 columns)
                 self.rulesTable.setItem(row_position, 0, QTableWidgetItem(rule.get('name', '')))
                 self.rulesTable.setItem(row_position, 1, QTableWidgetItem(rule.get('code', '')))
                 # Qualifier column will have a dropdown widget; set item text for storage
                 self.rulesTable.setItem(row_position, 2, QTableWidgetItem(rule.get('qualifier', '')))
-                self.rulesTable.setItem(row_position, 3, QTableWidgetItem(rule.get('shade', '')))
-                self.rulesTable.setItem(row_position, 4, QTableWidgetItem(rule.get('hue', '')))
-                self.rulesTable.setItem(row_position, 5, QTableWidgetItem(rule.get('colour', '')))
-                self.rulesTable.setItem(row_position, 6, QTableWidgetItem(str(rule.get('gamma_min', 0.0))))
-                self.rulesTable.setItem(row_position, 7, QTableWidgetItem(str(rule.get('gamma_max', 0.0))))
-                self.rulesTable.setItem(row_position, 8, QTableWidgetItem(str(rule.get('density_min', 0.0))))
-                self.rulesTable.setItem(row_position, 9, QTableWidgetItem(str(rule.get('density_max', 0.0))))
+                
+                # Create dropdowns for Shade, Hue, Colour, Estimated Strength
+                dropdown_columns = {
+                    3: ('shade', rule.get('shade', '')),
+                    4: ('hue', rule.get('hue', '')),
+                    5: ('colour', rule.get('colour', '')),
+                    6: ('estimated_strength', rule.get('estimated_strength', ''))
+                }
+                
+                for col, (option_type, value) in dropdown_columns.items():
+                    combo = self.create_dropdown_for_cell(row_position, col, option_type)
+                    self.rulesTable.setCellWidget(row_position, col, combo)
+                    # Create hidden item to store value
+                    self.rulesTable.setItem(row_position, col, QTableWidgetItem(value))
+                    # Set dropdown selection
+                    self.update_dropdown_selection(row_position, col, value)
+                
+                # Set numeric columns (indices shifted due to new Estimated Strength column)
+                self.rulesTable.setItem(row_position, 7, QTableWidgetItem(str(rule.get('gamma_min', 0.0))))
+                self.rulesTable.setItem(row_position, 8, QTableWidgetItem(str(rule.get('gamma_max', 0.0))))
+                self.rulesTable.setItem(row_position, 9, QTableWidgetItem(str(rule.get('density_min', 0.0))))
+                self.rulesTable.setItem(row_position, 10, QTableWidgetItem(str(rule.get('density_max', 0.0))))
                 # Update qualifier dropdown based on lithology code
                 self.update_qualifier_dropdown(row_position, rule.get('code', ''))
                 # Store extra fields not represented in the table (background_color, svg_path, etc.)
                 extra = {k: v for k, v in rule.items() if k not in [
-                    'name', 'code', 'qualifier', 'shade', 'hue', 'colour',
+                    'name', 'code', 'qualifier', 'shade', 'hue', 'colour', 'estimated_strength',
                     'gamma_min', 'gamma_max', 'density_min', 'density_max'
                 ]}
                 self.rule_extra_data.append(extra)
@@ -770,25 +849,39 @@ class SettingsDialog(QDialog):
             rule['name'] = self.rulesTable.item(row_idx, 0).text() if self.rulesTable.item(row_idx, 0) else ''
             rule['code'] = self.rulesTable.item(row_idx, 1).text() if self.rulesTable.item(row_idx, 1) else ''
             rule['qualifier'] = self.rulesTable.item(row_idx, 2).text() if self.rulesTable.item(row_idx, 2) else ''
-            rule['shade'] = self.rulesTable.item(row_idx, 3).text() if self.rulesTable.item(row_idx, 3) else ''
-            rule['hue'] = self.rulesTable.item(row_idx, 4).text() if self.rulesTable.item(row_idx, 4) else ''
-            rule['colour'] = self.rulesTable.item(row_idx, 5).text() if self.rulesTable.item(row_idx, 5) else ''
+            
+            # Get values from dropdown columns
+            dropdown_columns = {
+                3: 'shade',
+                4: 'hue',
+                5: 'colour',
+                6: 'estimated_strength'
+            }
+            
+            for col, field_name in dropdown_columns.items():
+                # Try to get value from dropdown widget first, then from item
+                widget = self.rulesTable.cellWidget(row_idx, col)
+                if widget and isinstance(widget, QComboBox):
+                    current_data = widget.currentData()
+                    rule[field_name] = current_data if current_data is not None else ""
+                else:
+                    rule[field_name] = self.rulesTable.item(row_idx, col).text() if self.rulesTable.item(row_idx, col) else ''
 
-            # Convert numeric fields (indices shifted)
+            # Convert numeric fields (indices shifted due to new Estimated Strength column)
             try:
-                rule['gamma_min'] = float(self.rulesTable.item(row_idx, 6).text()) if self.rulesTable.item(row_idx, 6) and self.rulesTable.item(row_idx, 6).text() else 0.0
+                rule['gamma_min'] = float(self.rulesTable.item(row_idx, 7).text()) if self.rulesTable.item(row_idx, 7) and self.rulesTable.item(row_idx, 7).text() else 0.0
             except ValueError:
                 rule['gamma_min'] = 0.0
             try:
-                rule['gamma_max'] = float(self.rulesTable.item(row_idx, 7).text()) if self.rulesTable.item(row_idx, 7) and self.rulesTable.item(row_idx, 7).text() else 0.0
+                rule['gamma_max'] = float(self.rulesTable.item(row_idx, 8).text()) if self.rulesTable.item(row_idx, 8) and self.rulesTable.item(row_idx, 8).text() else 0.0
             except ValueError:
                 rule['gamma_max'] = 0.0
             try:
-                rule['density_min'] = float(self.rulesTable.item(row_idx, 8).text()) if self.rulesTable.item(row_idx, 8) and self.rulesTable.item(row_idx, 8).text() else 0.0
+                rule['density_min'] = float(self.rulesTable.item(row_idx, 9).text()) if self.rulesTable.item(row_idx, 9) and self.rulesTable.item(row_idx, 9).text() else 0.0
             except ValueError:
                 rule['density_min'] = 0.0
             try:
-                rule['density_max'] = float(self.rulesTable.item(row_idx, 9).text()) if self.rulesTable.item(row_idx, 9) and self.rulesTable.item(row_idx, 9).text() else 0.0
+                rule['density_max'] = float(self.rulesTable.item(row_idx, 10).text()) if self.rulesTable.item(row_idx, 10) and self.rulesTable.item(row_idx, 10).text() else 0.0
             except ValueError:
                 rule['density_max'] = 0.0
 
@@ -845,15 +938,79 @@ class SettingsDialog(QDialog):
 
         return settings
 
+    def create_dropdown_for_cell(self, row, column, option_type):
+        """Create a dropdown combobox for a specific cell."""
+        combo = QComboBox()
+        combo.setEditable(False)  # Fixed selection only
+        
+        # Add empty option first
+        combo.addItem("", "")
+        
+        # Add options from loaded data
+        if option_type in self.dropdown_options:
+            for code, description in self.dropdown_options[option_type]:
+                display_text = f"{code} - {description}" if description else code
+                combo.addItem(display_text, code)
+        
+        # Connect signal to update table item
+        combo.currentIndexChanged.connect(lambda idx, r=row, c=column, cb=combo: self.on_dropdown_changed(r, c, cb))
+        
+        return combo
+
+    def on_dropdown_changed(self, row, column, combo):
+        """Handle dropdown selection change."""
+        current_data = combo.currentData()
+        value = current_data if current_data is not None else ""
+        
+        # Ensure a table item exists for the column
+        item = self.rulesTable.item(row, column)
+        if not item:
+            item = QTableWidgetItem(value)
+            self.rulesTable.setItem(row, column, item)
+        else:
+            item.setText(value)
+
+    def update_dropdown_selection(self, row, column, value):
+        """Update dropdown selection based on stored value."""
+        widget = self.rulesTable.cellWidget(row, column)
+        if widget and isinstance(widget, QComboBox):
+            # Find index by data
+            index = widget.findData(value, Qt.ItemDataRole.UserRole)
+            if index >= 0:
+                widget.setCurrentIndex(index)
+            else:
+                widget.setCurrentIndex(0)  # Set to empty
+
     def add_rule(self):
         """Add a new empty row to the lithology rules table."""
         row_position = self.rulesTable.rowCount()
         self.rulesTable.insertRow(row_position)
-        # Pre-fill with empty QTableWidgetItems
-        for col in range(self.rulesTable.columnCount()):
+        
+        # Create items for text columns
+        for col in [0, 1]:  # Name and Code columns
             self.rulesTable.setItem(row_position, col, QTableWidgetItem(""))
-        # Set qualifier dropdown (empty initially)
+        
+        # Create dropdown for qualifier column
         self.update_qualifier_dropdown(row_position, "")
+        
+        # Create dropdowns for Shade, Hue, Colour, Estimated Strength
+        dropdown_columns = {
+            3: 'shade',
+            4: 'hue', 
+            5: 'colour',
+            6: 'estimated_strength'
+        }
+        
+        for col, option_type in dropdown_columns.items():
+            combo = self.create_dropdown_for_cell(row_position, col, option_type)
+            self.rulesTable.setCellWidget(row_position, col, combo)
+            # Create hidden item to store value
+            self.rulesTable.setItem(row_position, col, QTableWidgetItem(""))
+        
+        # Create items for numeric columns
+        for col in range(7, 11):  # Gamma Min to Density Max
+            self.rulesTable.setItem(row_position, col, QTableWidgetItem(""))
+        
         # Add empty extra fields dict for this row
         self.rule_extra_data.append({})
         # Refresh range analysis to include new (empty) rule
