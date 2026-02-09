@@ -184,15 +184,15 @@ class SettingsDialog(QDialog):
 
         # Table for lithology rules
         self.rulesTable = QTableWidget()
-        self.rulesTable.setColumnCount(12)
+        self.rulesTable.setColumnCount(13)
         # Column indices: 
         # 0: Lithology Name, 1: Litho Code, 2: Litho Qualifier, 
         # 3: Shade, 4: Hue, 5: Colour, 6: Estimated Strength,
-        # 7: Display Color, 8: Gamma Min, 9: Gamma Max, 10: Density Min, 11: Density Max
+        # 7: Display Color, 8: SVG Pattern, 9: Gamma Min, 10: Gamma Max, 11: Density Min, 12: Density Max
         self.rulesTable.setHorizontalHeaderLabels([
             "Lithology Name", "Litho Code", "Litho Qualifier", 
             "Shade", "Hue", "Colour", "Estimated Strength",
-            "Display Color", "Gamma Min", "Gamma Max", "Density Min", "Density Max"
+            "Display Color", "SVG Pattern", "Gamma Min", "Gamma Max", "Density Min", "Density Max"
         ])
         self.rulesTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.rulesTable)
@@ -531,21 +531,21 @@ class SettingsDialog(QDialog):
             rule['name'] = self.rulesTable.item(row_idx, 0).text() if self.rulesTable.item(row_idx, 0) else ''
             rule['code'] = self.rulesTable.item(row_idx, 1).text() if self.rulesTable.item(row_idx, 1) else ''
 
-            # Convert numeric fields (indices shifted due to new columns)
+            # Convert numeric fields (indices shifted due to new SVG Pattern column)
             try:
-                rule['gamma_min'] = float(self.rulesTable.item(row_idx, 8).text()) if self.rulesTable.item(row_idx, 8) and self.rulesTable.item(row_idx, 8).text() else 0.0
+                rule['gamma_min'] = float(self.rulesTable.item(row_idx, 9).text()) if self.rulesTable.item(row_idx, 9) and self.rulesTable.item(row_idx, 9).text() else 0.0
             except ValueError:
                 rule['gamma_min'] = 0.0
             try:
-                rule['gamma_max'] = float(self.rulesTable.item(row_idx, 9).text()) if self.rulesTable.item(row_idx, 9) and self.rulesTable.item(row_idx, 9).text() else 0.0
+                rule['gamma_max'] = float(self.rulesTable.item(row_idx, 10).text()) if self.rulesTable.item(row_idx, 10) and self.rulesTable.item(row_idx, 10).text() else 0.0
             except ValueError:
                 rule['gamma_max'] = 0.0
             try:
-                rule['density_min'] = float(self.rulesTable.item(row_idx, 10).text()) if self.rulesTable.item(row_idx, 10) and self.rulesTable.item(row_idx, 10).text() else 0.0
+                rule['density_min'] = float(self.rulesTable.item(row_idx, 11).text()) if self.rulesTable.item(row_idx, 11) and self.rulesTable.item(row_idx, 11).text() else 0.0
             except ValueError:
                 rule['density_min'] = 0.0
             try:
-                rule['density_max'] = float(self.rulesTable.item(row_idx, 11).text()) if self.rulesTable.item(row_idx, 11) and self.rulesTable.item(row_idx, 11).text() else 0.0
+                rule['density_max'] = float(self.rulesTable.item(row_idx, 12).text()) if self.rulesTable.item(row_idx, 12) and self.rulesTable.item(row_idx, 12).text() else 0.0
             except ValueError:
                 rule['density_max'] = 0.0
 
@@ -760,17 +760,24 @@ class SettingsDialog(QDialog):
                 # Create hidden item to store color value
                 self.rulesTable.setItem(row_position, 7, QTableWidgetItem(background_color))
                 
-                # Set numeric columns (indices shifted due to new Display Color column)
-                self.rulesTable.setItem(row_position, 8, QTableWidgetItem(str(rule.get('gamma_min', 0.0))))
-                self.rulesTable.setItem(row_position, 9, QTableWidgetItem(str(rule.get('gamma_max', 0.0))))
-                self.rulesTable.setItem(row_position, 10, QTableWidgetItem(str(rule.get('density_min', 0.0))))
-                self.rulesTable.setItem(row_position, 11, QTableWidgetItem(str(rule.get('density_max', 0.0))))
+                # Create SVG pattern selection widget (column 8)
+                svg_path = rule.get('svg_path', '')
+                svg_widget = self.create_svg_pattern_widget(row_position, svg_path)
+                self.rulesTable.setCellWidget(row_position, 8, svg_widget)
+                # Create hidden item to store SVG path value
+                self.rulesTable.setItem(row_position, 8, QTableWidgetItem(svg_path))
+                
+                # Set numeric columns (indices shifted due to new SVG Pattern column)
+                self.rulesTable.setItem(row_position, 9, QTableWidgetItem(str(rule.get('gamma_min', 0.0))))
+                self.rulesTable.setItem(row_position, 10, QTableWidgetItem(str(rule.get('gamma_max', 0.0))))
+                self.rulesTable.setItem(row_position, 11, QTableWidgetItem(str(rule.get('density_min', 0.0))))
+                self.rulesTable.setItem(row_position, 12, QTableWidgetItem(str(rule.get('density_max', 0.0))))
                 # Update qualifier dropdown based on lithology code
                 self.update_qualifier_dropdown(row_position, rule.get('code', ''))
-                # Store extra fields not represented in the table (svg_path, etc.)
-                # Note: background_color is now represented in column 7
+                # Store extra fields not represented in the table
+                # Note: background_color is now represented in column 7, svg_path in column 8
                 extra = {k: v for k, v in rule.items() if k not in [
-                    'name', 'code', 'qualifier', 'shade', 'hue', 'colour', 'estimated_strength', 'background_color',
+                    'name', 'code', 'qualifier', 'shade', 'hue', 'colour', 'estimated_strength', 'background_color', 'svg_path',
                     'gamma_min', 'gamma_max', 'density_min', 'density_max'
                 ]}
                 self.rule_extra_data.append(extra)
@@ -889,21 +896,29 @@ class SettingsDialog(QDialog):
                 # Fallback to item text
                 rule['background_color'] = self.rulesTable.item(row_idx, 7).text() if self.rulesTable.item(row_idx, 7) else '#FFFFFF'
 
-            # Convert numeric fields (indices shifted due to new Display Color column)
+            # Get SVG pattern path from widget (column 8)
+            svg_widget = self.rulesTable.cellWidget(row_idx, 8)
+            if svg_widget and hasattr(svg_widget, 'get_svg_path'):
+                rule['svg_path'] = svg_widget.get_svg_path()
+            else:
+                # Fallback to item text
+                rule['svg_path'] = self.rulesTable.item(row_idx, 8).text() if self.rulesTable.item(row_idx, 8) else ''
+
+            # Convert numeric fields (indices shifted due to new SVG Pattern column)
             try:
-                rule['gamma_min'] = float(self.rulesTable.item(row_idx, 8).text()) if self.rulesTable.item(row_idx, 8) and self.rulesTable.item(row_idx, 8).text() else 0.0
+                rule['gamma_min'] = float(self.rulesTable.item(row_idx, 9).text()) if self.rulesTable.item(row_idx, 9) and self.rulesTable.item(row_idx, 9).text() else 0.0
             except ValueError:
                 rule['gamma_min'] = 0.0
             try:
-                rule['gamma_max'] = float(self.rulesTable.item(row_idx, 9).text()) if self.rulesTable.item(row_idx, 9) and self.rulesTable.item(row_idx, 9).text() else 0.0
+                rule['gamma_max'] = float(self.rulesTable.item(row_idx, 10).text()) if self.rulesTable.item(row_idx, 10) and self.rulesTable.item(row_idx, 10).text() else 0.0
             except ValueError:
                 rule['gamma_max'] = 0.0
             try:
-                rule['density_min'] = float(self.rulesTable.item(row_idx, 10).text()) if self.rulesTable.item(row_idx, 10) and self.rulesTable.item(row_idx, 10).text() else 0.0
+                rule['density_min'] = float(self.rulesTable.item(row_idx, 11).text()) if self.rulesTable.item(row_idx, 11) and self.rulesTable.item(row_idx, 11).text() else 0.0
             except ValueError:
                 rule['density_min'] = 0.0
             try:
-                rule['density_max'] = float(self.rulesTable.item(row_idx, 11).text()) if self.rulesTable.item(row_idx, 11) and self.rulesTable.item(row_idx, 11).text() else 0.0
+                rule['density_max'] = float(self.rulesTable.item(row_idx, 12).text()) if self.rulesTable.item(row_idx, 12) and self.rulesTable.item(row_idx, 12).text() else 0.0
             except ValueError:
                 rule['density_max'] = 0.0
 
@@ -1019,6 +1034,81 @@ class SettingsDialog(QDialog):
             else:
                 item.setText(color.name())
 
+    def create_svg_pattern_widget(self, row, initial_svg_path):
+        """Create a widget for SVG pattern selection with browse button and preview."""
+        from ..widgets.enhanced_pattern_preview import EnhancedPatternPreview
+        
+        widget = QWidget()
+        layout = QHBoxLayout(widget)
+        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setSpacing(4)
+        
+        # Line edit for SVG path
+        svg_edit = QLineEdit()
+        svg_edit.setText(initial_svg_path)
+        svg_edit.setPlaceholderText("SVG pattern path...")
+        svg_edit.setReadOnly(True)  # Read-only, use browse button
+        layout.addWidget(svg_edit)
+        
+        # Browse button
+        browse_button = QPushButton("...")
+        browse_button.setFixedWidth(30)
+        browse_button.clicked.connect(lambda: self.browse_svg_pattern(row, svg_edit))
+        layout.addWidget(browse_button)
+        
+        # Clear button
+        clear_button = QPushButton("×")
+        clear_button.setFixedWidth(30)
+        clear_button.setToolTip("Clear SVG pattern")
+        clear_button.clicked.connect(lambda: self.clear_svg_pattern(row, svg_edit))
+        layout.addWidget(clear_button)
+        
+        # Store references for later access
+        svg_edit.row = row
+        svg_edit.get_svg_path = lambda: svg_edit.text()
+        widget.get_svg_path = svg_edit.get_svg_path
+        
+        return widget
+
+    def browse_svg_pattern(self, row, svg_edit):
+        """Browse for SVG pattern file."""
+        # Get default SVG directory
+        default_dir = os.path.join(os.getcwd(), 'src', 'assets', 'svg')
+        if not os.path.exists(default_dir):
+            default_dir = os.getcwd()
+        
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select SVG Pattern File",
+            default_dir,
+            "SVG Files (*.svg);;All Files (*)"
+        )
+        
+        if file_path:
+            # Store relative path if within project directory
+            project_root = os.path.join(os.getcwd(), 'src', 'assets', 'svg')
+            if file_path.startswith(project_root):
+                rel_path = os.path.relpath(file_path, os.path.join(os.getcwd(), 'src', 'assets'))
+                svg_edit.setText(rel_path)
+            else:
+                svg_edit.setText(file_path)
+            
+            # Update table item
+            item = self.rulesTable.item(row, 8)
+            if not item:
+                item = QTableWidgetItem(file_path)
+                self.rulesTable.setItem(row, 8, item)
+            else:
+                item.setText(file_path)
+
+    def clear_svg_pattern(self, row, svg_edit):
+        """Clear SVG pattern selection."""
+        svg_edit.setText("")
+        # Update table item
+        item = self.rulesTable.item(row, 8)
+        if item:
+            item.setText("")
+
     def update_dropdown_selection(self, row, column, value):
         """Update dropdown selection based on stored value."""
         widget = self.rulesTable.cellWidget(row, column)
@@ -1064,8 +1154,14 @@ class SettingsDialog(QDialog):
         # Create hidden item to store color value
         self.rulesTable.setItem(row_position, 7, QTableWidgetItem("#FFFFFF"))
         
-        # Create items for numeric columns (indices shifted due to new Display Color column)
-        for col in range(8, 12):  # Gamma Min to Density Max
+        # Create SVG pattern selection widget (column 8)
+        svg_widget = self.create_svg_pattern_widget(row_position, "")
+        self.rulesTable.setCellWidget(row_position, 8, svg_widget)
+        # Create hidden item to store SVG path value
+        self.rulesTable.setItem(row_position, 8, QTableWidgetItem(""))
+        
+        # Create items for numeric columns (indices shifted due to new SVG Pattern column)
+        for col in range(9, 13):  # Gamma Min to Density Max
             self.rulesTable.setItem(row_position, col, QTableWidgetItem(""))
         
         # Add empty extra fields dict for this row
