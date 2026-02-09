@@ -1458,11 +1458,16 @@ class MainWindow(QMainWindow):
 
     def toggle_interbedding_params_visibility(self):
         """Show/hide smart interbedding parameters based on checkbox state."""
+        if not hasattr(self, 'smartInterbeddingCheckBox'):
+            return
         visible = self.smartInterbeddingCheckBox.isChecked()
-        self.interbedding_params_widget.setVisible(visible)
+        if hasattr(self, 'interbedding_params_widget'):
+            self.interbedding_params_widget.setVisible(visible)
 
     def toggle_casing_depth_input(self):
         """Enable/disable casing depth input based on checkbox state."""
+        if not hasattr(self, 'casingDepthEnabledCheckBox') or not hasattr(self, 'casingDepthSpinBox'):
+            return
         enabled = self.casingDepthEnabledCheckBox.isChecked()
         self.casingDepthSpinBox.setEnabled(enabled)
 
@@ -1529,19 +1534,26 @@ class MainWindow(QMainWindow):
             self.load_curve_thickness_settings()
             self.load_curve_inversion_settings()
             # use_researched_defaults is already set to False above
-            self.analysisMethodComboBox.setCurrentText("Standard")
-            self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
-            self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
-            self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
-            self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
-            self.fallbackClassificationCheckBox.setChecked(self.use_fallback_classification)
+            if hasattr(self, 'analysisMethodComboBox'):
+                self.analysisMethodComboBox.setCurrentText("Standard")
+            if hasattr(self, 'mergeThinUnitsCheckBox'):
+                self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
+            if hasattr(self, 'smartInterbeddingCheckBox'):
+                self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
+            if hasattr(self, 'smartInterbeddingMaxSequenceSpinBox'):
+                self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
+            if hasattr(self, 'smartInterbeddingThickUnitSpinBox'):
+                self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
+            if hasattr(self, 'fallbackClassificationCheckBox'):
+                self.fallbackClassificationCheckBox.setChecked(self.use_fallback_classification)
             if hasattr(self, 'bitSizeSpinBox'):
                 self.bitSizeSpinBox.setValue(self.bit_size_mm)
             if hasattr(self, 'showAnomalyHighlightsCheckBox'):
                 self.showAnomalyHighlightsCheckBox.setChecked(self.show_anomaly_highlights)
             if hasattr(self, 'casingDepthEnabledCheckBox'):
                 self.casingDepthEnabledCheckBox.setChecked(self.casing_depth_enabled)
-                self.casingDepthSpinBox.setValue(self.casing_depth_m)
+                if hasattr(self, 'casingDepthSpinBox'):
+                    self.casingDepthSpinBox.setValue(self.casing_depth_m)
                 self.casingDepthSpinBox.setEnabled(self.casing_depth_enabled)
             # Hide interbedding params if needed
             self.interbedding_params_widget.setVisible(self.smart_interbedding)
@@ -1593,12 +1605,18 @@ class MainWindow(QMainWindow):
 
         # Update other UI widgets that don't have helper methods
         # use_researched_defaults is managed as an attribute, not a UI widget in main window
-        self.analysisMethodComboBox.setCurrentText("Standard" if self.analysis_method == "standard" else "Simple")
-        self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
-        self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
-        self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
-        self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
-        self.fallbackClassificationCheckBox.setChecked(self.use_fallback_classification)  # Default
+        if hasattr(self, 'analysisMethodComboBox'):
+            self.analysisMethodComboBox.setCurrentText("Standard" if self.analysis_method == "standard" else "Simple")
+        if hasattr(self, 'mergeThinUnitsCheckBox'):
+            self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
+        if hasattr(self, 'smartInterbeddingCheckBox'):
+            self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
+        if hasattr(self, 'smartInterbeddingMaxSequenceSpinBox'):
+            self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
+        if hasattr(self, 'smartInterbeddingThickUnitSpinBox'):
+            self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
+        if hasattr(self, 'fallbackClassificationCheckBox'):
+            self.fallbackClassificationCheckBox.setChecked(self.use_fallback_classification)  # Default
 
         # Update optional widgets if they exist
         if hasattr(self, 'bitSizeSpinBox'):
