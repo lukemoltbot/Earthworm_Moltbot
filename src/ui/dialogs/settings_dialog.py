@@ -7,10 +7,10 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem, QPushButton, QHeaderView, QWidget, QLabel,
     QDoubleSpinBox, QCheckBox, QComboBox, QSpinBox, QFrame,
     QScrollArea, QGroupBox, QGridLayout, QFormLayout, QFileDialog, QMessageBox,
-    QLineEdit
+    QLineEdit, QColorDialog
 )
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QColor
 
 # Import widgets that might be needed
 # Note: We'll need to handle imports for range visualizer and other custom widgets
@@ -184,15 +184,15 @@ class SettingsDialog(QDialog):
 
         # Table for lithology rules
         self.rulesTable = QTableWidget()
-        self.rulesTable.setColumnCount(11)
+        self.rulesTable.setColumnCount(12)
         # Column indices: 
         # 0: Lithology Name, 1: Litho Code, 2: Litho Qualifier, 
         # 3: Shade, 4: Hue, 5: Colour, 6: Estimated Strength,
-        # 7: Gamma Min, 8: Gamma Max, 9: Density Min, 10: Density Max
+        # 7: Display Color, 8: Gamma Min, 9: Gamma Max, 10: Density Min, 11: Density Max
         self.rulesTable.setHorizontalHeaderLabels([
             "Lithology Name", "Litho Code", "Litho Qualifier", 
             "Shade", "Hue", "Colour", "Estimated Strength",
-            "Gamma Min", "Gamma Max", "Density Min", "Density Max"
+            "Display Color", "Gamma Min", "Gamma Max", "Density Min", "Density Max"
         ])
         self.rulesTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.rulesTable)
@@ -533,19 +533,19 @@ class SettingsDialog(QDialog):
 
             # Convert numeric fields (indices shifted due to new columns)
             try:
-                rule['gamma_min'] = float(self.rulesTable.item(row_idx, 7).text()) if self.rulesTable.item(row_idx, 7) and self.rulesTable.item(row_idx, 7).text() else 0.0
+                rule['gamma_min'] = float(self.rulesTable.item(row_idx, 8).text()) if self.rulesTable.item(row_idx, 8) and self.rulesTable.item(row_idx, 8).text() else 0.0
             except ValueError:
                 rule['gamma_min'] = 0.0
             try:
-                rule['gamma_max'] = float(self.rulesTable.item(row_idx, 8).text()) if self.rulesTable.item(row_idx, 8) and self.rulesTable.item(row_idx, 8).text() else 0.0
+                rule['gamma_max'] = float(self.rulesTable.item(row_idx, 9).text()) if self.rulesTable.item(row_idx, 9) and self.rulesTable.item(row_idx, 9).text() else 0.0
             except ValueError:
                 rule['gamma_max'] = 0.0
             try:
-                rule['density_min'] = float(self.rulesTable.item(row_idx, 9).text()) if self.rulesTable.item(row_idx, 9) and self.rulesTable.item(row_idx, 9).text() else 0.0
+                rule['density_min'] = float(self.rulesTable.item(row_idx, 10).text()) if self.rulesTable.item(row_idx, 10) and self.rulesTable.item(row_idx, 10).text() else 0.0
             except ValueError:
                 rule['density_min'] = 0.0
             try:
-                rule['density_max'] = float(self.rulesTable.item(row_idx, 10).text()) if self.rulesTable.item(row_idx, 10) and self.rulesTable.item(row_idx, 10).text() else 0.0
+                rule['density_max'] = float(self.rulesTable.item(row_idx, 11).text()) if self.rulesTable.item(row_idx, 11) and self.rulesTable.item(row_idx, 11).text() else 0.0
             except ValueError:
                 rule['density_max'] = 0.0
 
@@ -751,16 +751,26 @@ class SettingsDialog(QDialog):
                     # Set dropdown selection
                     self.update_dropdown_selection(row_position, col, value)
                 
-                # Set numeric columns (indices shifted due to new Estimated Strength column)
-                self.rulesTable.setItem(row_position, 7, QTableWidgetItem(str(rule.get('gamma_min', 0.0))))
-                self.rulesTable.setItem(row_position, 8, QTableWidgetItem(str(rule.get('gamma_max', 0.0))))
-                self.rulesTable.setItem(row_position, 9, QTableWidgetItem(str(rule.get('density_min', 0.0))))
-                self.rulesTable.setItem(row_position, 10, QTableWidgetItem(str(rule.get('density_max', 0.0))))
+                # Create color button for Display Color column (column 7)
+                background_color = rule.get('background_color', '#FFFFFF')
+                color_button = QPushButton()
+                color_button.setStyleSheet(f"background-color: {background_color}")
+                color_button.clicked.connect(lambda _, r=row_position: self.open_color_picker(r))
+                self.rulesTable.setCellWidget(row_position, 7, color_button)
+                # Create hidden item to store color value
+                self.rulesTable.setItem(row_position, 7, QTableWidgetItem(background_color))
+                
+                # Set numeric columns (indices shifted due to new Display Color column)
+                self.rulesTable.setItem(row_position, 8, QTableWidgetItem(str(rule.get('gamma_min', 0.0))))
+                self.rulesTable.setItem(row_position, 9, QTableWidgetItem(str(rule.get('gamma_max', 0.0))))
+                self.rulesTable.setItem(row_position, 10, QTableWidgetItem(str(rule.get('density_min', 0.0))))
+                self.rulesTable.setItem(row_position, 11, QTableWidgetItem(str(rule.get('density_max', 0.0))))
                 # Update qualifier dropdown based on lithology code
                 self.update_qualifier_dropdown(row_position, rule.get('code', ''))
-                # Store extra fields not represented in the table (background_color, svg_path, etc.)
+                # Store extra fields not represented in the table (svg_path, etc.)
+                # Note: background_color is now represented in column 7
                 extra = {k: v for k, v in rule.items() if k not in [
-                    'name', 'code', 'qualifier', 'shade', 'hue', 'colour', 'estimated_strength',
+                    'name', 'code', 'qualifier', 'shade', 'hue', 'colour', 'estimated_strength', 'background_color',
                     'gamma_min', 'gamma_max', 'density_min', 'density_max'
                 ]}
                 self.rule_extra_data.append(extra)
@@ -867,21 +877,33 @@ class SettingsDialog(QDialog):
                 else:
                     rule[field_name] = self.rulesTable.item(row_idx, col).text() if self.rulesTable.item(row_idx, col) else ''
 
-            # Convert numeric fields (indices shifted due to new Estimated Strength column)
+            # Get display color from color button (column 7)
+            color_button = self.rulesTable.cellWidget(row_idx, 7)
+            if color_button and isinstance(color_button, QPushButton):
+                style_sheet = color_button.styleSheet()
+                if "background-color:" in style_sheet:
+                    rule['background_color'] = style_sheet.split("background-color:")[-1].strip().split(';')[0].strip()
+                else:
+                    rule['background_color'] = "#FFFFFF"
+            else:
+                # Fallback to item text
+                rule['background_color'] = self.rulesTable.item(row_idx, 7).text() if self.rulesTable.item(row_idx, 7) else '#FFFFFF'
+
+            # Convert numeric fields (indices shifted due to new Display Color column)
             try:
-                rule['gamma_min'] = float(self.rulesTable.item(row_idx, 7).text()) if self.rulesTable.item(row_idx, 7) and self.rulesTable.item(row_idx, 7).text() else 0.0
+                rule['gamma_min'] = float(self.rulesTable.item(row_idx, 8).text()) if self.rulesTable.item(row_idx, 8) and self.rulesTable.item(row_idx, 8).text() else 0.0
             except ValueError:
                 rule['gamma_min'] = 0.0
             try:
-                rule['gamma_max'] = float(self.rulesTable.item(row_idx, 8).text()) if self.rulesTable.item(row_idx, 8) and self.rulesTable.item(row_idx, 8).text() else 0.0
+                rule['gamma_max'] = float(self.rulesTable.item(row_idx, 9).text()) if self.rulesTable.item(row_idx, 9) and self.rulesTable.item(row_idx, 9).text() else 0.0
             except ValueError:
                 rule['gamma_max'] = 0.0
             try:
-                rule['density_min'] = float(self.rulesTable.item(row_idx, 9).text()) if self.rulesTable.item(row_idx, 9) and self.rulesTable.item(row_idx, 9).text() else 0.0
+                rule['density_min'] = float(self.rulesTable.item(row_idx, 10).text()) if self.rulesTable.item(row_idx, 10) and self.rulesTable.item(row_idx, 10).text() else 0.0
             except ValueError:
                 rule['density_min'] = 0.0
             try:
-                rule['density_max'] = float(self.rulesTable.item(row_idx, 10).text()) if self.rulesTable.item(row_idx, 10) and self.rulesTable.item(row_idx, 10).text() else 0.0
+                rule['density_max'] = float(self.rulesTable.item(row_idx, 11).text()) if self.rulesTable.item(row_idx, 11) and self.rulesTable.item(row_idx, 11).text() else 0.0
             except ValueError:
                 rule['density_max'] = 0.0
 
@@ -970,6 +992,33 @@ class SettingsDialog(QDialog):
         else:
             item.setText(value)
 
+    def open_color_picker(self, row):
+        """Open color picker dialog for display color selection."""
+        # Column 7: Display Color button
+        button = self.rulesTable.cellWidget(row, 7)
+        if not button:
+            return
+            
+        # Get current color from button style
+        style_sheet = button.styleSheet()
+        color_hex = "#FFFFFF"  # Default
+        if "background-color:" in style_sheet:
+            color_hex = style_sheet.split("background-color:")[-1].strip().split(';')[0].strip()
+        
+        initial_color = QColor(color_hex)
+        color = QColorDialog.getColor(initial_color, self)
+        
+        if color.isValid():
+            # Update button appearance
+            button.setStyleSheet(f"background-color: {color.name()}")
+            # Update stored value in table item
+            item = self.rulesTable.item(row, 7)
+            if not item:
+                item = QTableWidgetItem(color.name())
+                self.rulesTable.setItem(row, 7, item)
+            else:
+                item.setText(color.name())
+
     def update_dropdown_selection(self, row, column, value):
         """Update dropdown selection based on stored value."""
         widget = self.rulesTable.cellWidget(row, column)
@@ -1007,8 +1056,16 @@ class SettingsDialog(QDialog):
             # Create hidden item to store value
             self.rulesTable.setItem(row_position, col, QTableWidgetItem(""))
         
-        # Create items for numeric columns
-        for col in range(7, 11):  # Gamma Min to Density Max
+        # Create color button for Display Color column (column 7)
+        color_button = QPushButton()
+        color_button.setStyleSheet("background-color: #FFFFFF")
+        color_button.clicked.connect(lambda _, r=row_position: self.open_color_picker(r))
+        self.rulesTable.setCellWidget(row_position, 7, color_button)
+        # Create hidden item to store color value
+        self.rulesTable.setItem(row_position, 7, QTableWidgetItem("#FFFFFF"))
+        
+        # Create items for numeric columns (indices shifted due to new Display Color column)
+        for col in range(8, 12):  # Gamma Min to Density Max
             self.rulesTable.setItem(row_position, col, QTableWidgetItem(""))
         
         # Add empty extra fields dict for this row
