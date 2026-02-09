@@ -1456,20 +1456,8 @@ class MainWindow(QMainWindow):
 
     # Tab widget removed in MDI refactoring - method kept for compatibility
 
-    def toggle_interbedding_params_visibility(self):
-        """Show/hide smart interbedding parameters based on checkbox state."""
-        if not hasattr(self, 'smartInterbeddingCheckBox'):
-            return
-        visible = self.smartInterbeddingCheckBox.isChecked()
-        if hasattr(self, 'interbedding_params_widget'):
-            self.interbedding_params_widget.setVisible(visible)
-
-    def toggle_casing_depth_input(self):
-        """Enable/disable casing depth input based on checkbox state."""
-        if not hasattr(self, 'casingDepthEnabledCheckBox') or not hasattr(self, 'casingDepthSpinBox'):
-            return
-        enabled = self.casingDepthEnabledCheckBox.isChecked()
-        self.casingDepthSpinBox.setEnabled(enabled)
+    # Methods removed - settings UI widgets only exist in SettingsDialog
+    # toggle_interbedding_params_visibility() and toggle_casing_depth_input() were part of removed settings dock
 
     def on_curve_visibility_changed(self):
         """Handle curve visibility checkbox state changes."""
@@ -1534,29 +1522,8 @@ class MainWindow(QMainWindow):
             self.load_curve_thickness_settings()
             self.load_curve_inversion_settings()
             # use_researched_defaults is already set to False above
-            if hasattr(self, 'analysisMethodComboBox'):
-                self.analysisMethodComboBox.setCurrentText("Standard")
-            if hasattr(self, 'mergeThinUnitsCheckBox'):
-                self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
-            if hasattr(self, 'smartInterbeddingCheckBox'):
-                self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
-            if hasattr(self, 'smartInterbeddingMaxSequenceSpinBox'):
-                self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
-            if hasattr(self, 'smartInterbeddingThickUnitSpinBox'):
-                self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
-            if hasattr(self, 'fallbackClassificationCheckBox'):
-                self.fallbackClassificationCheckBox.setChecked(self.use_fallback_classification)
-            if hasattr(self, 'bitSizeSpinBox'):
-                self.bitSizeSpinBox.setValue(self.bit_size_mm)
-            if hasattr(self, 'showAnomalyHighlightsCheckBox'):
-                self.showAnomalyHighlightsCheckBox.setChecked(self.show_anomaly_highlights)
-            if hasattr(self, 'casingDepthEnabledCheckBox'):
-                self.casingDepthEnabledCheckBox.setChecked(self.casing_depth_enabled)
-                if hasattr(self, 'casingDepthSpinBox'):
-                    self.casingDepthSpinBox.setValue(self.casing_depth_m)
-                self.casingDepthSpinBox.setEnabled(self.casing_depth_enabled)
-            # Hide interbedding params if needed
-            self.interbedding_params_widget.setVisible(self.smart_interbedding)
+            # Note: Settings UI widgets (checkboxes, spinboxes, comboboxes) only exist in SettingsDialog
+            # The values are stored in attributes and will be used when SettingsDialog is opened
             # Save defaults
             self.update_settings(auto_save=True)
             # Clear the dirty flag since settings have been reset
@@ -1605,29 +1572,8 @@ class MainWindow(QMainWindow):
 
         # Update other UI widgets that don't have helper methods
         # use_researched_defaults is managed as an attribute, not a UI widget in main window
-        if hasattr(self, 'analysisMethodComboBox'):
-            self.analysisMethodComboBox.setCurrentText("Standard" if self.analysis_method == "standard" else "Simple")
-        if hasattr(self, 'mergeThinUnitsCheckBox'):
-            self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
-        if hasattr(self, 'smartInterbeddingCheckBox'):
-            self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
-        if hasattr(self, 'smartInterbeddingMaxSequenceSpinBox'):
-            self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
-        if hasattr(self, 'smartInterbeddingThickUnitSpinBox'):
-            self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
-        if hasattr(self, 'fallbackClassificationCheckBox'):
-            self.fallbackClassificationCheckBox.setChecked(self.use_fallback_classification)  # Default
-
-        # Update optional widgets if they exist
-        if hasattr(self, 'bitSizeSpinBox'):
-            self.bitSizeSpinBox.setValue(self.bit_size_mm)
-        if hasattr(self, 'showAnomalyHighlightsCheckBox'):
-            self.showAnomalyHighlightsCheckBox.setChecked(self.show_anomaly_highlights)
-        if hasattr(self, 'casingDepthEnabledCheckBox'):
-            self.casingDepthEnabledCheckBox.setChecked(self.casing_depth_enabled)
-            if hasattr(self, 'casingDepthSpinBox'):
-                self.casingDepthSpinBox.setValue(self.casing_depth_m)
-                self.casingDepthSpinBox.setEnabled(self.casing_depth_enabled)
+        # Note: Settings UI widgets (checkboxes, spinboxes, comboboxes) only exist in SettingsDialog
+        # The values are stored in attributes and will be used when SettingsDialog is opened
 
         # Clear dirty flag and update button text
         self.settings_dirty = False
@@ -1640,36 +1586,33 @@ class MainWindow(QMainWindow):
             try:
                 # Ensure current UI settings are reflected in self.lithology_rules before saving
                 self.save_settings_rules_from_table(show_message=False)
-                current_separator_thickness = self.separatorThicknessSpinBox.value() if hasattr(self, 'separatorThicknessSpinBox') else self.initial_separator_thickness
-                current_draw_separators = self.drawSeparatorsCheckBox.isChecked() if hasattr(self, 'drawSeparatorsCheckBox') else self.initial_draw_separators
-                current_curve_thickness = self.curveThicknessSpinBox.value() if hasattr(self, 'curveThicknessSpinBox') else self.initial_curve_thickness # Get new setting
-                current_curve_inversion_settings = {
-                    'gamma': self.invertGammaCheckBox.isChecked() if hasattr(self, 'invertGammaCheckBox') else self.initial_curve_inversion_settings.get('gamma', False),
-                    'short_space_density': self.invertShortSpaceDensityCheckBox.isChecked() if hasattr(self, 'invertShortSpaceDensityCheckBox') else self.initial_curve_inversion_settings.get('short_space_density', False),
-                    'long_space_density': self.invertLongSpaceDensityCheckBox.isChecked() if hasattr(self, 'invertLongSpaceDensityCheckBox') else self.initial_curve_inversion_settings.get('long_space_density', False)
-                }
+                # Settings UI widgets only exist in SettingsDialog, use attribute values directly
+                current_separator_thickness = self.initial_separator_thickness
+                current_draw_separators = self.initial_draw_separators
+                current_curve_thickness = self.initial_curve_thickness
+                current_curve_inversion_settings = self.initial_curve_inversion_settings
 
                 # Get current value of researched defaults setting
                 current_use_researched_defaults = self.use_researched_defaults
 
                 # Get current analysis method
-                current_analysis_method = self.analysisMethodComboBox.currentText().lower() if hasattr(self, 'analysisMethodComboBox') else self.analysis_method
+                current_analysis_method = self.analysis_method
 
                 # Get current merge settings
-                current_merge_thin_units = self.mergeThinUnitsCheckBox.isChecked()
+                current_merge_thin_units = self.merge_thin_units
                 current_merge_threshold = self.merge_threshold  # Keep the loaded threshold
 
                 # Get current smart interbedding settings
-                current_smart_interbedding = self.smartInterbeddingCheckBox.isChecked()
-                current_smart_interbedding_max_sequence = self.smartInterbeddingMaxSequenceSpinBox.value()
-                current_smart_interbedding_thick_unit = self.smartInterbeddingThickUnitSpinBox.value()
-                current_fallback_classification = self.fallbackClassificationCheckBox.isChecked()
+                current_smart_interbedding = self.smart_interbedding
+                current_smart_interbedding_max_sequence = self.smart_interbedding_max_sequence_length
+                current_smart_interbedding_thick_unit = self.smart_interbedding_thick_unit_threshold
+                current_fallback_classification = self.use_fallback_classification
 
                 # Get current bit size
-                current_bit_size_mm = self.bitSizeSpinBox.value() if hasattr(self, 'bitSizeSpinBox') else self.bit_size_mm
+                current_bit_size_mm = self.bit_size_mm
 
                 # Get current anomaly highlights setting
-                current_show_anomaly_highlights = self.showAnomalyHighlightsCheckBox.isChecked() if hasattr(self, 'showAnomalyHighlightsCheckBox') else self.show_anomaly_highlights
+                current_show_anomaly_highlights = self.show_anomaly_highlights
 
                 # Get current casing depth settings
                 current_casing_depth_enabled = self.casingDepthEnabledCheckBox.isChecked() if hasattr(self, 'casingDepthEnabledCheckBox') else self.casing_depth_enabled
@@ -1824,13 +1767,8 @@ class MainWindow(QMainWindow):
             f"Template '{template.name}' has been applied.\n\n"
             f"Lithology rules and settings have been updated."
         )
-        self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
-        self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
-        self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
-        self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
-        self.fallbackClassificationCheckBox.setChecked(self.use_fallback_classification)
-        if hasattr(self, 'bitSizeSpinBox'):
-            self.bitSizeSpinBox.setValue(self.bit_size_mm)
+        # Note: Settings UI widgets only exist in SettingsDialog
+        # The values are stored in attributes and will be used when SettingsDialog is opened
         # Refresh range visualization
         self.refresh_range_visualization()
         # Save to disk
@@ -1841,18 +1779,15 @@ class MainWindow(QMainWindow):
         # It gathers all current settings and saves them to the default settings file
         self.save_settings_rules_from_table(show_message=False) # Save rules first
 
-        current_separator_thickness = self.separatorThicknessSpinBox.value() if hasattr(self, 'separatorThicknessSpinBox') else self.initial_separator_thickness
-        current_draw_separators = self.drawSeparatorsCheckBox.isChecked() if hasattr(self, 'drawSeparatorsCheckBox') else self.initial_draw_separators
-        current_curve_thickness = self.curveThicknessSpinBox.value() if hasattr(self, 'curveThicknessSpinBox') else self.initial_curve_thickness # Get new setting
-        current_curve_inversion_settings = {
-            'gamma': self.invertGammaCheckBox.isChecked() if hasattr(self, 'invertGammaCheckBox') else self.initial_curve_inversion_settings.get('gamma', False),
-            'short_space_density': self.invertShortSpaceDensityCheckBox.isChecked() if hasattr(self, 'invertShortSpaceDensityCheckBox') else self.initial_curve_inversion_settings.get('short_space_density', False),
-            'long_space_density': self.invertLongSpaceDensityCheckBox.isChecked() if hasattr(self, 'invertLongSpaceDensityCheckBox') else self.initial_curve_inversion_settings.get('long_space_density', False)
-        }
+        # Settings UI widgets only exist in SettingsDialog, use attribute values directly
+        current_separator_thickness = self.initial_separator_thickness
+        current_draw_separators = self.initial_draw_separators
+        current_curve_thickness = self.initial_curve_thickness
+        current_curve_inversion_settings = self.initial_curve_inversion_settings
 
         current_use_researched_defaults = self.use_researched_defaults
-        current_analysis_method = self.analysisMethodComboBox.currentText().lower() if hasattr(self, 'analysisMethodComboBox') else self.analysis_method
-        current_merge_thin_units = self.mergeThinUnitsCheckBox.isChecked() if hasattr(self, 'mergeThinUnitsCheckBox') else self.merge_thin_units
+        current_analysis_method = self.analysis_method
+        current_merge_thin_units = self.merge_thin_units
         current_merge_threshold = self.merge_threshold  # Keep the loaded threshold
         current_smart_interbedding = self.smartInterbeddingCheckBox.isChecked() if hasattr(self, 'smartInterbeddingCheckBox') else self.smart_interbedding
         current_smart_interbedding_max_sequence = self.smartInterbeddingMaxSequenceSpinBox.value() if hasattr(self, 'smartInterbeddingMaxSequenceSpinBox') else self.smart_interbedding_max_sequence_length
@@ -1921,28 +1856,15 @@ class MainWindow(QMainWindow):
             self.use_researched_defaults = app_settings["use_researched_defaults"]
             # useResearchedDefaultsCheckBox only exists in SettingsDialog, not MainWindow
             self.analysis_method = app_settings.get("analysis_method", "standard")
-            if hasattr(self, 'analysisMethodComboBox'):
-                if self.analysis_method == "simple":
-                    self.analysisMethodComboBox.setCurrentText("Simple")
-                else:
-                    self.analysisMethodComboBox.setCurrentText("Standard")
             self.bit_size_mm = app_settings.get("bit_size_mm", 150.0)
-            if hasattr(self, 'bitSizeSpinBox'):
-                self.bitSizeSpinBox.setValue(self.bit_size_mm)
             self.casing_depth_enabled = app_settings.get("casing_depth_enabled", False)
             self.casing_depth_m = app_settings.get("casing_depth_m", 0.0)
-            if hasattr(self, 'casingDepthEnabledCheckBox'):
-                self.casingDepthEnabledCheckBox.setChecked(self.casing_depth_enabled)
-                self.casingDepthSpinBox.setValue(self.casing_depth_m)
-                self.casingDepthSpinBox.setEnabled(self.casing_depth_enabled)
             self.load_settings_rules_to_table()
             self.load_separator_settings()
             self.load_curve_thickness_settings() # Reload new setting
             self.load_curve_inversion_settings()
-            # Update smart interbedding UI elements to reflect reloaded settings
-            self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
-            self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
-            self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
+            # Note: Settings UI widgets only exist in SettingsDialog
+            # The values are stored in attributes and will be used when SettingsDialog is opened
 
 
     def load_settings_from_file(self):
@@ -1979,27 +1901,8 @@ class MainWindow(QMainWindow):
 
                 # Update UI controls
                 # useResearchedDefaultsCheckBox only exists in SettingsDialog, not MainWindow
-                if hasattr(self, 'analysisMethodComboBox'):
-                    self.analysisMethodComboBox.setCurrentText("Standard" if self.analysis_method == "standard" else "Simple")
-                if hasattr(self, 'mergeThinUnitsCheckBox'):
-                    self.mergeThinUnitsCheckBox.setChecked(self.merge_thin_units)
-                if hasattr(self, 'smartInterbeddingCheckBox'):
-                    self.smartInterbeddingCheckBox.setChecked(self.smart_interbedding)
-                if hasattr(self, 'smartInterbeddingMaxSequenceSpinBox'):
-                    self.smartInterbeddingMaxSequenceSpinBox.setValue(self.smart_interbedding_max_sequence_length)
-                if hasattr(self, 'smartInterbeddingThickUnitSpinBox'):
-                    self.smartInterbeddingThickUnitSpinBox.setValue(self.smart_interbedding_thick_unit_threshold)
-                if hasattr(self, 'fallbackClassificationCheckBox'):
-                    self.fallbackClassificationCheckBox.setChecked(self.use_fallback_classification)
-                if hasattr(self, 'bitSizeSpinBox'):
-                    self.bitSizeSpinBox.setValue(self.bit_size_mm)
-                if hasattr(self, 'showAnomalyHighlightsCheckBox'):
-                    self.showAnomalyHighlightsCheckBox.setChecked(self.show_anomaly_highlights)
-                if hasattr(self, 'casingDepthEnabledCheckBox'):
-                    self.casingDepthEnabledCheckBox.setChecked(self.casing_depth_enabled)
-                    if hasattr(self, 'casingDepthSpinBox'):
-                        self.casingDepthSpinBox.setValue(self.casing_depth_m)
-                        self.casingDepthSpinBox.setEnabled(self.casing_depth_enabled)
+                # Note: Settings UI widgets only exist in SettingsDialog
+                # The values are stored in attributes and will be used when SettingsDialog is opened
                 self.apply_column_visibility(self.column_visibility)
 
                 self.load_settings_rules_to_table()
@@ -2021,31 +1924,31 @@ class MainWindow(QMainWindow):
 
     def update_plotter_bit_size(self):
         """Update plotter with current bit size for anomaly detection."""
-        if hasattr(self, 'bitSizeSpinBox'):
-            bit_size_mm = self.bitSizeSpinBox.value()
-            # Update plotter if it exists
-            if hasattr(self, 'curvePlotter') and hasattr(self.curvePlotter, 'set_bit_size'):
-                self.curvePlotter.set_bit_size(bit_size_mm)
-            # Also update any hole editor plotters
-            if hasattr(self, 'mdi_area'):
-                for subwindow in self.mdi_area.subWindowList():
-                    widget = subwindow.widget()
-                    if hasattr(widget, 'curvePlotter') and hasattr(widget.curvePlotter, 'set_bit_size'):
-                        widget.curvePlotter.set_bit_size(bit_size_mm)
+        # Settings UI widgets only exist in SettingsDialog, use attribute value directly
+        bit_size_mm = self.bit_size_mm
+        # Update plotter if it exists
+        if hasattr(self, 'curvePlotter') and hasattr(self.curvePlotter, 'set_bit_size'):
+            self.curvePlotter.set_bit_size(bit_size_mm)
+        # Also update any hole editor plotters
+        if hasattr(self, 'mdi_area'):
+            for subwindow in self.mdi_area.subWindowList():
+                widget = subwindow.widget()
+                if hasattr(widget, 'curvePlotter') and hasattr(widget.curvePlotter, 'set_bit_size'):
+                    widget.curvePlotter.set_bit_size(bit_size_mm)
 
     def update_plotter_anomaly_visibility(self):
         """Update plotter with current anomaly visibility setting."""
-        if hasattr(self, 'showAnomalyHighlightsCheckBox'):
-            show_anomaly = self.showAnomalyHighlightsCheckBox.isChecked()
-            # Update plotter if it exists and has the method
-            if hasattr(self, 'curvePlotter') and hasattr(self.curvePlotter, 'set_anomaly_highlight_visible'):
-                self.curvePlotter.set_anomaly_highlight_visible(show_anomaly)
-            # Also update any hole editor plotters
-            if hasattr(self, 'mdi_area'):
-                for subwindow in self.mdi_area.subWindowList():
-                    widget = subwindow.widget()
-                    if hasattr(widget, 'curvePlotter') and hasattr(widget.curvePlotter, 'set_anomaly_highlight_visible'):
-                        widget.curvePlotter.set_anomaly_highlight_visible(show_anomaly)
+        # Settings UI widgets only exist in SettingsDialog, use attribute value directly
+        show_anomaly = self.show_anomaly_highlights
+        # Update plotter if it exists and has the method
+        if hasattr(self, 'curvePlotter') and hasattr(self.curvePlotter, 'set_anomaly_highlight_visible'):
+            self.curvePlotter.set_anomaly_highlight_visible(show_anomaly)
+        # Also update any hole editor plotters
+        if hasattr(self, 'mdi_area'):
+            for subwindow in self.mdi_area.subWindowList():
+                widget = subwindow.widget()
+                if hasattr(widget, 'curvePlotter') and hasattr(widget.curvePlotter, 'set_anomaly_highlight_visible'):
+                    widget.curvePlotter.set_anomaly_highlight_visible(show_anomaly)
 
     def closeEvent(self, event):
         # Save window geometry and settings automatically when the application closes
@@ -2547,12 +2450,11 @@ class MainWindow(QMainWindow):
 
         self.thread = QThread()
         # Pass mnemonic_map to the Worker
-        use_fallback_classification = self.fallbackClassificationCheckBox.isChecked()
-        # Get current analysis method from UI or stored attribute
-        analysis_method = self.analysisMethodComboBox.currentText().lower() if hasattr(self, 'analysisMethodComboBox') else self.analysis_method
-        # Get current casing depth settings from UI or stored attributes
-        casing_depth_enabled = self.casingDepthEnabledCheckBox.isChecked() if hasattr(self, 'casingDepthEnabledCheckBox') else self.casing_depth_enabled
-        casing_depth_m = self.casingDepthSpinBox.value() if hasattr(self, 'casingDepthSpinBox') else self.casing_depth_m
+        # Settings UI widgets only exist in SettingsDialog, use attribute values directly
+        use_fallback_classification = self.use_fallback_classification
+        analysis_method = self.analysis_method
+        casing_depth_enabled = self.casing_depth_enabled
+        casing_depth_m = self.casing_depth_m
 
         self.worker = Worker(self.las_file_path, mnemonic_map, self.lithology_rules, self.use_researched_defaults, self.merge_thin_units, self.merge_threshold, self.smart_interbedding, self.smart_interbedding_max_sequence_length, self.smart_interbedding_thick_unit_threshold, use_fallback_classification, analysis_method, casing_depth_enabled, casing_depth_m)
         self.worker.moveToThread(self.thread)
@@ -3224,8 +3126,9 @@ class MainWindow(QMainWindow):
 
         # Update stratigraphic column
         if hasattr(self, 'stratigraphicColumnView'):
-            separator_thickness = self.separatorThicknessSpinBox.value() if hasattr(self, 'separatorThicknessSpinBox') else self.initial_separator_thickness
-            draw_separators = self.drawSeparatorsCheckBox.isChecked() if hasattr(self, 'drawSeparatorsCheckBox') else self.initial_draw_separators
+            # Settings UI widgets only exist in SettingsDialog, use attribute values directly
+            separator_thickness = self.initial_separator_thickness
+            draw_separators = self.initial_draw_separators
             if self.last_classified_dataframe is not None:
                 min_depth = self.last_classified_dataframe[DEPTH_COLUMN].min()
                 max_depth = self.last_classified_dataframe[DEPTH_COLUMN].max()
@@ -3314,9 +3217,9 @@ class MainWindow(QMainWindow):
 
     def _finalize_analysis_display(self, units_dataframe, classified_dataframe):
         """Finalize the analysis display after all processing is complete."""
-        # Get separator settings from UI controls
-        separator_thickness = self.separatorThicknessSpinBox.value() if hasattr(self, 'separatorThicknessSpinBox') else self.initial_separator_thickness
-        draw_separators = self.drawSeparatorsCheckBox.isChecked() if hasattr(self, 'drawSeparatorsCheckBox') else self.initial_draw_separators
+        # Settings UI widgets only exist in SettingsDialog, use attribute values directly
+        separator_thickness = self.initial_separator_thickness
+        draw_separators = self.initial_draw_separators
 
         # Calculate overall min and max depth from the classified_dataframe
         # This ensures both plots use the same consistent depth scale
@@ -3328,12 +3231,8 @@ class MainWindow(QMainWindow):
 
         # Prepare curve configurations for the single CurvePlotter
         curve_configs = []
-        curve_inversion_settings = {
-            'gamma': self.invertGammaCheckBox.isChecked() if hasattr(self, 'invertGammaCheckBox') else self.initial_curve_inversion_settings.get('gamma', False),
-            'short_space_density': self.invertShortSpaceDensityCheckBox.isChecked() if hasattr(self, 'invertShortSpaceDensityCheckBox') else self.initial_curve_inversion_settings.get('short_space_density', False),
-            'long_space_density': self.invertLongSpaceDensityCheckBox.isChecked() if hasattr(self, 'invertLongSpaceDensityCheckBox') else self.initial_curve_inversion_settings.get('long_space_density', False)
-        }
-        current_curve_thickness = self.curveThicknessSpinBox.value() if hasattr(self, 'curveThicknessSpinBox') else self.initial_curve_thickness
+        curve_inversion_settings = self.initial_curve_inversion_settings
+        current_curve_thickness = self.initial_curve_thickness
 
         if 'gamma' in classified_dataframe.columns:
             curve_configs.append({
@@ -3370,7 +3269,8 @@ class MainWindow(QMainWindow):
 
         # Set bit size for anomaly detection
         if hasattr(self.curvePlotter, 'set_bit_size'):
-            current_bit_size_mm = self.bitSizeSpinBox.value() if hasattr(self, 'bitSizeSpinBox') else self.bit_size_mm
+            # Settings UI widgets only exist in SettingsDialog, use attribute value directly
+            current_bit_size_mm = self.bit_size_mm
             self.curvePlotter.set_bit_size(current_bit_size_mm)
 
         # Use 37-column schema for editor display
