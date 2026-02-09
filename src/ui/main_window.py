@@ -1640,20 +1640,20 @@ class MainWindow(QMainWindow):
             try:
                 # Ensure current UI settings are reflected in self.lithology_rules before saving
                 self.save_settings_rules_from_table(show_message=False)
-                current_separator_thickness = self.separatorThicknessSpinBox.value()
-                current_draw_separators = self.drawSeparatorsCheckBox.isChecked()
-                current_curve_thickness = self.curveThicknessSpinBox.value() # Get new setting
+                current_separator_thickness = self.separatorThicknessSpinBox.value() if hasattr(self, 'separatorThicknessSpinBox') else self.initial_separator_thickness
+                current_draw_separators = self.drawSeparatorsCheckBox.isChecked() if hasattr(self, 'drawSeparatorsCheckBox') else self.initial_draw_separators
+                current_curve_thickness = self.curveThicknessSpinBox.value() if hasattr(self, 'curveThicknessSpinBox') else self.initial_curve_thickness # Get new setting
                 current_curve_inversion_settings = {
-                    'gamma': self.invertGammaCheckBox.isChecked(),
-                    'short_space_density': self.invertShortSpaceDensityCheckBox.isChecked(),
-                    'long_space_density': self.invertLongSpaceDensityCheckBox.isChecked()
+                    'gamma': self.invertGammaCheckBox.isChecked() if hasattr(self, 'invertGammaCheckBox') else self.initial_curve_inversion_settings.get('gamma', False),
+                    'short_space_density': self.invertShortSpaceDensityCheckBox.isChecked() if hasattr(self, 'invertShortSpaceDensityCheckBox') else self.initial_curve_inversion_settings.get('short_space_density', False),
+                    'long_space_density': self.invertLongSpaceDensityCheckBox.isChecked() if hasattr(self, 'invertLongSpaceDensityCheckBox') else self.initial_curve_inversion_settings.get('long_space_density', False)
                 }
 
                 # Get current value of researched defaults setting
                 current_use_researched_defaults = self.use_researched_defaults
 
                 # Get current analysis method
-                current_analysis_method = self.analysisMethodComboBox.currentText().lower()
+                current_analysis_method = self.analysisMethodComboBox.currentText().lower() if hasattr(self, 'analysisMethodComboBox') else self.analysis_method
 
                 # Get current merge settings
                 current_merge_thin_units = self.mergeThinUnitsCheckBox.isChecked()
@@ -1841,13 +1841,13 @@ class MainWindow(QMainWindow):
         # It gathers all current settings and saves them to the default settings file
         self.save_settings_rules_from_table(show_message=False) # Save rules first
 
-        current_separator_thickness = self.separatorThicknessSpinBox.value()
-        current_draw_separators = self.drawSeparatorsCheckBox.isChecked()
-        current_curve_thickness = self.curveThicknessSpinBox.value() # Get new setting
+        current_separator_thickness = self.separatorThicknessSpinBox.value() if hasattr(self, 'separatorThicknessSpinBox') else self.initial_separator_thickness
+        current_draw_separators = self.drawSeparatorsCheckBox.isChecked() if hasattr(self, 'drawSeparatorsCheckBox') else self.initial_draw_separators
+        current_curve_thickness = self.curveThicknessSpinBox.value() if hasattr(self, 'curveThicknessSpinBox') else self.initial_curve_thickness # Get new setting
         current_curve_inversion_settings = {
-            'gamma': self.invertGammaCheckBox.isChecked(),
-            'short_space_density': self.invertShortSpaceDensityCheckBox.isChecked(),
-            'long_space_density': self.invertLongSpaceDensityCheckBox.isChecked()
+            'gamma': self.invertGammaCheckBox.isChecked() if hasattr(self, 'invertGammaCheckBox') else self.initial_curve_inversion_settings.get('gamma', False),
+            'short_space_density': self.invertShortSpaceDensityCheckBox.isChecked() if hasattr(self, 'invertShortSpaceDensityCheckBox') else self.initial_curve_inversion_settings.get('short_space_density', False),
+            'long_space_density': self.invertLongSpaceDensityCheckBox.isChecked() if hasattr(self, 'invertLongSpaceDensityCheckBox') else self.initial_curve_inversion_settings.get('long_space_density', False)
         }
 
         current_use_researched_defaults = self.use_researched_defaults
@@ -3224,8 +3224,8 @@ class MainWindow(QMainWindow):
 
         # Update stratigraphic column
         if hasattr(self, 'stratigraphicColumnView'):
-            separator_thickness = self.separatorThicknessSpinBox.value()
-            draw_separators = self.drawSeparatorsCheckBox.isChecked()
+            separator_thickness = self.separatorThicknessSpinBox.value() if hasattr(self, 'separatorThicknessSpinBox') else self.initial_separator_thickness
+            draw_separators = self.drawSeparatorsCheckBox.isChecked() if hasattr(self, 'drawSeparatorsCheckBox') else self.initial_draw_separators
             if self.last_classified_dataframe is not None:
                 min_depth = self.last_classified_dataframe[DEPTH_COLUMN].min()
                 max_depth = self.last_classified_dataframe[DEPTH_COLUMN].max()
@@ -3315,8 +3315,8 @@ class MainWindow(QMainWindow):
     def _finalize_analysis_display(self, units_dataframe, classified_dataframe):
         """Finalize the analysis display after all processing is complete."""
         # Get separator settings from UI controls
-        separator_thickness = self.separatorThicknessSpinBox.value()
-        draw_separators = self.drawSeparatorsCheckBox.isChecked()
+        separator_thickness = self.separatorThicknessSpinBox.value() if hasattr(self, 'separatorThicknessSpinBox') else self.initial_separator_thickness
+        draw_separators = self.drawSeparatorsCheckBox.isChecked() if hasattr(self, 'drawSeparatorsCheckBox') else self.initial_draw_separators
 
         # Calculate overall min and max depth from the classified_dataframe
         # This ensures both plots use the same consistent depth scale
@@ -3329,11 +3329,11 @@ class MainWindow(QMainWindow):
         # Prepare curve configurations for the single CurvePlotter
         curve_configs = []
         curve_inversion_settings = {
-            'gamma': self.invertGammaCheckBox.isChecked(),
-            'short_space_density': self.invertShortSpaceDensityCheckBox.isChecked(),
-            'long_space_density': self.invertLongSpaceDensityCheckBox.isChecked()
+            'gamma': self.invertGammaCheckBox.isChecked() if hasattr(self, 'invertGammaCheckBox') else self.initial_curve_inversion_settings.get('gamma', False),
+            'short_space_density': self.invertShortSpaceDensityCheckBox.isChecked() if hasattr(self, 'invertShortSpaceDensityCheckBox') else self.initial_curve_inversion_settings.get('short_space_density', False),
+            'long_space_density': self.invertLongSpaceDensityCheckBox.isChecked() if hasattr(self, 'invertLongSpaceDensityCheckBox') else self.initial_curve_inversion_settings.get('long_space_density', False)
         }
-        current_curve_thickness = self.curveThicknessSpinBox.value()
+        current_curve_thickness = self.curveThicknessSpinBox.value() if hasattr(self, 'curveThicknessSpinBox') else self.initial_curve_thickness
 
         if 'gamma' in classified_dataframe.columns:
             curve_configs.append({
