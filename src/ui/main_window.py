@@ -2073,69 +2073,9 @@ class MainWindow(QMainWindow):
         pass # No automatic saving on tab change anymore
 
     def load_settings_rules_to_table(self):
-        self.settings_rules_table.setRowCount(len(self.lithology_rules))
-        for row_idx, rule in enumerate(self.lithology_rules):
-            # Column 0: Name (editable text)
-            name_item = QTableWidgetItem(rule.get('name', ''))
-            self.settings_rules_table.setItem(row_idx, 0, name_item)
-            # No need for connections; cellChanged signal will handle updates
-
-            # Column 1: Code (read-only QLabel)
-            self.settings_rules_table.setItem(row_idx, 1, QTableWidgetItem(str(rule.get('code', ''))))
-            self.settings_rules_table.item(row_idx, 1).setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
-
-            # Column 2: Qualifier (QComboBox)
-            qual_combo = QComboBox()
-            qual_combo.setEditable(True)  # Allow showing code only after selection
-            self.settings_rules_table.setCellWidget(row_idx, 2, qual_combo)
-            qual_combo.currentTextChanged.connect(self.mark_settings_dirty)  # Mark as dirty when changed
-            # Populate qualifier dropdown based on lithology name and set saved qualifier
-            self.update_qualifier_dropdown(row_idx, rule.get('name', ''), rule.get('qualifier', ''))
-
-            # Column 3: Gamma Range (CompactRangeWidget)
-            gamma_widget = CompactRangeWidget()
-            gamma_widget.set_values(rule.get('gamma_min', 0.0), rule.get('gamma_max', 0.0))
-            gamma_widget.valuesChanged.connect(lambda min_val, max_val, r=row_idx: self.update_range_values(r, 'gamma', min_val, max_val))
-            gamma_widget.valuesChanged.connect(self.mark_settings_dirty)  # Mark as dirty when changed
-            self.settings_rules_table.setCellWidget(row_idx, 3, gamma_widget)
-
-            # Column 4: Density Range (CompactRangeWidget)
-            density_widget = CompactRangeWidget()
-            density_widget.set_values(rule.get('density_min', 0.0), rule.get('density_max', 0.0))
-            density_widget.valuesChanged.connect(lambda min_val, max_val, r=row_idx: self.update_range_values(r, 'density', min_val, max_val))
-            density_widget.valuesChanged.connect(self.mark_settings_dirty)  # Mark as dirty when changed
-            self.settings_rules_table.setCellWidget(row_idx, 4, density_widget)
-
-            # Column 5: Visual Props (MultiAttributeWidget)
-            visual_widget = MultiAttributeWidget(coallog_data=self.coallog_data)
-            visual_widget.set_properties({
-                'shade': rule.get('shade', ''),
-                'hue': rule.get('hue', ''),
-                'colour': rule.get('colour', ''),
-                'weathering': rule.get('weathering', ''),
-                'strength': rule.get('strength', '')
-            })
-            visual_widget.propertiesChanged.connect(lambda props, r=row_idx: self.update_visual_properties(r, props))
-            visual_widget.propertiesChanged.connect(self.mark_settings_dirty)  # Mark as dirty when changed
-            self.settings_rules_table.setCellWidget(row_idx, 5, visual_widget)
-
-            # Column 6: Background (QPushButton for color picker)
-            color_button = QPushButton()
-            color_hex = rule.get('background_color', '#FFFFFF')
-            color_button.setStyleSheet(f"background-color: {color_hex}")
-            color_button.clicked.connect(lambda _, r=row_idx: self.open_color_picker(r))
-            self.settings_rules_table.setCellWidget(row_idx, 6, color_button)
-
-            # Column 7: Preview (EnhancedPatternPreview)
-            preview_widget = EnhancedPatternPreview()
-            self.settings_rules_table.setCellWidget(row_idx, 7, preview_widget)
-            self.update_rule_preview(row_idx)
-
-            # Column 8: Actions (QWidget with buttons)
-            actions_widget = self.create_actions_widget(row_idx)
-            self.settings_rules_table.setCellWidget(row_idx, 8, actions_widget)
-
-#
+        """Settings dock removed - lithology rules are managed by SettingsDialog."""
+        # No-op: rules are already stored in self.lithology_rules
+        pass
 
     def save_settings_rules_from_table(self, show_message=True):
         """Settings dock removed - lithology rules are managed by SettingsDialog."""
