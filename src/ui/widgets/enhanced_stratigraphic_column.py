@@ -35,13 +35,13 @@ class HoverRectItem(QGraphicsRectItem):
         """Handle hover enter event."""
         if self.parent_widget:
             self.parent_widget._on_unit_hover_enter(event, self.unit_index)
-        # Don't call super() to prevent any default behavior that might interfere
+        super().hoverEnterEvent(event)
     
     def hoverLeaveEvent(self, event):
         """Handle hover leave event."""
         if self.parent_widget:
             self.parent_widget._on_unit_hover_leave(event, self.unit_index)
-        # Don't call super() to prevent any default behavior that might interfere
+        super().hoverLeaveEvent(event)
 
 
 class EnhancedStratigraphicColumn(StratigraphicColumn):
