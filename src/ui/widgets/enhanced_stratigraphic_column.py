@@ -10,12 +10,13 @@ This widget extends the base StratigraphicColumn to provide:
 """
 
 import os
+import pandas as pd
+import numpy as np
 from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsTextItem, QGraphicsLineItem, QGraphicsSimpleTextItem, QToolTip
 from PyQt6.QtSvgWidgets import QGraphicsSvgItem
 from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPixmap, QPen, QLinearGradient
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtCore import QRectF, Qt, pyqtSignal, QPointF, QPoint
-import numpy as np
 from ...core.config import LITHOLOGY_COLUMN, RECOVERED_THICKNESS_COLUMN
 from .svg_renderer import SvgRenderer
 from .stratigraphic_column import StratigraphicColumn  # Inherit from base class
@@ -90,6 +91,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         self.unit_label_items = []  # Store references to unit labels
         self.unit_hover_items = []  # Store references to hover rectangles
         self.unit_data = []  # Store additional unit data for tooltips
+        self.classified_dataframe = None  # Store original classified data for curve values
         
         # Hover tracking
         self.hovered_unit_index = None
@@ -113,6 +115,13 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         # This ensures they show the same depth range and scroll together
         self.depth_scale = 10.0  # Match curve plotter scale
         
+    def set_classified_data(self, classified_dataframe):
+        """Set the classified dataframe containing original curve data."""
+        self.classified_dataframe = classified_dataframe.copy() if classified_dataframe is not None else None
+        if self.classified_dataframe is not None:
+            print(f"DEBUG (EnhancedStratigraphicColumn): Set classified dataframe with {len(self.classified_dataframe)} rows")
+            print(f"DEBUG (EnhancedStratigraphicColumn): Classified dataframe columns: {list(self.classified_dataframe.columns)}")
+    
     def draw_column(self, units_dataframe, min_overall_depth, max_overall_depth, 
                    separator_thickness=0.5, draw_separators=True, disable_svg=False):
         """
@@ -122,6 +131,20 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         """
         print(f"DEBUG (EnhancedStratigraphicColumn): draw_column called with {len(units_dataframe)} units, min_depth={min_overall_depth}, max_depth={max_overall_depth}, depth_scale={self.depth_scale}")
         print(f"DEBUG (EnhancedStratigraphicColumn): units_dataframe is None: {units_dataframe is None}, empty: {units_dataframe.empty if units_dataframe is not None else 'N/A'}")
+        
+        # Debug: print available columns
+        if units_dataframe is not None and not units_dataframe.empty:
+            print(f"DEBUG (EnhancedStratigraphicColumn): Available columns: {list(units_dataframe.columns)}")
+            
+            # Check for curve columns
+            curve_columns = ['gamma', 'density', 'short_space_density', 'long_space_density']
+            available_curves = [col for col in curve_columns if col in units_dataframe.columns]
+            if available_curves:
+                print(f"DEBUG (EnhancedStratigraphicColumn): Available curve columns: {available_curves}")
+                # Print first unit's curve values
+                first_unit = units_dataframe.iloc[0]
+                for curve in available_curves:
+                    print(f"DEBUG (EnhancedStratigraphicColumn): First unit {curve}: {first_unit.get(curve, 'N/A')}")
         
         # Clear enhanced data structures
         self.unit_rect_items.clear()
@@ -176,6 +199,39 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
                 'rect_x': self.y_axis_width,
                 'rect_width': self.column_width
             }
+            
+            # Check for and store any available curve values
+            curve_columns = ['gamma', 'density', 'short_space_density', 'long_space_density']
+            for curve in curve_columns:
+                if curve in unit:
+                    value = unit[curve]
+                    # Check if it's a valid number (not NaN or None)
+                    if pd.notna(value) and value is not None:
+                        unit_info[curve] = float(value)
+                    else:
+                        unit_info[curve] = None
+                else:
+                    unit_info[curve] = None
+            
+            # If curve values are not in units dataframe, try to get them from classified dataframe
+            if self.classified_dataframe is not None and 'DEPT' in self.classified_dataframe.columns:
+                # Get average curve values for this unit's depth range
+                from_depth = unit_info['from_depth']
+                to_depth = unit_info['to_depth']
+                
+                # Find rows in classified dataframe within this depth range
+                mask = (self.classified_dataframe['DEPT'] >= from_depth) & (self.classified_dataframe['DEPT'] <= to_depth)
+                unit_rows = self.classified_dataframe[mask]
+                
+                if not unit_rows.empty:
+                    for curve in curve_columns:
+                        if curve in self.classified_dataframe.columns and curve not in unit_info:
+                            # Calculate average value for this curve in the unit
+                            curve_values = unit_rows[curve]
+                            valid_values = curve_values[pd.notna(curve_values)]
+                            if not valid_values.empty:
+                                unit_info[curve] = float(valid_values.mean())
+                                print(f"DEBUG (EnhancedStratigraphicColumn): Retrieved {curve} value {unit_info[curve]:.2f} from classified data for unit {index}")
             
             self.unit_data.append(unit_info)
             
@@ -237,12 +293,38 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         lines.append(f"Depth Range: {unit_info['from_depth']:.2f}m - {unit_info['to_depth']:.2f}m")
         lines.append(f"Thickness: {unit_info['thickness']:.3f}m")
         
-        # Add placeholder for LAS curve values
+        # Add LAS curve values if available
         lines.append("")
         lines.append("<i>LAS Curve Values:</i>")
-        lines.append("  Gamma Ray: <i>Not available</i>")
-        lines.append("  Short Space Density: <i>Not available</i>")
-        lines.append("  Long Space Density: <i>Not available</i>")
+        
+        # Check for each curve value
+        curve_display_names = {
+            'gamma': 'Gamma Ray',
+            'density': 'Density',
+            'short_space_density': 'Short Space Density',
+            'long_space_density': 'Long Space Density'
+        }
+        
+        curve_units = {
+            'gamma': 'API',
+            'density': 'g/cc',
+            'short_space_density': 'g/cc',
+            'long_space_density': 'g/cc'
+        }
+        
+        has_curve_data = False
+        for curve_key, display_name in curve_display_names.items():
+            if curve_key in unit_info and unit_info[curve_key] is not None:
+                value = unit_info[curve_key]
+                unit = curve_units.get(curve_key, '')
+                lines.append(f"  {display_name}: {value:.2f} {unit}")
+                has_curve_data = True
+            else:
+                lines.append(f"  {display_name}: <i>Not available</i>")
+        
+        if not has_curve_data:
+            lines.append("<small><i>No LAS curve data available for this unit</i></small>")
+        
         lines.append("")
         lines.append("<small><i>Hover over unit to see details</i></small>")
         

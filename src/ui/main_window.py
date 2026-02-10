@@ -3278,6 +3278,8 @@ class MainWindow(QMainWindow):
                 max_depth = self.last_classified_dataframe[DEPTH_COLUMN].max()
                 self.stratigraphicColumnView.draw_column(updated_df, min_depth, max_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
                 if hasattr(self, 'enhancedStratColumnView'):
+                    # Set classified data for curve values in tooltips
+                    self.enhancedStratColumnView.set_classified_data(self.last_classified_dataframe)
                     self.enhancedStratColumnView.draw_column(updated_df, min_depth, max_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
 
         QMessageBox.information(self, "Interbedding Created", f"Successfully created interbedding with {len(new_rows)} components.")
@@ -3377,6 +3379,8 @@ class MainWindow(QMainWindow):
         self.stratigraphicColumnView.draw_column(units_dataframe, min_overall_depth, max_overall_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
         if hasattr(self, 'enhancedStratColumnView'):
             print(f"DEBUG (_finalize_analysis_display): Drawing enhanced column, hasattr: {hasattr(self, 'enhancedStratColumnView')}")
+            # Set classified data for curve values in tooltips
+            self.enhancedStratColumnView.set_classified_data(classified_dataframe)
             self.enhancedStratColumnView.draw_column(units_dataframe, min_overall_depth, max_overall_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
         else:
             print(f"DEBUG (_finalize_analysis_display): enhancedStratColumnView not found!")
