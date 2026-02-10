@@ -108,11 +108,18 @@ class StratigraphicColumn(QGraphicsView):
             if rect_height <= 0:
                 continue
 
+            print(f"DEBUG (StratigraphicColumn): Unit {index} rect_height={rect_height:.2f}px, border={'gray 0.5px' if rect_height >= 5 else 'transparent'}")
+
             # Position the column to the right of the Y-axis
             rect_item = QGraphicsRectItem(self.y_axis_width, y_start, self.column_width, rect_height)
             
-            # Add a subtle border to make units visible
-            rect_item.setPen(QPen(QColor(Qt.GlobalColor.gray), 0.5))
+            # Add a subtle border to make units visible, but use transparent for very thin units
+            # Thin units (< 5px) get transparent borders to prevent grey appearance
+            if rect_height >= 5:
+                rect_item.setPen(QPen(QColor(Qt.GlobalColor.gray), 0.5))
+            else:
+                # For very thin units, use transparent border to avoid grey appearance
+                rect_item.setPen(QPen(Qt.GlobalColor.transparent, 0))
 
             # Check if SVG patterns are disabled
             if self.disable_svg:

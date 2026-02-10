@@ -246,8 +246,8 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             hover_rect = HoverRectItem(
                 self.y_axis_width, y_start, self.column_width, rect_height
             )
-            hover_rect.setPen(QPen(Qt.GlobalColor.black, 0))
-            hover_rect.setBrush(QBrush(QColor(0, 0, 0, 1)))  # Almost fully transparent (alpha=1 for event handling)
+            hover_rect.setPen(QPen(Qt.GlobalColor.transparent, 0))
+            hover_rect.setBrush(QBrush(QColor(0, 0, 0, 0)))  # Fully transparent
             hover_rect.unit_index = index
             hover_rect.parent_widget = self
             
