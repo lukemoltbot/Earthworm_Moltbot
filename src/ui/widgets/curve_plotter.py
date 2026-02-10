@@ -3,6 +3,9 @@ from PyQt6.QtGui import QPainter, QPen, QColor, QFont
 from PyQt6.QtCore import Qt, QPointF, QRectF
 import numpy as np
 
+# Import ScrollPolicyManager for scroll control
+from .scroll_policy_manager import ScrollPolicyManager
+
 class CurvePlotter(QGraphicsView):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -11,7 +14,14 @@ class CurvePlotter(QGraphicsView):
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+        
+        # Disable drag mode for horizontal scrolling prevention
+        # Use NoDrag mode to prevent horizontal dragging
+        self.setDragMode(QGraphicsView.DragMode.NoDrag)
+        
+        # Apply scroll policy manager for comprehensive scroll control
+        ScrollPolicyManager.disable_horizontal_scrolling(self)
+        ScrollPolicyManager.enable_vertical_only(self)
 
         self.data = None
         self.depth_column = 'DEPT' # Assuming 'DEPT' is the standardized depth column name
@@ -151,6 +161,41 @@ class CurvePlotter(QGraphicsView):
         scroll_value = int(y - view_height / 2)
         scroll_value = max(0, min(scroll_value, self.verticalScrollBar().maximum()))
         self.verticalScrollBar().setValue(scroll_value)
+    
+    def wheelEvent(self, event):
+        """
+        Override wheel event to handle horizontal scrolling prevention.
+        
+        Only vertical wheel movement is processed. Horizontal wheel movement
+        (e.g., from touchpad two-finger horizontal scroll) is ignored.
+        """
+        # Check if this is horizontal wheel movement
+        if event.angleDelta().x() != 0:
+            # Horizontal wheel movement - ignore it
+            event.accept()
+            return
+        
+        # Vertical wheel movement - process normally
+        super().wheelEvent(event)
+    
+    def fitInView(self, rect, mode=Qt.AspectRatioMode.KeepAspectRatio):
+        """
+        Override fitInView to maintain fixed width constraint.
+        
+        This ensures horizontal scrolling is disabled by maintaining
+        a consistent width regardless of zoom level.
+        """
+        # Create a new rectangle with fixed width
+        if hasattr(self, 'plot_width'):
+            fixed_width = self.plot_width
+        else:
+            fixed_width = rect.width()
+        
+        # Maintain the original Y position and height
+        fixed_rect = QRectF(rect.x(), rect.y(), fixed_width, rect.height())
+        
+        # Call parent fitInView with fixed width rectangle
+        return super().fitInView(fixed_rect, mode)
 
 
     def _draw_x_axes(self):

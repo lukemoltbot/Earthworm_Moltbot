@@ -306,15 +306,35 @@ class StratigraphicColumn(QGraphicsView):
                     break
         super().mousePressEvent(event)
 
-    def scroll_to_depth(self, depth):
+        def scroll_to_depth(self, depth):
         """Scroll the view to make the given depth visible."""
+        # Add validation for depth scale
+        if not hasattr(self, 'depth_scale') or self.depth_scale <= 0:
+            print(f"WARNING: Invalid depth_scale in scroll_to_depth: {getattr(self, 'depth_scale', 'NOT SET')}")
+            return
+            
+        # Add validation for depth range
+        if not hasattr(self, 'min_depth') or not hasattr(self, 'max_depth'):
+            print(f"WARNING: Missing depth range attributes in scroll_to_depth")
+            return
+            
+        # Calculate y position
         y = (depth - self.min_depth) * self.depth_scale
+        
         # Center the view on this y coordinate
         view_height = self.viewport().height()
+        
+        # Validate view height
+        if view_height <= 0:
+            print(f"WARNING: Invalid view height in scroll_to_depth: {view_height}")
+            return
+            
         scroll_value = int(y - view_height / 2)
-        scroll_value = max(0, min(scroll_value, self.verticalScrollBar().maximum()))
+        
+        # Clamp to valid range
+        scroll_max = self.verticalScrollBar().maximum()
+        scroll_value = max(0, min(scroll_value, scroll_max))
         self.verticalScrollBar().setValue(scroll_value)
-    
     def set_overview_mode(self, enabled, hole_min_depth=0.0, hole_max_depth=500.0):
         """Enable or disable overview mode (showing entire hole)."""
         self.overview_mode = enabled

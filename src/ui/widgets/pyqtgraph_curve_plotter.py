@@ -10,6 +10,9 @@ from PyQt6.QtGui import QColor, QPen, QFont
 from PyQt6.QtCore import Qt, pyqtSignal, QPointF, QTimer
 import pyqtgraph as pg
 
+# Import ScrollPolicyManager for scroll control
+from .scroll_policy_manager import ScrollPolicyManager
+
 class PyQtGraphCurvePlotter(QWidget):
     """A PyQtGraph-based curve plotter widget with improved performance and dual-axis support."""
     
@@ -96,9 +99,13 @@ class PyQtGraphCurvePlotter(QWidget):
         # Invert Y-axis so 0 (surface) is at top, increasing depth downward
         self.plot_widget.invertY(True)
         
-        # Enable mouse interaction
-        self.plot_widget.setMouseEnabled(x=True, y=True)
+        # Enable mouse interaction - DISABLE HORIZONTAL SCROLLING FOR PHASE 1
+        self.plot_widget.setMouseEnabled(x=False, y=True)
         self.plot_widget.setMenuEnabled(False)  # Disable right-click menu
+        
+        # Apply scroll policy manager for comprehensive scroll control
+        ScrollPolicyManager.disable_horizontal_scrolling(self.plot_widget)
+        ScrollPolicyManager.enable_vertical_only(self.plot_widget)
         
         # Connect mouse click signal
         self.plot_widget.scene().sigMouseClicked.connect(self.on_plot_clicked)
@@ -129,6 +136,8 @@ class PyQtGraphCurvePlotter(QWidget):
         # Link top axis to Gamma Ray ViewBox
         self.gamma_axis.linkToView(self.gamma_viewbox)
         self.gamma_viewbox.setXLink(self.plot_item)  # Share X-axis transform
+        # CRITICAL FIX: Add Y-axis linking for scrolling synchronization
+        self.gamma_viewbox.setYLink(self.plot_item.vb)
         self.gamma_axis.setLabel('Gamma Ray', units='API', color='#8b008b')
         
         # Handle view synchronization
@@ -136,10 +145,24 @@ class PyQtGraphCurvePlotter(QWidget):
             """Update Gamma Ray ViewBox geometry when main view changes."""
             if self.gamma_viewbox:
                 self.gamma_viewbox.setGeometry(self.plot_item.vb.sceneBoundingRect())
+                # Force Y-axis synchronization with main view
                 self.gamma_viewbox.linkedViewChanged(self.plot_item.vb, self.gamma_viewbox.YAxis)
+        
+        def update_gamma_view_on_scroll():
+            """Update Gamma Ray ViewBox during scrolling (not just resize)."""
+            if self.gamma_viewbox:
+                # Update geometry to match main view
+                self.gamma_viewbox.setGeometry(self.plot_item.vb.sceneBoundingRect())
+                # Ensure Y-axis is synchronized with main view range
+                view_range = self.plot_item.vb.viewRange()
+                if view_range and len(view_range) > 1:
+                    y_min, y_max = view_range[1]
+                    self.gamma_viewbox.setYRange(y_min, y_max, padding=0)
         
         # Connect resize signal
         self.plot_item.vb.sigResized.connect(update_gamma_view)
+        # CRITICAL FIX: Connect to view range changes for scrolling
+        self.plot_item.vb.sigRangeChanged.connect(update_gamma_view_on_scroll)
         
         # Store update function for later use
         self.update_gamma_view_func = update_gamma_view
@@ -500,9 +523,10 @@ class PyQtGraphCurvePlotter(QWidget):
         self.max_depth = max_depth
         self.plot_widget.setYRange(min_depth, max_depth)
         
-    def scroll_to_depth(self, depth):
+        def scroll_to_depth(self, depth):
         """Scroll the view to make the given depth visible."""
         if self.data is None or self.data.empty:
+            print("WARNING: No data available for scrolling")
             return
             
         # Get current view range
@@ -510,6 +534,16 @@ class PyQtGraphCurvePlotter(QWidget):
         current_y_min = view_range[1][0]
         current_y_max = view_range[1][1]
         current_height = current_y_max - current_y_min
+        
+        # Validate current_height to prevent division by zero or invalid ranges
+        if current_height <= 0:
+            # Use default height based on data range
+            data_y_min = self.data[self.depth_column].min()
+            data_y_max = self.data[self.depth_column].max()
+            current_height = (data_y_max - data_y_min) * 0.1  # 10% of data range
+            if current_height <= 0:
+                current_height = 10.0  # Default fallback
+            print(f"WARNING: Invalid current_height in scroll_to_depth, using: {current_height}")
         
         # Calculate new view range centered on target depth
         new_y_min = depth - current_height / 2
@@ -519,17 +553,35 @@ class PyQtGraphCurvePlotter(QWidget):
         data_y_min = self.data[self.depth_column].min()
         data_y_max = self.data[self.depth_column].max()
         
+        # Adjust if we're trying to view above or below data
         if new_y_min < data_y_min:
+            offset = data_y_min - new_y_min
             new_y_min = data_y_min
-            new_y_max = new_y_min + current_height
-            
-        if new_y_max > data_y_max:
+            new_y_max = min(new_y_max + offset, data_y_max)
+        elif new_y_max > data_y_max:
+            offset = new_y_max - data_y_max
             new_y_max = data_y_max
-            new_y_min = new_y_max - current_height
-            
-        # Apply new range
+            new_y_min = max(new_y_min - offset, data_y_min)
+        
+        # Ensure valid range (new_y_min must be less than new_y_max)
+        if new_y_min >= new_y_max:
+            # Fallback to centered view with reasonable height
+            range_height = data_y_max - data_y_min
+            if range_height <= 0:
+                range_height = 10.0
+            new_y_min = depth - range_height / 2
+            new_y_max = depth + range_height / 2
+            print(f"WARNING: Invalid range in scroll_to_depth, using centered view")
+        
+        # Apply the new range
         self.plot_widget.setYRange(new_y_min, new_y_max)
         
+        # Update stored depth range
+        self.min_depth = new_y_min
+        self.max_depth = new_y_max
+        
+        # Emit view range changed signal for synchronization
+        self.viewRangeChanged.emit(new_y_min, new_y_max)
     def on_plot_clicked(self, event):
         """Handle mouse clicks on the plot."""
         if event.button() == Qt.MouseButton.LeftButton:
