@@ -803,6 +803,7 @@ class MainWindow(QMainWindow):
         # Keep references to widgets for backward compatibility with existing methods
         self.curvePlotter = self.editor_hole.curvePlotter
         self.stratigraphicColumnView = self.editor_hole.stratigraphicColumnView
+        self.enhancedStratColumnView = self.editor_hole.enhancedStratColumnView
         self.editorTable = self.editor_hole.editorTable
         self.exportCsvButton = self.editor_hole.exportCsvButton
 
