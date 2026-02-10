@@ -10,15 +10,37 @@ This widget extends the base StratigraphicColumn to provide:
 """
 
 import os
-from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsTextItem, QGraphicsLineItem, QGraphicsSimpleTextItem
+from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsTextItem, QGraphicsLineItem, QGraphicsSimpleTextItem, QToolTip
 from PyQt6.QtSvgWidgets import QGraphicsSvgItem
 from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPixmap, QPen, QLinearGradient
 from PyQt6.QtSvg import QSvgRenderer
-from PyQt6.QtCore import QRectF, Qt, pyqtSignal, QPointF
+from PyQt6.QtCore import QRectF, Qt, pyqtSignal, QPointF, QPoint
 import numpy as np
 from ...core.config import LITHOLOGY_COLUMN, RECOVERED_THICKNESS_COLUMN
 from .svg_renderer import SvgRenderer
 from .stratigraphic_column import StratigraphicColumn  # Inherit from base class
+
+
+class HoverRectItem(QGraphicsRectItem):
+    """Custom rectangle item that emits hover events."""
+    
+    def __init__(self, x, y, width, height, parent=None):
+        super().__init__(x, y, width, height, parent)
+        self.setAcceptHoverEvents(True)
+        self.unit_index = -1
+        self.parent_widget = None
+    
+    def hoverEnterEvent(self, event):
+        """Handle hover enter event."""
+        if self.parent_widget:
+            self.parent_widget._on_unit_hover_enter(event, self.unit_index)
+        super().hoverEnterEvent(event)
+    
+    def hoverLeaveEvent(self, event):
+        """Handle hover leave event."""
+        if self.parent_widget:
+            self.parent_widget._on_unit_hover_leave(event, self.unit_index)
+        super().hoverLeaveEvent(event)
 
 
 class EnhancedStratigraphicColumn(StratigraphicColumn):
@@ -44,10 +66,10 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         super().__init__(parent)
         
         # Enhanced display settings
-        self.show_detailed_labels = True
-        self.show_lithology_codes = True
-        self.show_thickness_values = True
-        self.show_qualifiers = True
+        self.show_detailed_labels = False  # Disable labels inside units - will show on hover instead
+        self.show_lithology_codes = False  # Disable - will show in tooltip
+        self.show_thickness_values = False  # Disable - will show in tooltip
+        self.show_qualifiers = False  # Disable - will show in tooltip
         
         # Synchronization settings
         self.sync_enabled = True
@@ -66,6 +88,13 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         # Enhanced unit data storage
         self.unit_rect_items = []  # Store references to unit rectangles for quick access
         self.unit_label_items = []  # Store references to unit labels
+        self.unit_hover_items = []  # Store references to hover rectangles
+        self.unit_data = []  # Store additional unit data for tooltips
+        
+        # Hover tracking
+        self.hovered_unit_index = None
+        self.hover_timer = None
+        self.tooltip_delay = 500  # ms delay before showing tooltip
         
         # Connect scroll events for synchronization
         self.verticalScrollBar().valueChanged.connect(self._on_scroll_value_changed)
@@ -74,6 +103,10 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         self.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         self.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
         self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        
+        # Enable mouse tracking for hover events
+        self.setMouseTracking(True)
+        self.viewport().setMouseTracking(True)
         
         # Match curve plotter scale for synchronization
         # Curve plotter uses depth_scale = 10, so enhanced column should match
@@ -93,24 +126,25 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         # Clear enhanced data structures
         self.unit_rect_items.clear()
         self.unit_label_items.clear()
+        self.unit_hover_items.clear()
+        self.unit_data.clear()
+        
+        # Store the units dataframe for reference
+        self.units_dataframe = units_dataframe.copy() if units_dataframe is not None else None
         
         # Call parent method for basic drawing
         super().draw_column(units_dataframe, min_overall_depth, max_overall_depth, 
                            separator_thickness, draw_separators, disable_svg)
         
-        # Add enhanced features if we have units
+        # Store unit data for tooltips and set up hover events
         if units_dataframe is not None and not units_dataframe.empty:
-            self._add_detailed_unit_labels(units_dataframe)
-            self._add_enhanced_visualization(units_dataframe)
+            self._store_unit_data(units_dataframe)
             
         # Update visible depth range
         self._update_visible_depth_range()
         
-    def _add_detailed_unit_labels(self, units_dataframe):
-        """Add detailed labels to each lithology unit."""
-        if not self.show_detailed_labels:
-            return
-            
+    def _store_unit_data(self, units_dataframe):
+        """Store unit data for tooltips and hover events."""
         for index, unit in units_dataframe.iterrows():
             from_depth = unit['from_depth']
             to_depth = unit['to_depth']
@@ -128,43 +162,91 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
                 
             if rect_height <= 0:
                 continue
-                
-            # Only add labels if unit is tall enough
-            if rect_height >= 15:  # Minimum height for readable labels
-                # Create label text based on settings
-                label_parts = []
-                
-                if self.show_lithology_codes:
-                    label_parts.append(str(lithology_code))
-                    
-                if self.show_thickness_values and rect_height >= 25:
-                    label_parts.append(f"{thickness:.2f}m")
-                    
-                if self.show_qualifiers and lithology_qualifier and rect_height >= 30:
-                    label_parts.append(lithology_qualifier)
-                    
-                if label_parts:
-                    label_text = "\n".join(label_parts)
-                    
-                    # Create text item
-                    text_item = QGraphicsSimpleTextItem(label_text)
-                    text_item.setFont(self.unit_label_font)
-                    text_item.setBrush(QBrush(self.unit_label_color))
-                    
-                    # Position text in center of unit
-                    text_rect = text_item.boundingRect()
-                    text_x = self.y_axis_width + self.column_width / 2 - text_rect.width() / 2
-                    text_y = y_start + rect_height / 2 - text_rect.height() / 2
-                    
-                    # Adjust for very tall units - position near top
-                    if rect_height > 100:
-                        text_y = y_start + 5
-                        
-                    text_item.setPos(text_x, text_y)
-                    
-                    # Add to scene and store reference
-                    self.scene.addItem(text_item)
-                    self.unit_label_items.append(text_item)
+            
+            # Store unit data for tooltips
+            unit_info = {
+                'index': index,
+                'from_depth': from_depth,
+                'to_depth': to_depth,
+                'thickness': thickness,
+                'lithology_code': lithology_code,
+                'lithology_qualifier': lithology_qualifier,
+                'y_start': y_start,
+                'rect_height': rect_height,
+                'rect_x': self.y_axis_width,
+                'rect_width': self.column_width
+            }
+            
+            self.unit_data.append(unit_info)
+            
+            # Create invisible hover rectangle for this unit
+            hover_rect = HoverRectItem(
+                self.y_axis_width, y_start, self.column_width, rect_height
+            )
+            hover_rect.setPen(Qt.PenStyle.NoPen)
+            hover_rect.setBrush(QBrush(QColor(0, 0, 0, 0)))  # Fully transparent
+            hover_rect.unit_index = index
+            hover_rect.parent_widget = self
+            
+            self.scene.addItem(hover_rect)
+            self.unit_hover_items.append(hover_rect)
+    
+    def _on_unit_hover_enter(self, event, unit_index):
+        """Handle mouse hover enter event for a unit."""
+        self.hovered_unit_index = unit_index
+        
+        # Find unit data
+        unit_info = None
+        for info in self.unit_data:
+            if info['index'] == unit_index:
+                unit_info = info
+                break
+        
+        if unit_info:
+            # Create tooltip text
+            tooltip_text = self._create_unit_tooltip(unit_info)
+            
+            # Show tooltip immediately
+            # Convert scene coordinates to global screen coordinates
+            scene_pos = QPointF(
+                unit_info['rect_x'] + unit_info['rect_width'] / 2,
+                unit_info['y_start'] + unit_info['rect_height'] / 2
+            )
+            view_pos = self.mapFromScene(scene_pos)
+            global_pos = self.mapToGlobal(view_pos)
+            
+            QToolTip.showText(global_pos, tooltip_text, self)
+    
+    def _on_unit_hover_leave(self, event, unit_index):
+        """Handle mouse hover leave event for a unit."""
+        if self.hovered_unit_index == unit_index:
+            self.hovered_unit_index = None
+            QToolTip.hideText()
+    
+    def _create_unit_tooltip(self, unit_info):
+        """Create tooltip text for a lithology unit."""
+        lines = []
+        
+        # Basic unit information
+        lines.append(f"<b>Lithology Unit Details</b>")
+        lines.append(f"Lithology Code: <b>{unit_info['lithology_code']}</b>")
+        
+        if unit_info['lithology_qualifier']:
+            lines.append(f"Qualifier: {unit_info['lithology_qualifier']}")
+        
+        lines.append(f"Depth Range: {unit_info['from_depth']:.2f}m - {unit_info['to_depth']:.2f}m")
+        lines.append(f"Thickness: {unit_info['thickness']:.3f}m")
+        
+        # Add placeholder for LAS curve values
+        lines.append("")
+        lines.append("<i>LAS Curve Values:</i>")
+        lines.append("  Gamma Ray: <i>Not available</i>")
+        lines.append("  Short Space Density: <i>Not available</i>")
+        lines.append("  Long Space Density: <i>Not available</i>")
+        lines.append("")
+        lines.append("<small><i>Hover over unit to see details</i></small>")
+        
+        return "<br>".join(lines)
                     
     def _add_enhanced_visualization(self, units_dataframe):
         """Add enhanced visualization features like gradients and borders."""
