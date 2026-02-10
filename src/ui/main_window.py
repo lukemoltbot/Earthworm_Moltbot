@@ -15,6 +15,7 @@ import numpy as np
 import os
 import json
 import traceback
+import webbrowser
 
 from ..core.data_processor import DataProcessor
 from ..core.analyzer import Analyzer
@@ -823,6 +824,7 @@ class MainWindow(QMainWindow):
         self.create_file_menu()
         self.create_window_menu()
         self.create_view_menu()
+        self.create_help_menu()
         self.create_toolbar()
 
     def create_file_menu(self):
@@ -939,6 +941,78 @@ class MainWindow(QMainWindow):
         else:
             self.holes_dock.show()
             self.holes_dock.raise_()
+
+    def create_help_menu(self):
+        """Create Help menu with user guide and about information."""
+        help_menu = self.menuBar().addMenu("&Help")
+
+        # User Guide action
+        user_guide_action = QAction("User Guide", self)
+        user_guide_action.triggered.connect(self.open_user_guide)
+        user_guide_action.setShortcut("F1")
+        help_menu.addAction(user_guide_action)
+
+        help_menu.addSeparator()
+
+        # About action
+        about_action = QAction("About Earthworm", self)
+        about_action.triggered.connect(self.show_about_dialog)
+        help_menu.addAction(about_action)
+
+    def open_user_guide(self):
+        """Open the user guide in the default markdown viewer or browser."""
+        import os
+        
+        # Get the path to the user guide
+        user_guide_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "docs", "User_Guide.md")
+        
+        if os.path.exists(user_guide_path):
+            try:
+                # Open the markdown file with the default application
+                webbrowser.open(f'file://{user_guide_path}')
+                QMessageBox.information(self, "User Guide", 
+                    f"User guide opened in default application.\n\n"
+                    f"Location: {user_guide_path}")
+            except Exception as e:
+                QMessageBox.warning(self, "Error", 
+                    f"Could not open user guide: {str(e)}\n\n"
+                    f"Manual location: {user_guide_path}")
+        else:
+            QMessageBox.warning(self, "User Guide Not Found", 
+                f"User guide file not found at: {user_guide_path}\n\n"
+                "The user guide will be created when you run the application.")
+
+    def show_about_dialog(self):
+        """Show about dialog with application information."""
+        about_text = """
+        <h2>Earthworm Borehole Logger</h2>
+        <p><b>Version:</b> 1.0</p>
+        <p><b>Description:</b> Professional geological software for processing, 
+        analyzing, and visualizing borehole data.</p>
+        
+        <h3>Features:</h3>
+        <ul>
+            <li>Multi-format support (LAS, CSV, Excel)</li>
+            <li>Automated lithology classification</li>
+            <li>Interactive stratigraphic visualization</li>
+            <li>Advanced analysis tools</li>
+            <li>Project session management</li>
+        </ul>
+        
+        <h3>System Requirements:</h3>
+        <ul>
+            <li>Python 3.8 or higher</li>
+            <li>8GB RAM minimum (16GB recommended)</li>
+            <li>500MB disk space</li>
+        </ul>
+        
+        <p><b>GitHub Repository:</b> https://github.com/lukemoltbot/Earthworm_openclaw</p>
+        <p><b>Documentation:</b> See Help → User Guide</p>
+        
+        <p style="margin-top: 20px;"><i>© 2024 Earthworm Development Team</i></p>
+        """
+        
+        QMessageBox.about(self, "About Earthworm", about_text)
 
     def create_toolbar(self):
         """Create main toolbar with common actions."""
