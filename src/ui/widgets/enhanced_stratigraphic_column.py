@@ -35,13 +35,13 @@ class HoverRectItem(QGraphicsRectItem):
         """Handle hover enter event."""
         if self.parent_widget:
             self.parent_widget._on_unit_hover_enter(event, self.unit_index)
-        super().hoverEnterEvent(event)
+        # Don't call super() to prevent any default behavior that might interfere
     
     def hoverLeaveEvent(self, event):
         """Handle hover leave event."""
         if self.parent_widget:
             self.parent_widget._on_unit_hover_leave(event, self.unit_index)
-        super().hoverLeaveEvent(event)
+        # Don't call super() to prevent any default behavior that might interfere
 
 
 class EnhancedStratigraphicColumn(StratigraphicColumn):
@@ -168,6 +168,9 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         
     def _store_unit_data(self, units_dataframe):
         """Store unit data for tooltips and hover events."""
+        print(f"DEBUG (EnhancedStratigraphicColumn._store_unit_data): Storing data for {len(units_dataframe)} units")
+        print(f"DEBUG (EnhancedStratigraphicColumn._store_unit_data): self.min_depth = {self.min_depth}, self.depth_scale = {self.depth_scale}")
+        
         for index, unit in units_dataframe.iterrows():
             from_depth = unit['from_depth']
             to_depth = unit['to_depth']
@@ -179,11 +182,15 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             y_start = (from_depth - self.min_depth) * self.depth_scale
             rect_height = thickness * self.depth_scale
             
+            print(f"DEBUG (EnhancedStratigraphicColumn._store_unit_data): Unit {index}: from={from_depth}, to={to_depth}, thickness={thickness}, y_start={y_start}, rect_height={rect_height}")
+            
             # Apply minimum display height
             if rect_height > 0 and rect_height < self.min_display_height_pixels:
                 rect_height = self.min_display_height_pixels
+                print(f"DEBUG (EnhancedStratigraphicColumn._store_unit_data): Applied min display height: {rect_height}")
                 
             if rect_height <= 0:
+                print(f"DEBUG (EnhancedStratigraphicColumn._store_unit_data): Skipping unit {index} - rect_height <= 0")
                 continue
             
             # Store unit data for tooltips
@@ -240,7 +247,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
                 self.y_axis_width, y_start, self.column_width, rect_height
             )
             hover_rect.setPen(Qt.PenStyle.NoPen)
-            hover_rect.setBrush(QBrush(QColor(0, 0, 0, 0)))  # Fully transparent
+            hover_rect.setBrush(QBrush(QColor(0, 0, 0, 1)))  # Almost fully transparent (alpha=1 for event handling)
             hover_rect.unit_index = index
             hover_rect.parent_widget = self
             
@@ -249,6 +256,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
     
     def _on_unit_hover_enter(self, event, unit_index):
         """Handle mouse hover enter event for a unit."""
+        print(f"DEBUG (EnhancedStratigraphicColumn._on_unit_hover_enter): Hover entered unit {unit_index}")
         self.hovered_unit_index = unit_index
         
         # Find unit data
@@ -259,6 +267,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
                 break
         
         if unit_info:
+            print(f"DEBUG (EnhancedStratigraphicColumn._on_unit_hover_enter): Found unit info for index {unit_index}")
             # Create tooltip text
             tooltip_text = self._create_unit_tooltip(unit_info)
             
@@ -271,7 +280,10 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             view_pos = self.mapFromScene(scene_pos)
             global_pos = self.mapToGlobal(view_pos)
             
+            print(f"DEBUG (EnhancedStratigraphicColumn._on_unit_hover_enter): Showing tooltip at global position {global_pos}")
             QToolTip.showText(global_pos, tooltip_text, self)
+        else:
+            print(f"DEBUG (EnhancedStratigraphicColumn._on_unit_hover_enter): No unit info found for index {unit_index}")
     
     def _on_unit_hover_leave(self, event, unit_index):
         """Handle mouse hover leave event for a unit."""
