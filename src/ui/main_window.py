@@ -1360,7 +1360,7 @@ class MainWindow(QMainWindow):
             return
 
         # Create cross-section window
-        cross_section = CrossSectionWindow(hole_file_paths)
+        cross_section = CrossSectionWindow(hole_file_paths, use_researched_defaults=self.use_researched_defaults)
 
         # Create MDI subwindow
         subwindow = QMdiSubWindow()

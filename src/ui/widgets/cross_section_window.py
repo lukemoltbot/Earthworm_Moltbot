@@ -38,15 +38,19 @@ class CrossSectionWindow(QWidget):
     # Signal emitted when cross-section parameters change
     parametersChanged = pyqtSignal(dict)
     
-    def __init__(self, hole_file_paths=None, parent=None):
+    def __init__(self, hole_file_paths=None, parent=None, use_researched_defaults=True):
         """
         Initialize cross-section window.
         
         Args:
             hole_file_paths: List of hole file paths to include in cross-section
             parent: Parent widget
+            use_researched_defaults: Whether to use researched defaults for classification
         """
         super().__init__(parent)
+        
+        # Store settings
+        self.use_researched_defaults = use_researched_defaults
         
         # Data storage
         self.hole_file_paths = hole_file_paths or []
@@ -288,11 +292,18 @@ class CrossSectionWindow(QWidget):
                 processed_dataframe = data_processor.preprocess_data(dataframe, mnemonic_map)
                 
                 # Classify lithology
+                # Get use_researched_defaults from parent if available, otherwise default to True for backward compatibility
+                use_researched_defaults = True
+                if self.parent() and hasattr(self.parent(), 'use_researched_defaults'):
+                    use_researched_defaults = self.parent().use_researched_defaults
+                elif hasattr(self, 'use_researched_defaults'):
+                    use_researched_defaults = self.use_researched_defaults
+                    
                 classified_dataframe = analyzer.classify_rows(
                     processed_dataframe, 
                     DEFAULT_LITHOLOGY_RULES,
                     mnemonic_map,
-                    use_researched_defaults=True
+                    use_researched_defaults=use_researched_defaults
                 )
                 
                 # Group into units

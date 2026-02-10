@@ -37,6 +37,7 @@ class Analyzer:
         Returns:
             pandas.DataFrame: The DataFrame with lithology classification columns.
         """
+        logger.info(f"classify_rows called with use_researched_defaults={use_researched_defaults}")
         classified_df = dataframe.copy()
         classified_df[LITHOLOGY_COLUMN] = 'NL'  # Old column for backward compatibility
         classified_df[LITHOLOGY_COLUMN] = 'NL'  # New column for 37-column schema
@@ -102,7 +103,9 @@ class Analyzer:
                         gamma_min = researched_defaults['gamma_min']
                         gamma_max = researched_defaults['gamma_max']
                         gamma_ignore = False  # No longer ignore this parameter
-                        logger.debug(f"Applying researched gamma defaults for {code}: {gamma_min}-{gamma_max}")
+                        logger.info(f"Applying researched gamma defaults for {code}: {gamma_min}-{gamma_max} (use_researched_defaults={use_researched_defaults})")
+                    elif gamma_missing:
+                        logger.debug(f"Gamma missing for {code} but no researched defaults available")
 
                     # Apply density defaults if current rule's density range is don't care OR zero
                     density_missing = density_ignore or (density_min == 0.0 and density_max == 0.0)
@@ -110,7 +113,11 @@ class Analyzer:
                         density_min = researched_defaults['density_min']
                         density_max = researched_defaults['density_max']
                         density_ignore = False  # No longer ignore this parameter
-                        logger.debug(f"Applying researched density defaults for {code}: {density_min}-{density_max}")
+                        logger.info(f"Applying researched density defaults for {code}: {density_min}-{density_max} (use_researched_defaults={use_researched_defaults})")
+                    elif density_missing:
+                        logger.debug(f"Density missing for {code} but no researched defaults available")
+                else:
+                    logger.debug(f"use_researched_defaults is False, skipping researched defaults for {code}")
 
             # Create a boolean mask for rows that are not yet classified
             unclassified_mask = (classified_df[LITHOLOGY_COLUMN] == 'NL')
