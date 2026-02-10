@@ -4,7 +4,8 @@ from PyQt6.QtWidgets import (
     QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView, QColorDialog, QGraphicsScene, QDoubleSpinBox, QCheckBox, QSlider, QSpinBox, QFrame, QSplitter, QAbstractItemView,
     QGroupBox, QGridLayout, QFormLayout, QSizePolicy,
     QMdiArea, QMdiSubWindow, QMenu,
-    QTreeView, QProgressBar, QApplication, QToolBar
+    QTreeView, QProgressBar, QApplication, QToolBar,
+    QTextBrowser, QListWidget, QLineEdit, QListWidgetItem
 )
 from PyQt6.QtGui import QPainter, QPixmap, QColor, QFont, QBrush, QFileSystemModel, QAction
 from PyQt6.QtSvg import QSvgRenderer
@@ -960,7 +961,7 @@ class MainWindow(QMainWindow):
         help_menu.addAction(about_action)
 
     def open_user_guide(self):
-        """Open the user guide in the default markdown viewer or browser."""
+        """Open the user guide in a dialog within the application."""
         import os
         
         # Get the path to the user guide
@@ -968,11 +969,9 @@ class MainWindow(QMainWindow):
         
         if os.path.exists(user_guide_path):
             try:
-                # Open the markdown file with the default application
-                webbrowser.open(f'file://{user_guide_path}')
-                QMessageBox.information(self, "User Guide", 
-                    f"User guide opened in default application.\n\n"
-                    f"Location: {user_guide_path}")
+                # Create and show the user guide dialog
+                dialog = UserGuideDialog(user_guide_path, self)
+                dialog.exec()
             except Exception as e:
                 QMessageBox.warning(self, "Error", 
                     f"Could not open user guide: {str(e)}\n\n"
@@ -980,7 +979,7 @@ class MainWindow(QMainWindow):
         else:
             QMessageBox.warning(self, "User Guide Not Found", 
                 f"User guide file not found at: {user_guide_path}\n\n"
-                "The user guide will be created when you run the application.")
+                "Please check the documentation directory.")
 
     def show_about_dialog(self):
         """Show about dialog with application information."""
@@ -3462,3 +3461,337 @@ class MainWindow(QMainWindow):
             print(f"Error updating gap visualization: {e}")
             import traceback
             traceback.print_exc()
+
+
+class UserGuideDialog(QDialog):
+    """Dialog to display the user guide within the application."""
+    
+    def __init__(self, user_guide_path, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Earthworm Borehole Logger - User Guide")
+        self.setGeometry(100, 100, 900, 700)
+        self.setMinimumSize(800, 600)
+        
+        # Create main layout
+        main_layout = QVBoxLayout(self)
+        
+        # Create toolbar with navigation buttons
+        toolbar = QHBoxLayout()
+        
+        # Table of contents button
+        self.toc_button = QPushButton("Table of Contents")
+        self.toc_button.clicked.connect(self.show_table_of_contents)
+        toolbar.addWidget(self.toc_button)
+        
+        # Search box
+        toolbar.addWidget(QLabel("Search:"))
+        self.search_box = QLineEdit()
+        self.search_box.setPlaceholderText("Search user guide...")
+        self.search_box.textChanged.connect(self.search_content)
+        toolbar.addWidget(self.search_box)
+        
+        # Navigation buttons
+        self.prev_button = QPushButton("◀ Previous")
+        self.prev_button.clicked.connect(self.navigate_previous)
+        toolbar.addWidget(self.prev_button)
+        
+        self.next_button = QPushButton("Next ▶")
+        self.next_button.clicked.connect(self.navigate_next)
+        toolbar.addWidget(self.next_button)
+        
+        toolbar.addStretch()
+        
+        # Close button
+        self.close_button = QPushButton("Close")
+        self.close_button.clicked.connect(self.accept)
+        toolbar.addWidget(self.close_button)
+        
+        main_layout.addLayout(toolbar)
+        
+        # Create splitter for table of contents and content
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        
+        # Table of contents panel (initially hidden)
+        self.toc_panel = QWidget()
+        self.toc_layout = QVBoxLayout(self.toc_panel)
+        self.toc_list = QListWidget()
+        self.toc_list.itemClicked.connect(self.navigate_to_section)
+        self.toc_layout.addWidget(QLabel("Table of Contents"))
+        self.toc_layout.addWidget(self.toc_list)
+        self.toc_panel.setVisible(False)
+        self.toc_panel.setMaximumWidth(300)
+        
+        # Content panel
+        self.content_panel = QWidget()
+        content_layout = QVBoxLayout(self.content_panel)
+        
+        # Text browser for content
+        self.text_browser = QTextBrowser()
+        self.text_browser.setOpenExternalLinks(True)
+        self.text_browser.anchorClicked.connect(self.handle_anchor_click)
+        content_layout.addWidget(self.text_browser)
+        
+        # Add panels to splitter
+        self.splitter.addWidget(self.toc_panel)
+        self.splitter.addWidget(self.content_panel)
+        self.splitter.setSizes([200, 700])
+        
+        main_layout.addWidget(self.splitter)
+        
+        # Status bar
+        self.status_label = QLabel("Ready")
+        main_layout.addWidget(self.status_label)
+        
+        # Load the user guide
+        self.user_guide_path = user_guide_path
+        self.sections = []
+        self.current_section_index = 0
+        self.search_history = []
+        self.load_user_guide()
+        
+    def load_user_guide(self):
+        """Load and parse the user guide markdown file."""
+        try:
+            with open(self.user_guide_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Parse markdown and extract sections
+            self.parse_markdown(content)
+            
+            # Display first section
+            if self.sections:
+                self.display_section(0)
+                self.build_table_of_contents()
+            
+            self.status_label.setText(f"Loaded: {os.path.basename(self.user_guide_path)}")
+            
+        except Exception as e:
+            self.text_browser.setHtml(f"""
+            <h2>Error Loading User Guide</h2>
+            <p>Could not load user guide from: {self.user_guide_path}</p>
+            <p>Error: {str(e)}</p>
+            <p>Please ensure the user guide file exists in the docs directory.</p>
+            """)
+    
+    def parse_markdown(self, content):
+        """Parse markdown content and extract sections."""
+        lines = content.split('\n')
+        current_section = {'title': '', 'level': 0, 'content': []}
+        in_code_block = False
+        code_block_language = ''
+        
+        for line in lines:
+            # Check for code blocks
+            if line.strip().startswith('```'):
+                in_code_block = not in_code_block
+                if in_code_block:
+                    code_block_language = line.strip()[3:] or ''
+                current_section['content'].append(line)
+                continue
+            
+            # Check for headers
+            if not in_code_block and line.startswith('#'):
+                # Save previous section if it has content
+                if current_section['title'] or current_section['content']:
+                    self.sections.append(current_section.copy())
+                
+                # Determine header level
+                level = 0
+                while level < len(line) and line[level] == '#':
+                    level += 1
+                
+                # Start new section
+                current_section = {
+                    'title': line[level:].strip(),
+                    'level': level,
+                    'content': [line]
+                }
+            else:
+                current_section['content'].append(line)
+        
+        # Add the last section
+        if current_section['title'] or current_section['content']:
+            self.sections.append(current_section)
+    
+    def build_table_of_contents(self):
+        """Build table of contents from sections."""
+        self.toc_list.clear()
+        for i, section in enumerate(self.sections):
+            if section['level'] > 0:  # Only include headers
+                indent = "  " * (section['level'] - 1)
+                item = QListWidgetItem(f"{indent}• {section['title']}")
+                item.setData(Qt.ItemDataRole.UserRole, i)
+                self.toc_list.addItem(item)
+    
+    def display_section(self, section_index):
+        """Display a specific section."""
+        if 0 <= section_index < len(self.sections):
+            self.current_section_index = section_index
+            section = self.sections[section_index]
+            
+            # Convert markdown to HTML
+            html_content = self.markdown_to_html('\n'.join(section['content']))
+            
+            # Display with navigation
+            nav_html = ""
+            if section_index > 0:
+                prev_title = self.sections[section_index - 1]['title']
+                nav_html += f'<p><a href="prev://{section_index - 1}">◀ Previous: {prev_title}</a></p>'
+            
+            nav_html += f'<h{section["level"]}>{section["title"]}</h{section["level"]}>'
+            
+            if section_index < len(self.sections) - 1:
+                next_title = self.sections[section_index + 1]['title']
+                nav_html += f'<p style="text-align: right;"><a href="next://{section_index + 1}">Next: {next_title} ▶</a></p>'
+            
+            full_html = f"""
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }}
+                    h1, h2, h3, h4, h5, h6 {{ color: #2c3e50; margin-top: 24px; margin-bottom: 16px; }}
+                    h1 {{ font-size: 2em; border-bottom: 2px solid #eee; padding-bottom: 10px; }}
+                    h2 {{ font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 8px; }}
+                    h3 {{ font-size: 1.25em; }}
+                    code {{ background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: 'Courier New', monospace; }}
+                    pre {{ background: #f4f4f4; padding: 15px; border-radius: 5px; overflow: auto; font-family: 'Courier New', monospace; }}
+                    table {{ border-collapse: collapse; width: 100%; margin: 20px 0; }}
+                    th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+                    th {{ background-color: #f2f2f2; }}
+                    a {{ color: #3498db; text-decoration: none; }}
+                    a:hover {{ text-decoration: underline; }}
+                    .nav {{ margin: 20px 0; padding: 10px; background: #f9f9f9; border-radius: 5px; }}
+                </style>
+            </head>
+            <body>
+                <div class="nav">
+                    {nav_html}
+                </div>
+                {html_content}
+            </body>
+            </html>
+            """
+            
+            self.text_browser.setHtml(full_html)
+            self.update_navigation_buttons()
+    
+    def markdown_to_html(self, markdown):
+        """Convert markdown to HTML (simplified version)."""
+        html = markdown
+        
+        # Convert headers
+        for i in range(6, 0, -1):
+            html = html.replace('\n' + '#' * i + ' ', f'\n<h{i}>')
+            html = html.replace('\n' + '#' * i, f'\n<h{i}>')
+            html = html.replace(f'<h{i}>', f'<h{i}>', html.count(f'<h{i}>'))
+            # Close headers at end of line
+            lines = html.split('\n')
+            for j, line in enumerate(lines):
+                if line.startswith(f'<h{i}>') and not line.endswith(f'</h{i}>'):
+                    lines[j] = line + f'</h{i}>'
+            html = '\n'.join(lines)
+        
+        # Convert code blocks
+        import re
+        html = re.sub(r'```(\w*)\n(.*?)\n```', r'<pre><code class="\1">\2</code></pre>', html, flags=re.DOTALL)
+        
+        # Convert inline code
+        html = html.replace('`', '<code>')
+        # Simple fix: replace every other <code> with </code>
+        parts = html.split('<code>')
+        for i in range(1, len(parts), 2):
+            parts[i] = parts[i].replace('<code>', '</code>', 1)
+        html = '<code>'.join(parts)
+        
+        # Convert bold and italic (simplified)
+        html = html.replace('**', '<strong>')
+        html = html.replace('__', '<strong>')
+        parts = html.split('<strong>')
+        for i in range(1, len(parts), 2):
+            parts[i] = parts[i].replace('<strong>', '</strong>', 1)
+        html = '<strong>'.join(parts)
+        
+        html = html.replace('*', '<em>')
+        html = html.replace('_', '<em>')
+        parts = html.split('<em>')
+        for i in range(1, len(parts), 2):
+            parts[i] = parts[i].replace('<em>', '</em>', 1)
+        html = '<em>'.join(parts)
+        
+        # Convert lists
+        lines = html.split('\n')
+        in_list = False
+        for i, line in enumerate(lines):
+            if line.strip().startswith('- ') or line.strip().startswith('* '):
+                if not in_list:
+                    lines[i] = '<ul>\n<li>' + line.strip()[2:] + '</li>'
+                    in_list = True
+                else:
+                    lines[i] = '<li>' + line.strip()[2:] + '</li>'
+            elif in_list and line.strip() == '':
+                lines[i] = '</ul>\n'
+                in_list = False
+            elif in_list and not (line.strip().startswith('- ') or line.strip().startswith('* ')):
+                lines[i] = '</ul>\n' + line
+                in_list = False
+        if in_list:
+            lines.append('</ul>')
+        html = '\n'.join(lines)
+        
+        # Convert links
+        html = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', html)
+        
+        return html
+    
+    def show_table_of_contents(self):
+        """Toggle table of contents panel visibility."""
+        self.toc_panel.setVisible(not self.toc_panel.isVisible())
+    
+    def navigate_to_section(self, item):
+        """Navigate to section when clicked in table of contents."""
+        section_index = item.data(Qt.ItemDataRole.UserRole)
+        self.display_section(section_index)
+    
+    def navigate_previous(self):
+        """Navigate to previous section."""
+        if self.current_section_index > 0:
+            self.display_section(self.current_section_index - 1)
+    
+    def navigate_next(self):
+        """Navigate to next section."""
+        if self.current_section_index < len(self.sections) - 1:
+            self.display_section(self.current_section_index + 1)
+    
+    def update_navigation_buttons(self):
+        """Update navigation button states."""
+        self.prev_button.setEnabled(self.current_section_index > 0)
+        self.next_button.setEnabled(self.current_section_index < len(self.sections) - 1)
+    
+    def search_content(self, query):
+        """Search content for query."""
+        if not query.strip():
+            return
+        
+        # Simple search implementation
+        query_lower = query.lower()
+        for i, section in enumerate(self.sections):
+            content_lower = '\n'.join(section['content']).lower()
+            if query_lower in content_lower:
+                self.display_section(i)
+                self.status_label.setText(f"Found '{query}' in section: {section['title']}")
+                return
+        
+        self.status_label.setText(f"No results found for '{query}'")
+    
+    def handle_anchor_click(self, url):
+        """Handle anchor clicks for navigation."""
+        url_str = url.toString()
+        if url_str.startswith('prev://'):
+            section_index = int(url_str.split('://')[1])
+            self.display_section(section_index)
+        elif url_str.startswith('next://'):
+            section_index = int(url_str.split('://')[1])
+            self.display_section(section_index)
+        else:
+            # Open external links in default browser
+            webbrowser.open(url_str)
