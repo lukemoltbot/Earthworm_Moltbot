@@ -3298,9 +3298,13 @@ class MainWindow(QMainWindow):
         max_overall_depth = classified_dataframe[DEPTH_COLUMN].max()
 
         # Pass the overall depth range to both stratigraphic columns
+        print(f"DEBUG (_finalize_analysis_display): Drawing overview column")
         self.stratigraphicColumnView.draw_column(units_dataframe, min_overall_depth, max_overall_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
         if hasattr(self, 'enhancedStratColumnView'):
+            print(f"DEBUG (_finalize_analysis_display): Drawing enhanced column, hasattr: {hasattr(self, 'enhancedStratColumnView')}")
             self.enhancedStratColumnView.draw_column(units_dataframe, min_overall_depth, max_overall_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
+        else:
+            print(f"DEBUG (_finalize_analysis_display): enhancedStratColumnView not found!")
 
         # Prepare curve configurations for the single CurvePlotter
         curve_configs = []
