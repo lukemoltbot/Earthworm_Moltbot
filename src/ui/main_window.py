@@ -589,6 +589,7 @@ class Worker(QObject):
             if self.analysis_method == "simple":
                 classified_dataframe = analyzer.classify_rows_simple(processed_dataframe, self.lithology_rules, full_mnemonic_map, self.casing_depth_enabled, self.casing_depth_m)
             else:
+                print(f"DEBUG (Worker): Calling classify_rows with use_researched_defaults={self.use_researched_defaults}")
                 classified_dataframe = analyzer.classify_rows(processed_dataframe, self.lithology_rules, full_mnemonic_map, self.use_researched_defaults, self.use_fallback_classification, self.casing_depth_enabled, self.casing_depth_m)
             # Debug: print lithology rules being passed
             print(f"DEBUG (Worker): lithology_rules count = {len(self.lithology_rules)}")
@@ -689,6 +690,7 @@ class MainWindow(QMainWindow):
         self.initial_curve_inversion_settings = app_settings["curve_inversion_settings"]
         self.initial_curve_thickness = app_settings["curve_thickness"] # Load new setting
         self.use_researched_defaults = app_settings["use_researched_defaults"]
+        print(f"DEBUG (MainWindow.__init__): Loaded use_researched_defaults={self.use_researched_defaults}")
         self.analysis_method = app_settings.get("analysis_method", "standard")  # Load analysis method
         self.merge_thin_units = app_settings.get("merge_thin_units", False)
         self.merge_threshold = app_settings.get("merge_threshold", 0.05)
