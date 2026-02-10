@@ -43,7 +43,7 @@ class StratigraphicColumn(QGraphicsView):
         self.current_zoom_max = 100.0
 
     def draw_column(self, units_dataframe, min_overall_depth, max_overall_depth, separator_thickness=0.5, draw_separators=True, disable_svg=False):
-        print(f"DEBUG (StratigraphicColumn): draw_column called with {len(units_dataframe)} units")
+        print(f"DEBUG (StratigraphicColumn): draw_column called with {len(units_dataframe)} units, min_depth={min_overall_depth}, max_depth={max_overall_depth}, depth_scale={self.depth_scale}, overview_mode={self.overview_mode}")
         if units_dataframe is not None and not units_dataframe.empty:
             print(f"DEBUG (StratigraphicColumn): columns present: {list(units_dataframe.columns)}")
         self.disable_svg = disable_svg

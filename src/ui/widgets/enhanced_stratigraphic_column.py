@@ -86,7 +86,8 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         
         Overrides base class method to add detailed labels and enhanced visualization.
         """
-        print(f"DEBUG (EnhancedStratigraphicColumn): draw_column called with {len(units_dataframe)} units")
+        print(f"DEBUG (EnhancedStratigraphicColumn): draw_column called with {len(units_dataframe)} units, min_depth={min_overall_depth}, max_depth={max_overall_depth}, depth_scale={self.depth_scale}")
+        print(f"DEBUG (EnhancedStratigraphicColumn): units_dataframe is None: {units_dataframe is None}, empty: {units_dataframe.empty if units_dataframe is not None else 'N/A'}")
         
         # Clear enhanced data structures
         self.unit_rect_items.clear()
