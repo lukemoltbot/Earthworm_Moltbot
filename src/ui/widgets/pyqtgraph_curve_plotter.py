@@ -957,61 +957,156 @@ class PyQtGraphCurvePlotter(QWidget):
     
     def set_curve_visibility(self, curve_name: str, visible: bool):
         """
-        Set visibility of a curve by name.
+        Set visibility of a curve by name with enhanced functionality.
+        
+        Enhanced features:
+        1. Better curve name matching with pattern recognition
+        2. Support for curve groups (gamma, density, etc.)
+        3. Legend synchronization
+        4. Optional persistence layer integration
         
         Args:
             curve_name: Internal curve name (e.g., 'short_space_density', 'gamma', etc.)
+                      Can also be a group name: 'all_gamma', 'all_density', 'all'
             visible: True to show the curve, False to hide it
         """
+        # Check if this is a group toggle request
+        if curve_name.startswith('all_'):
+            group_name = curve_name[4:]  # Remove 'all_' prefix
+            self._set_group_visibility(group_name, visible)
+            return
+        
         # Map internal curve names to actual curve column names
         # This mapping might need to be adjusted based on actual data column names
         curve_name_mapping = {
-            'short_space_density': ['SS', 'DENS', 'RHOB', 'short_space_density', 'density'],
-            'long_space_density': ['LS', 'LSD', 'long_space_density'],
-            'gamma': ['GR', 'gamma', 'gamma_ray', 'Gamma', 'GAMMA'],
-            'cd': ['CD', 'cd', 'caliper', 'Caliper', 'CALI'],
-            'res': ['RES', 'resistivity', 'res', 'Resistivity', 'RT'],
-            'cal': ['CAL', 'cal', 'caliper', 'Caliper', 'CALI']
+            'short_space_density': ['SS', 'DENS', 'RHOB', 'short_space_density', 'density', 'short', 'ss_density'],
+            'long_space_density': ['LS', 'LSD', 'long_space_density', 'long', 'ls_density'],
+            'gamma': ['GR', 'gamma', 'gamma_ray', 'Gamma', 'GAMMA', 'GRAPI', 'gapi'],
+            'cd': ['CD', 'cd', 'caliper', 'Caliper', 'CALI', 'caliper_diameter'],
+            'res': ['RES', 'resistivity', 'res', 'Resistivity', 'RT', 'ILD', 'ild'],
+            'cal': ['CAL', 'cal', 'caliper', 'Caliper', 'CALI', 'caliper_diameter'],
+            'neutron': ['NEUT', 'neutron', 'NPHI', 'nphi', 'neutron_porosity'],
+            'sonic': ['DT', 'dt', 'sonic', 'AC', 'ac', 'sonic_transit_time'],
+            'sp': ['SP', 'sp', 'spontaneous_potential']
         }
         
         # Get possible column names for this curve type
         possible_names = curve_name_mapping.get(curve_name, [curve_name])
         
+        # Track if we found and updated any curves
+        curves_updated = []
+        
         # Try to find the curve by checking all possible names
-        found_curve = None
         for name in possible_names:
             if name in self.curve_items:
                 found_curve = self.curve_items[name]
-                break
+                self._update_curve_visibility(found_curve, visible, name)
+                curves_updated.append(name)
         
-        # If not found by exact name, try case-insensitive search
-        if not found_curve and self.curve_items:
+        # If not found by exact name, try case-insensitive and partial matching
+        if not curves_updated and self.curve_items:
+            curve_name_lower = curve_name.lower()
             for stored_name, curve_item in self.curve_items.items():
                 stored_lower = stored_name.lower()
-                for possible_name in possible_names:
-                    if possible_name.lower() in stored_lower or stored_lower in possible_name.lower():
-                        found_curve = curve_item
-                        break
-                if found_curve:
-                    break
+                
+                # Check for direct match or partial match
+                if (curve_name_lower == stored_lower or 
+                    curve_name_lower in stored_lower or 
+                    stored_lower in curve_name_lower):
+                    
+                    self._update_curve_visibility(curve_item, visible, stored_name)
+                    curves_updated.append(stored_name)
         
-        if found_curve:
-            # Set visibility of the curve item
-            found_curve.setVisible(visible)
+        # Also check gamma_curves and density_curves lists
+        if not curves_updated:
+            # Check gamma curves
+            if hasattr(self, 'gamma_curves'):
+                for curve in self.gamma_curves:
+                    if hasattr(curve, 'name') and curve.name.lower() == curve_name.lower():
+                        self._update_curve_visibility(curve, visible, curve.name)
+                        curves_updated.append(curve.name)
             
-            # Also update legend if it exists
-            if hasattr(self.plot_item, 'legend'):
-                legend = self.plot_item.legend
-                if legend:
-                    # Find the legend item for this curve and update its visibility
-                    for item in legend.items:
-                        if hasattr(item, 'item') and item.item == found_curve:
-                            item.setVisible(visible)
-                            break
-            
-            print(f"Curve '{curve_name}' visibility set to: {visible}")
+            # Check density curves
+            if hasattr(self, 'density_curves'):
+                for curve in self.density_curves:
+                    if hasattr(curve, 'name') and curve.name.lower() == curve_name.lower():
+                        self._update_curve_visibility(curve, visible, curve.name)
+                        curves_updated.append(curve.name)
+        
+        # Log results
+        if curves_updated:
+            print(f"Curve visibility updated for '{curve_name}': {curves_updated} -> {visible}")
         else:
             print(f"Warning: Curve '{curve_name}' not found in plot. Available curves: {list(self.curve_items.keys())}")
+    
+    def _update_curve_visibility(self, curve_item, visible: bool, curve_name: str):
+        """Update visibility of a single curve item with legend synchronization."""
+        # Set visibility of the curve item
+        curve_item.setVisible(visible)
+        
+        # Also update legend if it exists
+        if hasattr(self.plot_item, 'legend'):
+            legend = self.plot_item.legend
+            if legend:
+                # Find the legend item for this curve and update its visibility
+                for item in legend.items:
+                    if hasattr(item, 'item') and item.item == curve_item:
+                        item.setVisible(visible)
+                        break
+    
+    def _set_group_visibility(self, group_name: str, visible: bool):
+        """Set visibility for an entire group of curves."""
+        group_name_lower = group_name.lower()
+        
+        # Define curve groups with their patterns
+        curve_groups = {
+            'gamma': ['gamma', 'gr', 'gammaray', 'gapi'],
+            'density': ['density', 'den', 'rhob', 'ss', 'ls', 'short', 'long'],
+            'caliper': ['caliper', 'cal', 'cd', 'diameter'],
+            'resistivity': ['resistivity', 'res', 'rt', 'ild'],
+            'neutron': ['neutron', 'neut', 'nphi'],
+            'sonic': ['sonic', 'dt', 'ac'],
+            'sp': ['sp', 'spontaneous_potential'],
+            'all': []  # Special case for all curves
+        }
+        
+        # Get patterns for the requested group
+        if group_name_lower not in curve_groups:
+            print(f"Warning: Unknown curve group '{group_name}'")
+            return
+        
+        patterns = curve_groups[group_name_lower]
+        curves_updated = []
+        
+        # Handle 'all' group specially
+        if group_name_lower == 'all':
+            for curve_name, curve_item in self.curve_items.items():
+                self._update_curve_visibility(curve_item, visible, curve_name)
+                curves_updated.append(curve_name)
+        else:
+            # Update curves matching group patterns
+            for curve_name, curve_item in self.curve_items.items():
+                curve_name_lower = curve_name.lower()
+                
+                # Check if curve matches any pattern in the group
+                if any(pattern in curve_name_lower for pattern in patterns):
+                    self._update_curve_visibility(curve_item, visible, curve_name)
+                    curves_updated.append(curve_name)
+        
+        # Also check gamma_curves and density_curves lists for gamma/density groups
+        if group_name_lower == 'gamma' and hasattr(self, 'gamma_curves'):
+            for curve in self.gamma_curves:
+                if hasattr(curve, 'name'):
+                    self._update_curve_visibility(curve, visible, curve.name)
+                    curves_updated.append(curve.name)
+        
+        if group_name_lower == 'density' and hasattr(self, 'density_curves'):
+            for curve in self.density_curves:
+                if hasattr(curve, 'name'):
+                    self._update_curve_visibility(curve, visible, curve.name)
+                    curves_updated.append(curve.name)
+        
+        print(f"Group '{group_name}' visibility set to {visible}. Updated {len(curves_updated)} curves.")
     
     # =========================================================================
     # Anomaly Detection Methods (Phase 3: Advanced LAS Comparative Plotting)

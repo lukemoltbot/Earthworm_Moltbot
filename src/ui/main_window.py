@@ -29,6 +29,9 @@ from .widgets.svg_renderer import SvgRenderer
 from .widgets.curve_plotter import CurvePlotter # Import CurvePlotter
 from .widgets.pyqtgraph_curve_plotter import PyQtGraphCurvePlotter # Import PyQtGraph-based plotter
 from .widgets.enhanced_range_gap_visualizer import EnhancedRangeGapVisualizer # Import enhanced widget
+from .widgets.curve_visibility_manager import CurveVisibilityManager # Import curve visibility manager
+from .widgets.curve_visibility_toolbar import CurveVisibilityToolbar # Import curve visibility toolbar
+from .widgets.interactive_legend import InteractiveLegend # Import interactive legend
 from ..core.settings_manager import load_settings, save_settings
 from .dialogs.researched_defaults_dialog import ResearchedDefaultsDialog # Import new dialog
 from .dialogs.column_configurator_dialog import ColumnConfiguratorDialog # Import column configurator dialog
@@ -85,6 +88,15 @@ class HoleEditorWindow(QWidget):
         self.editorTable = LithologyTableWidget()
         self.exportCsvButton = QPushButton("Export to CSV")
 
+        # Create curve visibility manager
+        self.curve_visibility_manager = CurveVisibilityManager(self.curvePlotter)
+        
+        # Create curve visibility toolbar
+        self.curve_visibility_toolbar = CurveVisibilityToolbar(self, self.curve_visibility_manager)
+        
+        # Create interactive legend
+        self.interactive_legend = InteractiveLegend(self, self.curve_visibility_manager)
+
         # Set bit size for anomaly detection if main_window is available
         if main_window and hasattr(main_window, 'bit_size_mm') and hasattr(self.curvePlotter, 'set_bit_size'):
             self.curvePlotter.set_bit_size(main_window.bit_size_mm)
@@ -127,6 +139,9 @@ class HoleEditorWindow(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
+        # Add curve visibility toolbar at the top
+        main_layout.addWidget(self.curve_visibility_toolbar)
+        
         # Add loading indicator at the top (hidden by default)
         loading_layout = QHBoxLayout()
         loading_layout.addWidget(self.loadingLabel)
@@ -137,11 +152,17 @@ class HoleEditorWindow(QWidget):
         # 1. Create the Splitter
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Left Container: Plot View (PyQtGraph Curves)
+        # Left Container: Plot View (PyQtGraph Curves) with Legend
         plot_container = QWidget()
         plot_layout = QVBoxLayout(plot_container)
         plot_layout.setContentsMargins(0, 0, 0, 0)
-        plot_layout.addWidget(self.curvePlotter)
+        plot_layout.setSpacing(5)
+        
+        # Add curve plotter
+        plot_layout.addWidget(self.curvePlotter, 4)  # 4 parts to plotter
+        
+        # Add interactive legend below the plotter
+        plot_layout.addWidget(self.interactive_legend, 1)  # 1 part to legend
 
         # Second Container: Enhanced Stratigraphic Column (detailed, synchronized)
         enhanced_column_container = QWidget()
@@ -3444,6 +3465,9 @@ class MainWindow(QMainWindow):
         # Set lithology data on curve plotter for boundary lines (Phase 4)
         if hasattr(self.curvePlotter, 'set_lithology_data'):
             self.curvePlotter.set_lithology_data(editor_dataframe)
+        
+        # Register curves with visibility manager
+        self._register_curves_with_visibility_manager()
 
         # Activate the editor subwindow in MDI area
         if hasattr(self, 'mdi_area') and hasattr(self, 'editor_subwindow'):
@@ -3465,6 +3489,38 @@ class MainWindow(QMainWindow):
             print(f"Error updating gap visualization: {e}")
             import traceback
             traceback.print_exc()
+    
+    def _register_curves_with_visibility_manager(self):
+        """
+        Register all plotted curves with the visibility manager.
+        This should be called after curves are drawn on the plotter.
+        """
+        try:
+            # Auto-register curves from the plotter
+            self.curve_visibility_manager.auto_register_from_plotter()
+            
+            # Apply saved visibility states
+            self.curve_visibility_manager.load_states()
+            self.curve_visibility_manager.apply_states_to_plotter()
+            
+            # Update UI controls
+            self.curve_visibility_toolbar.register_curves_from_manager()
+            self.curve_visibility_toolbar.update_from_visibility_manager()
+            self.interactive_legend.register_curves_from_manager()
+            
+            print(f"Registered {len(self.curve_visibility_manager.curve_metadata)} curves with visibility manager")
+            
+        except Exception as e:
+            print(f"Error registering curves with visibility manager: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _save_curve_visibility_states(self):
+        """Save curve visibility states to user preferences."""
+        try:
+            self.curve_visibility_manager.save_states()
+        except Exception as e:
+            print(f"Error saving curve visibility states: {e}")
 
 
 class UserGuideDialog(QDialog):
