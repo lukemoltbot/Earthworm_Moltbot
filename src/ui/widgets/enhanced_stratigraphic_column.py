@@ -75,9 +75,10 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         self.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
         self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         
-        # Set larger depth scale for enhanced detail (more pixels per depth unit)
-        # Default is 10, enhanced should be larger for more detail
-        self.depth_scale = 50.0  # 5x more detailed than default
+        # Match curve plotter scale for synchronization
+        # Curve plotter uses depth_scale = 10, so enhanced column should match
+        # This ensures they show the same depth range and scroll together
+        self.depth_scale = 10.0  # Match curve plotter scale
         
     def draw_column(self, units_dataframe, min_overall_depth, max_overall_depth, 
                    separator_thickness=0.5, draw_separators=True, disable_svg=False):
