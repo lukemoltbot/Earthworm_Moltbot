@@ -9,7 +9,20 @@
 6. [Stratigraphic Column](#stratigraphic-column)
 7. [Editing Lithology](#editing-lithology)
 8. [Advanced Features](#advanced-features)
+   - [Project Sessions](#project-sessions)
+   - [Template System](#template-system)
+   - [Map Window](#map-window)
+   - [Cross-Section Window](#cross-section-window)
+   - [Anomaly Detection](#anomaly-detection)
 9. [Settings & Configuration](#settings--configuration)
+   - [Settings Dialog Overview](#settings-dialog-overview)
+   - [Lithology Rules Tab](#lithology-rules-tab)
+   - [Visualization Tab](#visualization-tab)
+   - [Analysis Tab](#analysis-tab)
+   - [General Tab](#general-tab)
+   - [File Management Tab](#file-management-tab)
+   - [Advanced Settings](#advanced-settings)
+   - [Settings Management](#settings-management)
 10. [Troubleshooting](#troubleshooting)
 
 ## Introduction
@@ -224,35 +237,279 @@ Enable **Smart Interbedding** in settings to:
 
 ## Advanced Features
 
+### Project Sessions
+Project sessions allow you to save and restore the complete state of your work, including all open files, analysis results, and settings.
+
+#### What's Saved in a Session:
+- **Open Files**: All currently loaded borehole files
+- **Analysis Results**: Classification results for each hole
+- **Visualization State**: Current views, zoom levels, selections
+- **Settings**: Current lithology rules and application settings
+- **Window Layout**: Positions of all open windows (editor, map, cross-section)
+
+#### Creating and Managing Sessions:
+1. **Save Session**: File → Save Session (Ctrl+S)
+   - Saves current project state to a session file (.json)
+   - Includes all data, analysis, and visualization states
+   - Can be shared with colleagues for collaboration
+
+2. **Load Session**: File → Load Session (Ctrl+O)
+   - Restores a previously saved session
+   - Reopens all files and restores analysis results
+   - Recreates the exact workspace state
+
+3. **Session Management Dialog**: File → Session Management
+   - View all saved sessions
+   - Delete old sessions
+   - Set default session to load on startup
+   - Export/import sessions for sharing
+
+#### Session File Structure:
+Session files are JSON format containing:
+- Metadata (name, description, creation date)
+- File paths and loaded data references
+- Analysis parameters and results
+- Visualization settings and window states
+- Application configuration
+
+### Template System
+Templates allow you to save and apply consistent analysis settings across multiple projects or holes.
+
+#### Template Components:
+A template includes:
+- **Lithology Rules**: Complete set of classification rules
+- **Visualization Settings**: Colors, patterns, display options
+- **Analysis Parameters**: Method, thresholds, interbedding settings
+- **Application Configuration**: General settings and preferences
+
+#### Creating Templates:
+1. Configure all desired settings in the application
+2. Click **File → Save Template** or use Template Manager
+3. Provide template details:
+   - **Name**: Descriptive template name
+   - **Description**: Purpose and use cases
+   - **Category**: Organizational category (e.g., "Coal", "Sandstone", "General")
+   - **Tags**: Searchable keywords
+
+4. Template is saved to the templates directory for future use
+
+#### Applying Templates:
+1. **New Project from Template**: File → New from Template
+   - Creates a new project with template settings applied
+   - Perfect for starting consistent analysis workflows
+
+2. **Apply to Existing Project**: Template Manager → Apply Template
+   - Applies template settings to current project
+   - Can selectively apply components (rules only, visualization only, etc.)
+
+3. **Template Manager**: Access via Settings dialog or File menu
+   - Browse all available templates
+   - Preview template settings before applying
+   - Edit, duplicate, or delete templates
+   - Import/export templates for sharing
+
+#### Template Management:
+- **Default Templates**: System includes pre-configured templates for common scenarios
+- **Custom Templates**: Create your own for specific projects or regions
+- **Template Inheritance**: Create templates that extend or modify existing ones
+- **Version Control**: Templates can be versioned for tracking changes
+
 ### Map Window
-Visualize borehole locations geographically:
+The Map Window provides geographical visualization of borehole locations and spatial analysis capabilities.
 
-#### Features
-- **Import Coordinates**: From CSV or manually entered
-- **Multiple Projections**: UTM, Lat/Long, local grids
-- **Distance Calculation**: Automatic spacing for cross-sections
-- **Hole Selection**: Select holes for cross-section creation
+#### Opening the Map Window:
+1. **Window → New Map Window** or toolbar button
+2. Map opens as a new tab in the main workspace
+3. Initially empty - need to import or add hole locations
 
-#### Usage
-1. Open Map Window from Window menu
-2. Import hole coordinates
-3. View spatial distribution
-4. Select holes for cross-section
+#### Adding Hole Locations:
+1. **Manual Entry**:
+   - Right-click on map → Add Hole
+   - Enter hole name, coordinates (Easting/Northing or Lat/Long)
+   - Select coordinate system (UTM, Geographic, Local)
+
+2. **Import from CSV**:
+   - File → Import Coordinates
+   - CSV format: HoleID, Easting, Northing, [Optional: Elevation]
+   - Supports multiple coordinate systems
+   - Automatic coordinate conversion if needed
+
+3. **Extract from LAS Files**:
+   - Automatically extracts location from LAS file headers
+   - Looks for standard location mnemonics (X, Y, Z, LAT, LONG)
+   - Can batch process multiple files
+
+#### Map Features:
+1. **Base Maps**:
+   - **Street Map**: OpenStreetMap background
+   - **Satellite**: Aerial/satellite imagery
+   - **Topographic**: Contour and elevation data
+   - **Custom**: Load your own background images
+
+2. **Coordinate Systems**:
+   - **UTM**: Universal Transverse Mercator (zones 1-60)
+   - **Geographic**: Latitude/Longitude (WGS84)
+   - **Local Grids**: Project-specific coordinate systems
+   - **Automatic Conversion**: Convert between systems on the fly
+
+3. **Visualization Options**:
+   - **Symbol Size**: Adjust hole marker size
+   - **Color Coding**: Color by lithology, depth, or custom attribute
+   - **Labels**: Show hole names, depths, or other attributes
+   - **Clustering**: Group nearby holes for cleaner display
+
+4. **Measurement Tools**:
+   - **Distance**: Measure between any two points
+   - **Area**: Calculate polygon areas
+   - **Bearing**: Determine direction between holes
+   - **Elevation Profile**: Create elevation cross-sections
+
+#### Spatial Analysis:
+1. **Density Analysis**:
+   - Heat maps showing hole density
+   - Identify drilling concentration areas
+   - Useful for planning additional drilling
+
+2. **Proximity Analysis**:
+   - Find holes within specified distance
+   - Identify nearest neighbors
+   - Calculate average spacing
+
+3. **Trend Analysis**:
+   - Identify spatial trends in lithology
+   - Map thickness variations
+   - Visualize geological trends
+
+#### Cross-Section Preparation:
+1. **Select Holes for Cross-Section**:
+   - Click individual holes or draw selection rectangle
+   - Selected holes highlight in different color
+   - Minimum 3 holes required for cross-section
+
+2. **Line of Section**:
+   - Draw line on map representing cross-section orientation
+   - Automatically projects holes onto section line
+   - Calculates true horizontal distances
+
+3. **Cross-Section Creation**:
+   - Click "Create Cross-Section" button
+   - Opens Cross-Section Window with selected holes
+   - Maintains spatial relationships from map
 
 ### Cross-Section Window
-Create fence diagrams between multiple holes:
+The Cross-Section Window creates fence diagrams (correlation panels) showing lithology relationships between multiple boreholes.
 
-#### Creation Process
-1. Select 3+ holes in Map Window or Project Explorer
-2. Open Cross-Section Window
-3. System calculates true spacing from coordinates
-4. Plots holes side-by-side with stratigraphic columns
+#### Creating Cross-Sections:
+1. **From Map Window**:
+   - Select 3+ holes on map
+   - Click "Create Cross-Section" button
+   - Cross-section oriented along selected line
 
-#### Features
-- **True Spacing**: Uses Pythagorean theorem on coordinates
-- **Polygon Connection**: Connects common lithology units
-- **Interactive Adjustment**: Drag correlation lines
-- **Export Options**: Save as image or PDF
+2. **From Project Explorer**:
+   - Select multiple hole files
+   - Right-click → Create Cross-Section
+   - Uses default spacing if coordinates unavailable
+
+3. **Manual Creation**:
+   - Window → New Cross-Section Window
+   - Manually add holes from project list
+   - Specify spacing manually
+
+#### Cross-Section Components:
+1. **Stratigraphic Columns**:
+   - Vertical columns for each hole
+   - Shows lithology with colors and patterns
+   - Depth scale consistent across all holes
+   - Interactive - click to select units
+
+2. **Spacing Calculation**:
+   - **With Coordinates**: Uses true horizontal distance from map
+   - **Without Coordinates**: Uses equal spacing or user-defined
+   - **Vertical Exaggeration**: Adjustable scale factor (1x to 20x)
+
+3. **Correlation Lines**:
+   - **Automatic**: Connects similar lithology units
+   - **Manual**: Draw custom correlation lines
+   - **Edit Mode**: Drag and adjust correlation points
+   - **Multiple Horizons**: Correlate specific geological horizons
+
+4. **Polygon Fill**:
+   - Fills between correlation lines
+   - Color by lithology or custom palette
+   - Transparency adjustable
+   - Helps visualize geological units between holes
+
+#### Interactive Features:
+1. **Navigation**:
+   - **Pan**: Click and drag
+   - **Zoom**: Mouse wheel or zoom tools
+   - **Fit to View**: Auto-adjust to show all holes
+   - **Depth Range**: Adjust visible depth range
+
+2. **Selection and Editing**:
+   - **Select Units**: Click on lithology units
+   - **Multi-select**: Ctrl+Click or drag selection box
+   - **Edit Correlation**: Drag correlation lines
+   - **Add/Remove Holes**: Modify cross-section composition
+
+3. **Measurement Tools**:
+   - **Depth Measurement**: Measure vertical distances
+   - **Horizontal Measurement**: Measure between holes
+   - **Dip Calculation**: Calculate dip angles from correlation
+   - **Thickness Measurement**: Measure unit thicknesses
+
+#### Display Options:
+1. **Column Display**:
+   - **Width**: Adjust column width
+   - **Spacing**: Adjust space between columns
+   - **Labels**: Show hole names, depths, coordinates
+   - **Background**: Grid lines, depth markers
+
+2. **Visualization Modes**:
+   - **Lithology Colors**: Standard lithology coloring
+   - **Property Colors**: Color by density, gamma, or other properties
+   - **Pattern Fill**: Geological patterns or solid colors
+   - **Wireframe**: Outline only for fast rendering
+
+3. **Annotation Tools**:
+   - **Text Labels**: Add annotations to cross-section
+   - **Lines and Arrows**: Highlight features
+   - **Scale Bar**: Add measurement scale
+   - **Legend**: Auto-generated or custom
+
+#### Analysis Tools:
+1. **Correlation Analysis**:
+   - **Auto-correlation**: Suggests correlation lines
+   - **Confidence Scoring**: Rates correlation quality
+   - **Conflict Detection**: Identifies correlation conflicts
+   - **Multiple Scenarios**: Save different correlation interpretations
+
+2. **Thickness Analysis**:
+   - **Isopach Maps**: Create thickness maps from cross-section
+   - **Trend Analysis**: Identify thickening/thinning trends
+   - **Statistical Analysis**: Calculate thickness statistics
+
+3. **Structural Analysis**:
+   - **Dip Calculation**: From correlation line angles
+   - **Fault Detection**: Identify offset correlations
+   - **Fold Analysis**: Analyze folding patterns
+
+#### Export and Sharing:
+1. **Image Export**:
+   - **PNG/JPG**: Raster images for reports
+   - **SVG**: Vector graphics for publication
+   - **PDF**: Multi-page PDF with metadata
+   - **High Resolution**: Export at print quality
+
+2. **Data Export**:
+   - **Correlation Data**: Export correlation lines as CSV
+   - **Section Coordinates**: Export section geometry
+   - **Annotation Data**: Save annotations with positions
+
+3. **Project Integration**:
+   - **Save with Project**: Cross-sections saved in project sessions
+   - **Template Cross-Sections**: Save as templates for reuse
+   - **Multiple Sections**: Create and manage multiple cross-sections
 
 ### Anomaly Detection
 Highlights data quality issues:
@@ -267,58 +524,318 @@ Highlights data quality issues:
 - Suggests filtering or interpolation
 - Quality metrics in statistics
 
-### Template System
-Save and apply consistent settings:
-
-#### Creating Templates
-1. Configure all settings (rules, colors, patterns)
-2. Click **Save Template**
-3. Name and describe template
-4. Template saved for future use
-
-#### Applying Templates
-1. Click **Load Template**
-2. Select template from list
-3. All settings applied automatically
-4. Can be applied to existing or new projects
-
 ## Settings & Configuration
 
-### Accessing Settings
-1. Click **View → Settings** or use toolbar button
-2. Settings dialog opens with multiple tabs
+The Settings dialog provides comprehensive control over all aspects of Earthworm Borehole Logger. Access it via **View → Settings** or the toolbar button.
 
-### General Settings
-- **Separator Thickness**: Line thickness between units
-- **Draw Separators**: Toggle separator lines
-- **Curve Thickness**: Line thickness for curves
-- **Bit Size**: Drilling bit size for anomaly detection
+### Settings Dialog Overview
+The Settings dialog is organized into tabs:
+1. **Lithology Rules** - Define classification rules
+2. **Visualization** - Control display options
+3. **Analysis** - Configure analysis parameters
+4. **General** - Application-wide settings
+5. **File Management** - File handling and paths
 
-### Lithology Rules Settings
-- **Edit Rules**: Add, modify, or delete lithology rules
-- **Import/Export**: Share rule sets with colleagues
-- **Reset to Defaults**: Restore factory rules
+### Lithology Rules Tab
+This tab allows you to define and manage lithology classification rules.
 
-### Analysis Settings
-- **Analysis Method**: Standard or Simple
-- **Use Researched Defaults**: Apply defaults for missing ranges
-- **Merge Thin Units**: Combine units below threshold
-- **Merge Threshold**: Minimum unit thickness (meters)
-- **Smart Interbedding**: Enable automatic detection
-- **Fallback Classification**: Reduce NL results
+#### Lithology Rules Table
+The main component is a table where each row defines one lithology rule:
 
-### Visualization Settings
-- **Color Scheme**: Choose color palette
-- **SVG Patterns**: Toggle geological patterns
-- **Disable SVG**: Use solid colors only
-- **Column Visibility**: Show/hide data columns
-- **Curve Visibility**: Show/hide specific curves
+**Table Columns:**
+1. **Name** - Descriptive name (e.g., "Coal", "Sandstone")
+2. **Code** - Short code (e.g., "CO", "SS") used in outputs
+3. **Background Color** - Display color for this lithology
+4. **SVG Pattern** - Geological pattern file path
+5. **Pattern Preview** - Visual preview of the pattern
+6. **Lithology Qualifier** - Additional qualifier (e.g., "fine", "coarse")
+7. **Shade** - Color shade variant
+8. **Hue** - Color hue adjustment
+9. **Gamma Min** - Minimum gamma ray value (API units)
+10. **Gamma Max** - Maximum gamma ray value (API units)
+11. **Density Min** - Minimum density value (g/cm³)
+12. **Density Max** - Maximum density value (g/cm³)
 
-### Project Settings
-- **Workspace Path**: Default project location
-- **Auto-save**: Automatic project backup
-- **Session Management**: Save/load complete sessions
-- **Recent Files**: Number of files in history
+**Special Values:**
+- **INVALID_DATA_VALUE** (-999.25): Marks "don't care" for a parameter
+- **0.0 to 0.0 range**: Treated as "missing" when researched defaults are enabled
+
+#### Rule Management Buttons:
+- **Add Rule**: Creates a new empty rule row
+- **Remove Rule**: Deletes selected rule(s)
+- **Import Rules**: Load rules from JSON or CSV file
+- **Export Rules**: Save rules to file for sharing
+- **Reset to Defaults**: Restore factory default rules
+- **Researched Defaults**: Open dialog with pre-defined ranges
+
+#### Range Gap Visualizer
+A visual tool that shows:
+- **Coverage Gaps**: Depth ranges not covered by any rule
+- **Rule Overlaps**: Where multiple rules might apply
+- **Missing Parameters**: Rules with incomplete ranges
+- **Visual Feedback**: Color-coded coverage map
+
+**Using the Visualizer:**
+1. Rules are displayed as horizontal bars
+2. Gaps show as white spaces
+3. Overlaps show as darker bands
+4. Click bars to select corresponding rule
+5. Adjust rules to eliminate gaps and reduce overlaps
+
+### Visualization Tab
+Controls all display and rendering options.
+
+#### Stratigraphic Column Settings:
+1. **Separator Line Thickness** (0.0-5.0 pixels):
+   - Controls thickness of lines between lithology units
+   - 0.0 = no lines, 0.5 = default, 5.0 = very thick
+   - Affects both overview and enhanced columns
+
+2. **Draw Separator Lines** (checkbox):
+   - Toggle visibility of separator lines
+   - Useful for cleaner display with many thin units
+   - Can be disabled for solid color blocks
+
+3. **Disable SVG Patterns** (checkbox):
+   - Use solid colors instead of geological patterns
+   - Improves performance with many units
+   - Useful for printing or simplified displays
+
+#### Curve Display Settings:
+1. **Curve Line Thickness** (0.1-5.0 pixels):
+   - Thickness of gamma and density curves
+   - Thicker lines for presentations, thinner for detail
+   - Affects all curve displays
+
+2. **Curve Inversion Options**:
+   - **Invert Gamma Curve**: Flip gamma scale (high to low)
+   - **Invert Short Space Density**: Flip SSD scale
+   - **Invert Long Space Density**: Flip LSD scale
+   - Useful for matching different tool conventions
+
+#### Color and Pattern Management:
+1. **Background Color Picker**:
+   - Click color cell in rules table to change
+   - Color dialog with custom palette
+   - Colors saved with rules
+
+2. **SVG Pattern Browser**:
+   - Browse and select pattern files
+   - Preview patterns before applying
+   - Supports custom SVG patterns
+
+### Analysis Tab
+Controls lithology classification and analysis parameters.
+
+#### Analysis Method:
+- **Standard Method** (default):
+  - Uses both gamma AND density ranges
+  - More accurate but requires both curves
+  - Applies researched defaults for missing ranges
+
+- **Simple Method**:
+  - Classifies by density first, then gamma
+  - Useful when only one curve is reliable
+  - Faster but less precise
+
+#### Research Defaults Settings:
+1. **Use Researched Defaults** (checkbox):
+   - Apply pre-defined ranges when rules have missing/zero ranges
+   - Defaults based on geological research
+   - Can be disabled for manual control only
+
+2. **Researched Defaults Dialog**:
+   - View and edit default ranges
+   - Based on common lithology properties
+   - Can be customized for local geology
+
+#### Unit Merging Settings:
+1. **Merge Thin Units** (checkbox):
+   - Combine adjacent units below threshold
+   - Reduces clutter in stratigraphic column
+   - Preserves geological accuracy
+
+2. **Merge Threshold** (0.01-1.0 meters):
+   - Minimum thickness to keep as separate unit
+   - 0.05m (5cm) default, adjustable
+   - Units thinner than threshold are merged
+
+#### Smart Interbedding Settings:
+1. **Enable Smart Interbedding** (checkbox):
+   - Automatically detect interbedded sequences
+   - Analyzes curve patterns for mixing
+   - Suggests interbedding where appropriate
+
+2. **Max Sequence Length** (5-50 units):
+   - Maximum components in interbedded sequence
+   - Prevents overly complex interbedding
+   - 10 units default
+
+3. **Thick Unit Threshold** (0.1-5.0 meters):
+   - Stop interbedding when next unit exceeds this thickness
+   - Prevents breaking thick homogeneous units
+   - 0.5m default
+
+#### Fallback Classification:
+- **Enable Fallback Classification** (checkbox):
+  - Reduces "NL" (Not Logged) results
+  - Applies less strict classification when no rule matches
+  - Useful for incomplete rule sets
+
+### General Tab
+Application-wide settings and preferences.
+
+#### Drilling Parameters:
+1. **Bit Size** (50-500 mm):
+   - Drilling bit diameter in millimeters
+   - Used for caliper anomaly detection
+   - Typical values: 150mm (exploration), 100mm (production)
+
+2. **Show Anomaly Highlights** (checkbox):
+   - Highlight caliper anomalies (CAL - BitSize > 20mm)
+   - Red highlighting in curve plotter
+   - Helps identify poor hole conditions
+
+#### Casing Depth Masking:
+1. **Enable Casing Depth Masking** (checkbox):
+   - Mask intervals above casing depth as "NL"
+   - Useful for cased hole sections
+   - Automatically applies to all analysis
+
+2. **Casing Depth** (0-5000 meters):
+   - Depth of casing shoe in meters
+   - Everything above this depth forced to "NL"
+   - Can be hole-specific or global
+
+#### Performance Settings:
+1. **SVG Pattern Caching**:
+   - Cache rendered patterns for faster display
+   - Adjustable cache size
+   - Clear cache if patterns change
+
+2. **Data Sampling**:
+   - Reduce data points for large files
+   - Maintains accuracy while improving performance
+   - Adjustable sampling interval
+
+### File Management Tab
+Controls file handling, paths, and workspace management.
+
+#### Workspace Settings:
+1. **Default Workspace Path**:
+   - Location for project files
+   - Can be changed for different projects
+   - Supports network paths
+
+2. **Auto-save Interval** (1-60 minutes):
+   - Automatic backup of project state
+   - Protects against crashes
+   - Adjustable frequency
+
+#### File Handling:
+1. **Recent Files List** (5-50 files):
+   - Number of files in recent menu
+   - Quick access to frequently used files
+   - Clear list option
+
+2. **File Association**:
+   - Associate file types with Earthworm
+   - Double-click files to open in Earthworm
+   - Windows/macOS/Linux support
+
+#### Import/Export Settings:
+1. **Default Export Format**:
+   - CSV, Excel, or JSON
+   - Preserves all data and formatting
+   - Batch export options
+
+2. **Coordinate System Defaults**:
+   - Default projection for new projects
+   - Auto-detect from files
+   - Conversion settings
+
+#### Session Management:
+1. **Session Auto-save**:
+   - Save session on exit
+   - Prompt to save changes
+   - Recovery of unsaved work
+
+2. **Session Templates**:
+   - Save common session configurations
+   - Quick start for repetitive work
+   - Shareable session templates
+
+### Advanced Settings
+
+#### Logging and Debugging:
+1. **Log Level**:
+   - Error, Warning, Info, Debug
+   - Control console/output verbosity
+   - Log file location
+
+2. **Debug Mode**:
+   - Additional validation checks
+   - Performance profiling
+   - Detailed error reporting
+
+#### Memory Management:
+1. **Cache Size** (10-1000 MB):
+   - Maximum memory for cached data
+   - Automatic cache cleanup
+   - Manual cache clear
+
+2. **Data Compression**:
+   - Compress stored data for large projects
+   - Trade-off between speed and memory
+   - Adjustable compression level
+
+#### Update and Maintenance:
+1. **Check for Updates**:
+   - Automatic update checking
+   - Manual check option
+   - Update notification settings
+
+2. **Reset Settings**:
+   - Restore all defaults
+   - Clear all user settings
+   - Factory reset option
+
+### Settings Management
+
+#### Saving and Applying:
+- **OK Button**: Save settings and close dialog
+- **Apply Button**: Save settings without closing
+- **Cancel Button**: Discard changes
+- Settings take effect immediately when applied
+
+#### Settings Files:
+1. **User Settings File**:
+   - Stored in user application data directory
+   - Persists between sessions
+   - Platform-specific locations
+
+2. **Project Settings File**:
+   - Saved with project sessions
+   - Overrides user settings for specific projects
+   - Travels with project files
+
+3. **Template Settings**:
+   - Saved in template files
+   - Applied when template is loaded
+   - Can be exported/imported
+
+#### Settings Migration:
+- **Import Settings**: From older versions
+- **Export Settings**: For backup or transfer
+- **Settings Comparison**: Compare different settings files
+- **Batch Apply**: Apply settings to multiple projects
+
+#### Best Practices:
+1. **Start with Defaults**: Use factory defaults, then customize
+2. **Save Templates**: Save common configurations as templates
+3. **Project-specific Settings**: Override defaults per project
+4. **Regular Backups**: Export settings periodically
+5. **Document Changes**: Note important setting changes
 
 ## Troubleshooting
 
