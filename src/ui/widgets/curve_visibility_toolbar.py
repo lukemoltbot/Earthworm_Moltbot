@@ -423,9 +423,20 @@ class ColorCheckbox(QCheckBox):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
+        # Create style option for checkbox
+        from PyQt6.QtWidgets import QStyleOptionButton
+        option = QStyleOptionButton()
+        option.initFrom(self)
+        option.state = self.style().State_Enabled
+        if self.isChecked():
+            option.state |= self.style().State_On
+        else:
+            option.state |= self.style().State_Off
+        
         # Calculate indicator position
         indicator_rect = self.style().subElementRect(
             self.style().SubElement.SE_CheckBoxIndicator, 
+            option,
             self
         )
         
