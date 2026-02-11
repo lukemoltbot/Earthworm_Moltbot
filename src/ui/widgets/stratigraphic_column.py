@@ -556,9 +556,6 @@ class StratigraphicColumn(QGraphicsView):
             self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatioByExpanding)
             return True
         return False
-            self.hole_min_depth = 0.0
-            self.hole_max_depth = 500.0
-            self.overview_fixed_scale = 10.0
     
     def update_zoom_overlay(self, zoom_min_depth, zoom_max_depth):
         """Update the zoom overlay rectangle showing current plot view region (Subtask 3.3)."""
