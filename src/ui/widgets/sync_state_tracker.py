@@ -40,13 +40,16 @@ class SyncStateTracker:
         
         # Check if sync is already in progress
         if self.sync_in_progress:
+            print(f"DEBUG (SyncStateTracker.should_sync): Sync already in progress")
             return False
             
         # Check if enough time has passed since last sync
         time_since_last_sync = current_time - self.last_sync_time
         if time_since_last_sync < self.sync_debounce_ms:
+            print(f"DEBUG (SyncStateTracker.should_sync): Debouncing - {time_since_last_sync:.1f}ms since last sync, need {self.sync_debounce_ms}ms")
             return False
             
+        print(f"DEBUG (SyncStateTracker.should_sync): Sync allowed - {time_since_last_sync:.1f}ms since last sync")
         return True
         
     def begin_sync(self):
@@ -56,6 +59,7 @@ class SyncStateTracker:
         This should be called before starting any synchronization
         that could trigger recursive calls.
         """
+        print(f"DEBUG (SyncStateTracker.begin_sync): Starting sync operation")
         self.sync_in_progress = True
         self.last_sync_time = time.time() * 1000
         
@@ -65,6 +69,7 @@ class SyncStateTracker:
         
         This should be called after synchronization is complete.
         """
+        print(f"DEBUG (SyncStateTracker.end_sync): Ending sync operation")
         self.sync_in_progress = False
         
     def force_sync(self):

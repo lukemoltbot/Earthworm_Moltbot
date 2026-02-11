@@ -22,6 +22,9 @@ class PyQtGraphCurvePlotter(QWidget):
     # Signal emitted when view range changes (for synchronization with overview)
     viewRangeChanged = pyqtSignal(float, float)  # min_depth, max_depth
     
+    # Signal emitted when zoom level changes
+    zoomLevelChanged = pyqtSignal(float)  # zoom_factor
+    
     # Signal emitted when a boundary line is dragged (for updating table data)
     boundaryDragged = pyqtSignal(int, str, float)  # row_index, boundary_type, new_depth
     
@@ -69,10 +72,20 @@ class PyQtGraphCurvePlotter(QWidget):
         self.min_depth = 0.0
         self.max_depth = 100.0
         
+        # Zoom state management
+        self.zoom_state_manager = None
+        self.is_zooming = False
+        self.fixed_scale_enabled = True  # Prevent scale changes during scrolling
+        
         # Anomaly detection
         self.bit_size_mm = 150.0  # Default bit size in mm
         self.anomaly_regions = []  # List of pg.LinearRegionItem for anomaly highlighting
         self.anomaly_brush = (255, 0, 0, 50)  # Semi-transparent red for anomaly regions
+        
+        # Synchronization state tracking to prevent infinite loops
+        from .sync_state_tracker import SyncStateTracker
+        self.sync_tracker = SyncStateTracker(debounce_ms=50)
+        self.sync_enabled = True
         
         # Setup UI
         self.setup_ui()
@@ -381,7 +394,7 @@ class PyQtGraphCurvePlotter(QWidget):
         if self.data is not None and not self.data.empty:
             y_min = self.data[self.depth_column].min()
             y_max = self.data[self.depth_column].max()
-            self.plot_widget.setYRange(y_min, y_max)
+            self.setYRange(y_min, y_max)
             
     def update_axis_controls(self):
         """Update the X-axis controls widget with current curve configurations for dual-axis."""
@@ -515,73 +528,92 @@ class PyQtGraphCurvePlotter(QWidget):
             new_y_max = data_y_max
             
         # Apply new Y range
-        self.plot_widget.setYRange(new_y_min, new_y_max)
+        self.setYRange(new_y_min, new_y_max)
         
     def set_depth_range(self, min_depth, max_depth):
         """Set the visible depth range."""
         self.min_depth = min_depth
         self.max_depth = max_depth
-        self.plot_widget.setYRange(min_depth, max_depth)
+        self.setYRange(min_depth, max_depth)
         
     def scroll_to_depth(self, depth):
-        """Scroll the view to make the given depth visible."""
+        """Scroll the view to make the given depth visible with center alignment."""
         if self.data is None or self.data.empty:
             print("WARNING: No data available for scrolling")
             return
             
-        # Get current view range
-        view_range = self.plot_widget.viewRange()
-        current_y_min = view_range[1][0]
-        current_y_max = view_range[1][1]
-        current_height = current_y_max - current_y_min
+        # Check if synchronization should proceed (prevent infinite loops)
+        if self.sync_enabled and not self.sync_tracker.should_sync():
+            print(f"DEBUG (PyQtGraphCurvePlotter.scroll_to_depth): Sync blocked by tracker")
+            return
+            
+        self.sync_tracker.begin_sync()
         
-        # Validate current_height to prevent division by zero or invalid ranges
-        if current_height <= 0:
-            # Use default height based on data range
+        try:
+            print(f"DEBUG (PyQtGraphCurvePlotter.scroll_to_depth): Scrolling to depth {depth}")
+            
+            # Get current view range
+            view_range = self.plot_widget.viewRange()
+            current_y_min = view_range[1][0]
+            current_y_max = view_range[1][1]
+            current_height = current_y_max - current_y_min
+            
+            print(f"DEBUG (PyQtGraphCurvePlotter.scroll_to_depth): Current range: {current_y_min:.2f}-{current_y_max:.2f}, Height: {current_height:.2f}")
+            
+            # Validate current_height to prevent division by zero or invalid ranges
+            if current_height <= 0:
+                # Use default height based on data range
+                data_y_min = self.data[self.depth_column].min()
+                data_y_max = self.data[self.depth_column].max()
+                current_height = (data_y_max - data_y_min) * 0.1  # 10% of data range
+                if current_height <= 0:
+                    current_height = 10.0  # Default fallback
+                print(f"DEBUG (PyQtGraphCurvePlotter.scroll_to_depth): Using calculated height: {current_height}")
+            
+            # Calculate new view range centered on target depth
+            new_y_min = depth - current_height / 2
+            new_y_max = depth + current_height / 2
+            
+            # Ensure we don't go beyond data bounds
             data_y_min = self.data[self.depth_column].min()
             data_y_max = self.data[self.depth_column].max()
-            current_height = (data_y_max - data_y_min) * 0.1  # 10% of data range
-            if current_height <= 0:
-                current_height = 10.0  # Default fallback
-            print(f"WARNING: Invalid current_height in scroll_to_depth, using: {current_height}")
-        
-        # Calculate new view range centered on target depth
-        new_y_min = depth - current_height / 2
-        new_y_max = depth + current_height / 2
-        
-        # Ensure we don't go beyond data bounds
-        data_y_min = self.data[self.depth_column].min()
-        data_y_max = self.data[self.depth_column].max()
-        
-        # Adjust if we're trying to view above or below data
-        if new_y_min < data_y_min:
-            offset = data_y_min - new_y_min
-            new_y_min = data_y_min
-            new_y_max = min(new_y_max + offset, data_y_max)
-        elif new_y_max > data_y_max:
-            offset = new_y_max - data_y_max
-            new_y_max = data_y_max
-            new_y_min = max(new_y_min - offset, data_y_min)
-        
-        # Ensure valid range (new_y_min must be less than new_y_max)
-        if new_y_min >= new_y_max:
-            # Fallback to centered view with reasonable height
-            range_height = data_y_max - data_y_min
-            if range_height <= 0:
-                range_height = 10.0
-            new_y_min = depth - range_height / 2
-            new_y_max = depth + range_height / 2
-            print(f"WARNING: Invalid range in scroll_to_depth, using centered view")
-        
-        # Apply the new range
-        self.plot_widget.setYRange(new_y_min, new_y_max)
-        
-        # Update stored depth range
-        self.min_depth = new_y_min
-        self.max_depth = new_y_max
-        
-        # Emit view range changed signal for synchronization
-        self.viewRangeChanged.emit(new_y_min, new_y_max)
+            
+            # Adjust if we're trying to view above or below data
+            if new_y_min < data_y_min:
+                offset = data_y_min - new_y_min
+                new_y_min = data_y_min
+                new_y_max = min(new_y_max + offset, data_y_max)
+                print(f"DEBUG (PyQtGraphCurvePlotter.scroll_to_depth): Adjusted for min bound, new range: {new_y_min:.2f}-{new_y_max:.2f}")
+            elif new_y_max > data_y_max:
+                offset = new_y_max - data_y_max
+                new_y_max = data_y_max
+                new_y_min = max(new_y_min - offset, data_y_min)
+                print(f"DEBUG (PyQtGraphCurvePlotter.scroll_to_depth): Adjusted for max bound, new range: {new_y_min:.2f}-{new_y_max:.2f}")
+            
+            # Ensure valid range (new_y_min must be less than new_y_max)
+            if new_y_min >= new_y_max:
+                # Fallback to centered view with reasonable height
+                range_height = data_y_max - data_y_min
+                if range_height <= 0:
+                    range_height = 10.0
+                new_y_min = depth - range_height / 2
+                new_y_max = depth + range_height / 2
+                print(f"DEBUG (PyQtGraphCurvePlotter.scroll_to_depth): Using fallback centered view")
+            
+            print(f"DEBUG (PyQtGraphCurvePlotter.scroll_to_depth): Setting range: {new_y_min:.2f}-{new_y_max:.2f}")
+            
+            # Apply the new range
+            self.setYRange(new_y_min, new_y_max)
+            
+            # Update stored depth range
+            self.min_depth = new_y_min
+            self.max_depth = new_y_max
+            
+            # Emit view range changed signal for synchronization
+            self.viewRangeChanged.emit(new_y_min, new_y_max)
+            
+        finally:
+            self.sync_tracker.end_sync()
     def on_plot_clicked(self, event):
         """Handle mouse clicks on the plot."""
         if event.button() == Qt.MouseButton.LeftButton:
@@ -596,10 +628,24 @@ class PyQtGraphCurvePlotter(QWidget):
                 
     def on_view_range_changed(self):
         """Handle view range changes and emit signal for overview synchronization."""
-        view_range = self.plot_widget.viewRange()
-        y_min = view_range[1][0]
-        y_max = view_range[1][1]
-        self.viewRangeChanged.emit(y_min, y_max)
+        # Check if synchronization should proceed (prevent infinite loops)
+        if self.sync_enabled and not self.sync_tracker.should_sync():
+            print(f"DEBUG (PyQtGraphCurvePlotter.on_view_range_changed): Sync blocked by tracker")
+            return
+            
+        self.sync_tracker.begin_sync()
+        
+        try:
+            view_range = self.plot_widget.viewRange()
+            y_min = view_range[1][0]
+            y_max = view_range[1][1]
+            
+            print(f"DEBUG (PyQtGraphCurvePlotter.on_view_range_changed): View range changed to {y_min:.2f}-{y_max:.2f}")
+            
+            self.viewRangeChanged.emit(y_min, y_max)
+            
+        finally:
+            self.sync_tracker.end_sync()
                 
     def get_view_range(self):
         """Get the current visible depth range."""
@@ -610,6 +656,11 @@ class PyQtGraphCurvePlotter(QWidget):
         """Signal handler for view range changes (for synchronization with overview)."""
         # This can be connected to external signals
         pass
+        
+    def set_sync_enabled(self, enabled):
+        """Enable or disable synchronization with stratigraphic column."""
+        self.sync_enabled = enabled
+        print(f"DEBUG (PyQtGraphCurvePlotter.set_sync_enabled): Sync enabled = {enabled}")
     
     # =========================================================================
     # Boundary Line Methods (Phase 4: Depth Correction)
@@ -1243,3 +1294,91 @@ class PyQtGraphCurvePlotter(QWidget):
     def on_data_updated(self):
         """Called when data is updated to refresh anomaly detection."""
         self.update_anomaly_detection()
+        
+    # =========================================================================
+    # Zoom State Management Methods
+    # =========================================================================
+    
+    def set_zoom_state_manager(self, zoom_manager):
+        """Set the zoom state manager for synchronization."""
+        self.zoom_state_manager = zoom_manager
+        if self.zoom_state_manager:
+            # Connect signals
+            self.zoom_state_manager.zoomStateChanged.connect(self._on_zoom_state_changed)
+            self.zoom_state_manager.zoomLevelChanged.connect(self._on_zoom_level_changed)
+            self.zoom_state_manager.depthScaleChanged.connect(self._on_depth_scale_changed)
+            print(f"DEBUG (PyQtGraphCurvePlotter): Zoom state manager set")
+            
+    def _on_zoom_state_changed(self, center_depth, min_depth, max_depth):
+        """Handle zoom state changes from zoom manager."""
+        if not self.is_zooming:
+            self.is_zooming = True
+            try:
+                # Update view range
+                self.setYRange(min_depth, max_depth)
+                print(f"DEBUG (PyQtGraphCurvePlotter): Zoom state applied: "
+                      f"range=[{min_depth:.2f}, {max_depth:.2f}], center={center_depth:.2f}")
+            finally:
+                self.is_zooming = False
+                
+    def _on_zoom_level_changed(self, zoom_factor):
+        """Handle zoom level changes from zoom manager."""
+        self.current_zoom_factor = zoom_factor
+        self.zoomLevelChanged.emit(zoom_factor)
+        print(f"DEBUG (PyQtGraphCurvePlotter): Zoom level changed: {zoom_factor:.2f}")
+        
+    def _on_depth_scale_changed(self, depth_scale):
+        """Handle depth scale changes from zoom manager."""
+        if depth_scale > 0:
+            self.depth_scale = depth_scale
+            print(f"DEBUG (PyQtGraphCurvePlotter): Depth scale changed: {depth_scale}")
+            
+    def get_zoom_factor(self):
+        """Get current zoom factor."""
+        return self.current_zoom_factor
+        
+    def set_fixed_scale_enabled(self, enabled):
+        """Enable or disable fixed scale (prevent scale changes during scrolling)."""
+        self.fixed_scale_enabled = enabled
+        print(f"DEBUG (PyQtGraphCurvePlotter): Fixed scale {'enabled' if enabled else 'disabled'}")
+        
+    def setYRange(self, min_depth, max_depth, padding=0):
+        """
+        Override setYRange to add fixed scale enforcement and debug logging.
+        
+        Args:
+            min_depth: Minimum Y value
+            max_depth: Maximum Y value
+            padding: Optional padding
+        """
+        # Ensure valid range
+        if min_depth >= max_depth:
+            print(f"ERROR (PyQtGraphCurvePlotter): Invalid range in setYRange: {min_depth} >= {max_depth}")
+            return
+            
+        # Apply fixed scale if enabled
+        if self.fixed_scale_enabled and hasattr(self, 'depth_scale'):
+            # Calculate expected pixel height based on depth scale
+            expected_pixel_height = (max_depth - min_depth) * self.depth_scale
+            actual_pixel_height = self.plot_widget.height()
+            
+            # Adjust range to maintain fixed scale if needed
+            if abs(expected_pixel_height - actual_pixel_height) > 10:  # 10 pixel tolerance
+                print(f"DEBUG (PyQtGraphCurvePlotter): Adjusting range to maintain fixed scale")
+                # Recalculate range based on actual pixel height and depth scale
+                adjusted_range = actual_pixel_height / self.depth_scale
+                center = (min_depth + max_depth) / 2
+                min_depth = center - adjusted_range / 2
+                max_depth = center + adjusted_range / 2
+                
+        # Call parent method
+        self.plot_widget.setYRange(min_depth, max_depth, padding)
+        
+        # Update stored depth range
+        self.min_depth = min_depth
+        self.max_depth = max_depth
+        
+        # Emit view range changed signal
+        self.viewRangeChanged.emit(min_depth, max_depth)
+        
+        print(f"DEBUG (PyQtGraphCurvePlotter): setYRange called: [{min_depth:.2f}, {max_depth:.2f}]")

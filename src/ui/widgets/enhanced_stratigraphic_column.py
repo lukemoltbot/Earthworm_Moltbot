@@ -22,6 +22,8 @@ from .svg_renderer import SvgRenderer
 from .stratigraphic_column import StratigraphicColumn  # Inherit from base class
 # Synchronization state tracking
 from .sync_state_tracker import SyncStateTracker
+# Zoom state management
+from .zoom_state_manager import ZoomStateManager
 
 
 class HoverRectItem(QGraphicsRectItem):
@@ -63,6 +65,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
     depthScrolled = pyqtSignal(float)  # center_depth (when user scrolls)
     unitSelected = pyqtSignal(int)  # unit_index (when user selects a unit)
     syncRequested = pyqtSignal()  # Request synchronization with curve plotter
+    zoomLevelChanged = pyqtSignal(float)  # zoom_factor (when zoom level changes)
     
     def __init__(self, parent=None):
         """Initialize enhanced stratigraphic column with synchronization features."""
@@ -81,6 +84,11 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         # Sync state tracking to prevent infinite loops
         self.sync_tracker = SyncStateTracker(debounce_ms=50)
         self.last_sync_depth = 0.0
+        
+        # Zoom state management
+        self.zoom_state_manager = None
+        self.current_zoom_factor = 1.0
+        self.is_zooming = False
         
         # Enhanced visualization settings
         self.unit_label_font = QFont("Arial", 7)
@@ -119,6 +127,9 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         # Curve plotter uses depth_scale = 10, so enhanced column should match
         # This ensures they show the same depth range and scroll together
         self.depth_scale = 10.0  # Match curve plotter scale
+        
+        # Fixed scale - prevent scale changes during scrolling
+        self.fixed_scale_enabled = True
         
     def set_classified_data(self, classified_dataframe):
         """Set the classified dataframe containing original curve data."""
@@ -374,29 +385,43 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
                             item.setBrush(QBrush(gradient))
                             
     def _on_scroll_value_changed(self, value):
-        """Handle scroll bar value changes for synchronization."""
+        """Handle scroll bar value changes for synchronization with center alignment."""
         if not self.sync_enabled:
             return
             
-        # Calculate visible depth range
-        view_rect = self.mapToScene(self.viewport().rect()).boundingRect()
-        visible_min_y = view_rect.top()
-        visible_max_y = view_rect.bottom()
+        # Check if synchronization should proceed (prevent infinite loops)
+        if not self.sync_tracker.should_sync():
+            print(f"DEBUG (EnhancedStratigraphicColumn._on_scroll_value_changed): Sync blocked by tracker")
+            return
+            
+        self.sync_tracker.begin_sync()
         
-        # Convert to depth values
-        self.visible_min_depth = self.min_depth + (visible_min_y / self.depth_scale)
-        self.visible_max_depth = self.min_depth + (visible_max_y / self.depth_scale)
-        
-        # Calculate center depth
-        center_depth = (self.visible_min_depth + self.visible_max_depth) / 2
-        
-        # Emit signals for synchronization
-        self.depthRangeChanged.emit(self.visible_min_depth, self.visible_max_depth)
-        
-        # Only emit scroll signal if depth changed significantly
-        if abs(center_depth - self.last_sync_depth) > 0.1:
-            self.depthScrolled.emit(center_depth)
-            self.last_sync_depth = center_depth
+        try:
+            # Calculate visible depth range
+            view_rect = self.mapToScene(self.viewport().rect()).boundingRect()
+            visible_min_y = view_rect.top()
+            visible_max_y = view_rect.bottom()
+            
+            # Convert to depth values
+            self.visible_min_depth = self.min_depth + (visible_min_y / self.depth_scale)
+            self.visible_max_depth = self.min_depth + (visible_max_y / self.depth_scale)
+            
+            # Calculate center depth
+            center_depth = (self.visible_min_depth + self.visible_max_depth) / 2
+            
+            print(f"DEBUG (EnhancedStratigraphicColumn._on_scroll_value_changed): Scroll value={value}, Visible range: {self.visible_min_depth:.2f}-{self.visible_max_depth:.2f}, Center: {center_depth:.2f}")
+            
+            # Emit signals for synchronization
+            self.depthRangeChanged.emit(self.visible_min_depth, self.visible_max_depth)
+            
+            # Only emit scroll signal if depth changed significantly
+            if abs(center_depth - self.last_sync_depth) > 0.1:
+                print(f"DEBUG (EnhancedStratigraphicColumn._on_scroll_value_changed): Emitting depthScrolled signal with center_depth={center_depth}")
+                self.depthScrolled.emit(center_depth)
+                self.last_sync_depth = center_depth
+                
+        finally:
+            self.sync_tracker.end_sync()
             
     def _update_visible_depth_range(self):
         """Update the visible depth range based on current view."""
@@ -427,12 +452,13 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             self.depthScrolled.connect(self._on_strat_column_scrolled)
             
     def _on_curve_plotter_scrolled(self, min_depth, max_depth):
-        """Handle when curve plotter scrolls - update strat column view."""
+        """Handle when curve plotter scrolls - update strat column view with center alignment."""
         if not self.sync_enabled or not self.sync_curve_plotter:
             return
             
         # Check if synchronization should proceed (prevent infinite loops)
         if not self.sync_tracker.should_sync():
+            print(f"DEBUG (EnhancedStratigraphicColumn._on_curve_plotter_scrolled): Sync blocked by tracker")
             return
             
         self.sync_tracker.begin_sync()
@@ -441,28 +467,33 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             # Calculate center depth
             center_depth = (min_depth + max_depth) / 2
             
-            # Scroll strat column to match
+            print(f"DEBUG (EnhancedStratigraphicColumn._on_curve_plotter_scrolled): Curve plotter scrolled to range {min_depth:.2f}-{max_depth:.2f}, Center: {center_depth:.2f}")
+            
+            # Scroll strat column to center on same depth
             self.scroll_to_depth(center_depth)
             
-            # Update visible depth range
-            self.visible_min_depth = min_depth
-            self.visible_max_depth = max_depth
+            # Update visible depth range (should match after scrolling)
+            self._update_visible_depth_range()
+            print(f"DEBUG (EnhancedStratigraphicColumn._on_curve_plotter_scrolled): After scrolling, visible range: {self.visible_min_depth:.2f}-{self.visible_max_depth:.2f}")
             
         finally:
             self.sync_tracker.end_sync()
             
     def _on_strat_column_scrolled(self, center_depth):
-        """Handle when strat column scrolls - update curve plotter view."""
+        """Handle when strat column scrolls - update curve plotter view with center alignment."""
         if not self.sync_enabled or not self.sync_curve_plotter:
             return
             
         # Check if synchronization should proceed (prevent infinite loops)
         if not self.sync_tracker.should_sync():
+            print(f"DEBUG (EnhancedStratigraphicColumn._on_strat_column_scrolled): Sync blocked by tracker")
             return
             
         self.sync_tracker.begin_sync()
         
         try:
+            print(f"DEBUG (EnhancedStratigraphicColumn._on_strat_column_scrolled): Strat column scrolled to center_depth={center_depth:.2f}")
+            
             # Get current view height from curve plotter
             if hasattr(self.sync_curve_plotter, 'plot_widget'):
                 view_range = self.sync_curve_plotter.plot_widget.viewRange()
@@ -470,6 +501,8 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
                     current_y_min = view_range[1][0]
                     current_y_max = view_range[1][1]
                     current_height = current_y_max - current_y_min
+                    
+                    print(f"DEBUG (EnhancedStratigraphicColumn._on_strat_column_scrolled): Current curve plotter range: {current_y_min:.2f}-{current_y_max:.2f}, Height: {current_height:.2f}")
                     
                     # Validate current_height
                     if current_height <= 0:
@@ -480,13 +513,17 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
                                 data_y_min = data[self.sync_curve_plotter.depth_column].min()
                                 data_y_max = data[self.sync_curve_plotter.depth_column].max()
                                 current_height = (data_y_max - data_y_min) * 0.1
+                                print(f"DEBUG (EnhancedStratigraphicColumn._on_strat_column_scrolled): Using data-based height: {current_height:.2f}")
                     
                     if current_height <= 0:
                         current_height = 10.0  # Default fallback
+                        print(f"DEBUG (EnhancedStratigraphicColumn._on_strat_column_scrolled): Using default height: {current_height:.2f}")
                     
                     # Calculate new range centered on target depth
                     new_y_min = center_depth - current_height / 2
                     new_y_max = center_depth + current_height / 2
+                    
+                    print(f"DEBUG (EnhancedStratigraphicColumn._on_strat_column_scrolled): Setting curve plotter range: {new_y_min:.2f}-{new_y_max:.2f}")
                     
                     # Apply to curve plotter
                     self.sync_curve_plotter.plot_widget.setYRange(new_y_min, new_y_max)
@@ -497,17 +534,46 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         """
         Scroll the view to make the given depth visible.
         
-        Overrides base method to add synchronization.
+        Overrides base method to add synchronization and center alignment.
+        
+        Args:
+            depth: Target depth to scroll to (will be centered in view)
         """
-        # Call parent method
-        super().scroll_to_depth(depth)
+        print(f"DEBUG (EnhancedStratigraphicColumn.scroll_to_depth): Scrolling to depth {depth}")
         
-        # Update visible depth range
-        self._update_visible_depth_range()
+        # Check if synchronization should proceed (prevent infinite loops)
+        if self.sync_enabled and not self.sync_tracker.should_sync():
+            print(f"DEBUG (EnhancedStratigraphicColumn.scroll_to_depth): Sync blocked by tracker")
+            return
+            
+        self.sync_tracker.begin_sync()
         
-        # Emit synchronization signal
-        if self.sync_enabled:
-            self.depthScrolled.emit(depth)
+        try:
+            # Call parent method
+            super().scroll_to_depth(depth)
+            
+            # Update visible depth range
+            self._update_visible_depth_range()
+            
+            # Calculate center depth (should match input depth when centered)
+            center_depth = (self.visible_min_depth + self.visible_max_depth) / 2
+            print(f"DEBUG (EnhancedStratigraphicColumn.scroll_to_depth): Visible range: {self.visible_min_depth:.2f}-{self.visible_max_depth:.2f}, Center: {center_depth:.2f}")
+            
+            # Update zoom state manager if available
+            if self.zoom_state_manager and not self.is_zooming:
+                self.zoom_state_manager.center_depth = center_depth
+                self.zoom_state_manager.visible_min_depth = self.visible_min_depth
+                self.zoom_state_manager.visible_max_depth = self.visible_max_depth
+                print(f"DEBUG (EnhancedStratigraphicColumn.scroll_to_depth): Updated zoom state manager")
+            
+            # Emit synchronization signal with center depth
+            if self.sync_enabled:
+                print(f"DEBUG (EnhancedStratigraphicColumn.scroll_to_depth): Emitting depthScrolled signal with center_depth={center_depth}")
+                self.depthScrolled.emit(center_depth)
+                self.last_sync_depth = center_depth
+                
+        finally:
+            self.sync_tracker.end_sync()
             
     def set_sync_enabled(self, enabled):
         """Enable or disable synchronization with curve plotter."""
@@ -516,6 +582,55 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
     def get_visible_depth_range(self):
         """Get the currently visible depth range."""
         return self.visible_min_depth, self.visible_max_depth
+        
+    def set_zoom_state_manager(self, zoom_manager):
+        """Set the zoom state manager for synchronization."""
+        self.zoom_state_manager = zoom_manager
+        if self.zoom_state_manager:
+            # Connect signals
+            self.zoom_state_manager.zoomStateChanged.connect(self._on_zoom_state_changed)
+            self.zoom_state_manager.zoomLevelChanged.connect(self._on_zoom_level_changed)
+            self.zoom_state_manager.depthScaleChanged.connect(self._on_depth_scale_changed)
+            
+    def _on_zoom_state_changed(self, center_depth, min_depth, max_depth):
+        """Handle zoom state changes from zoom manager."""
+        if not self.sync_enabled or self.is_zooming:
+            return
+            
+        self.is_zooming = True
+        try:
+            # Update visible depth range
+            self.visible_min_depth = min_depth
+            self.visible_max_depth = max_depth
+            
+            # Scroll to center depth
+            self.scroll_to_depth(center_depth)
+            
+            print(f"DEBUG (EnhancedStratigraphicColumn): Zoom state changed: "
+                  f"center={center_depth:.2f}, range=[{min_depth:.2f}, {max_depth:.2f}]")
+        finally:
+            self.is_zooming = False
+            
+    def _on_zoom_level_changed(self, zoom_factor):
+        """Handle zoom level changes from zoom manager."""
+        self.current_zoom_factor = zoom_factor
+        self.zoomLevelChanged.emit(zoom_factor)
+        print(f"DEBUG (EnhancedStratigraphicColumn): Zoom level changed: {zoom_factor:.2f}")
+        
+    def _on_depth_scale_changed(self, depth_scale):
+        """Handle depth scale changes from zoom manager."""
+        if depth_scale > 0:
+            self.depth_scale = depth_scale
+            print(f"DEBUG (EnhancedStratigraphicColumn): Depth scale changed: {depth_scale}")
+            
+    def get_zoom_factor(self):
+        """Get current zoom factor."""
+        return self.current_zoom_factor
+        
+    def set_fixed_scale_enabled(self, enabled):
+        """Enable or disable fixed scale (prevent scale changes during scrolling)."""
+        self.fixed_scale_enabled = enabled
+        print(f"DEBUG (EnhancedStratigraphicColumn): Fixed scale {'enabled' if enabled else 'disabled'}")
         
     def set_detailed_labels_enabled(self, enabled):
         """Enable or disable detailed unit labels."""
@@ -544,14 +659,53 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         
     def wheelEvent(self, event):
         """Handle wheel events for zooming with synchronization."""
-        # First, let the parent handle the wheel event (for zooming)
-        super().wheelEvent(event)
+        print(f"DEBUG (EnhancedStratigraphicColumn): Wheel event: delta={event.angleDelta().y()}")
         
-        # Then update synchronization
+        # Check if this is a zoom operation (Ctrl+wheel)
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            # Handle zoom with Ctrl+wheel
+            self._handle_zoom_wheel(event)
+            event.accept()
+        else:
+            # Handle normal scrolling
+            super().wheelEvent(event)
+            
+            # Update synchronization
+            self._update_visible_depth_range()
+            if self.sync_enabled:
+                center_depth = (self.visible_min_depth + self.visible_max_depth) / 2
+                self.depthScrolled.emit(center_depth)
+                
+    def _handle_zoom_wheel(self, event):
+        """Handle zoom wheel events (Ctrl+wheel)."""
+        delta = event.angleDelta().y()
+        
+        # Calculate zoom factor change
+        zoom_delta = 0.1  # 10% zoom change per wheel step
+        if delta > 0:
+            # Zoom in
+            new_zoom_factor = self.current_zoom_factor * (1.0 + zoom_delta)
+        else:
+            # Zoom out
+            new_zoom_factor = self.current_zoom_factor / (1.0 + zoom_delta)
+            
+        # Clamp zoom factor
+        new_zoom_factor = max(0.1, min(new_zoom_factor, 100.0))
+        
+        # Get current center depth
         self._update_visible_depth_range()
-        if self.sync_enabled:
-            center_depth = (self.visible_min_depth + self.visible_max_depth) / 2
-            self.depthScrolled.emit(center_depth)
+        center_depth = (self.visible_min_depth + self.visible_max_depth) / 2
+        
+        # Update zoom via zoom state manager if available
+        if self.zoom_state_manager:
+            self.zoom_state_manager.zoom_to_depth(center_depth, new_zoom_factor)
+        else:
+            # Fallback: update local state and emit signal
+            self.current_zoom_factor = new_zoom_factor
+            self.zoomLevelChanged.emit(new_zoom_factor)
+            
+        print(f"DEBUG (EnhancedStratigraphicColumn): Zoom wheel: delta={delta}, "
+              f"zoom_factor={self.current_zoom_factor:.2f} -> {new_zoom_factor:.2f}")
             
     def mousePressEvent(self, event):
         """Handle mouse clicks with enhanced selection highlighting."""

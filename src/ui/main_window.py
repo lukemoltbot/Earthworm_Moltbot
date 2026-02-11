@@ -87,6 +87,11 @@ class HoleEditorWindow(QWidget):
         self.enhancedStratColumnView = EnhancedStratigraphicColumn()  # Enhanced column (detailed, synchronized)
         self.editorTable = LithologyTableWidget()
         self.exportCsvButton = QPushButton("Export to CSV")
+        
+        # Create zoom state manager for synchronization
+        from .widgets.zoom_state_manager import ZoomStateManager
+        self.zoom_state_manager = ZoomStateManager(self)
+        self.zoom_state_manager.set_widgets(self.enhancedStratColumnView, self.curvePlotter)
 
         # Create curve visibility manager
         self.curve_visibility_manager = CurveVisibilityManager(self.curvePlotter)
@@ -249,6 +254,12 @@ class HoleEditorWindow(QWidget):
 
     def _setup_enhanced_column_sync(self):
         """Set up synchronization between curve plotter and enhanced stratigraphic column."""
+        # Set up zoom state manager
+        if hasattr(self, 'zoom_state_manager'):
+            self.enhancedStratColumnView.set_zoom_state_manager(self.zoom_state_manager)
+            self.curvePlotter.set_zoom_state_manager(self.zoom_state_manager)
+            print("DEBUG (main_window): Zoom state manager connected to widgets")
+        
         # Connect curve plotter signals to enhanced column
         if hasattr(self.curvePlotter, 'viewRangeChanged'):
             self.curvePlotter.viewRangeChanged.connect(self._on_plot_view_range_changed_for_enhanced)
@@ -260,18 +271,33 @@ class HoleEditorWindow(QWidget):
         self.enhancedStratColumnView.depthScrolled.connect(self._on_enhanced_column_scrolled)
         self.enhancedStratColumnView.syncRequested.connect(self._on_enhanced_sync_requested)
         
+        # Connect zoom level changed signals
+        if hasattr(self.enhancedStratColumnView, 'zoomLevelChanged'):
+            self.enhancedStratColumnView.zoomLevelChanged.connect(self._on_zoom_level_changed)
+        
+        if hasattr(self.curvePlotter, 'zoomLevelChanged'):
+            self.curvePlotter.zoomLevelChanged.connect(self._on_zoom_level_changed)
+        
         # Set enhanced column to show detailed view (not overview)
         self.enhancedStratColumnView.set_overview_mode(False)
         
         # Store reference to curve plotter in enhanced column for direct sync
         self.enhancedStratColumnView.sync_curve_plotter = self.curvePlotter
+        
+        # Set up bidirectional synchronization using the enhanced column's method
+        self.enhancedStratColumnView.sync_with_curve_plotter(self.curvePlotter)
 
     def _on_plot_view_range_changed_for_enhanced(self, x_range, y_range):
         """Handle plot view range changes to sync enhanced column."""
         if hasattr(self, 'enhancedStratColumnView') and self.enhancedStratColumnView.sync_enabled:
             # Update enhanced column with current visible depth range
             min_depth, max_depth = y_range
-            self.enhancedStratColumnView._on_curve_plotter_scrolled(min_depth, max_depth)
+            if hasattr(self, 'zoom_state_manager'):
+                # Use zoom state manager for synchronization
+                self.zoom_state_manager.sync_from_curve_plotter(min_depth, max_depth)
+            else:
+                # Fallback to direct sync
+                self.enhancedStratColumnView._on_curve_plotter_scrolled(min_depth, max_depth)
 
     def _on_plot_point_clicked_for_enhanced(self, depth):
         """Handle plot point clicks to sync enhanced column."""
@@ -282,8 +308,14 @@ class HoleEditorWindow(QWidget):
     def _on_enhanced_column_scrolled(self, center_depth):
         """Handle enhanced column scrolling to sync curve plotter."""
         if hasattr(self, 'curvePlotter') and self.enhancedStratColumnView.sync_enabled:
-            # Scroll curve plotter to same depth
-            self.curvePlotter.scroll_to_depth(center_depth)
+            if hasattr(self, 'zoom_state_manager'):
+                # Get current visible range from enhanced column
+                min_depth, max_depth = self.enhancedStratColumnView.get_visible_depth_range()
+                # Use zoom state manager for synchronization
+                self.zoom_state_manager.sync_from_enhanced_column(center_depth, min_depth, max_depth)
+            else:
+                # Fallback to direct sync
+                self.curvePlotter.scroll_to_depth(center_depth)
 
     def _on_enhanced_sync_requested(self):
         """Handle sync request from enhanced column."""
@@ -292,7 +324,19 @@ class HoleEditorWindow(QWidget):
             x_range, y_range = self.curvePlotter.get_view_range()
             if y_range:
                 min_depth, max_depth = y_range
-                self.enhancedStratColumnView._on_curve_plotter_scrolled(min_depth, max_depth)
+                if hasattr(self, 'zoom_state_manager'):
+                    # Use zoom state manager for synchronization
+                    self.zoom_state_manager.sync_from_curve_plotter(min_depth, max_depth)
+                else:
+                    # Fallback to direct sync
+                    self.enhancedStratColumnView._on_curve_plotter_scrolled(min_depth, max_depth)
+                    
+    def _on_zoom_level_changed(self, zoom_factor):
+        """Handle zoom level changes from either widget."""
+        print(f"DEBUG (main_window): Zoom level changed: {zoom_factor:.2f}")
+        # Update any UI elements that show zoom level
+        if hasattr(self, 'statusBar'):
+            self.statusBar().showMessage(f"Zoom: {zoom_factor:.1f}x", 2000)
 
     def _on_table_row_selected(self, row):
         """Handle table row selection to highlight stratigraphic column and scroll plot view (Subtask 4.1)."""
@@ -3394,6 +3438,12 @@ class MainWindow(QMainWindow):
         # This ensures both plots use the same consistent depth scale
         min_overall_depth = classified_dataframe[DEPTH_COLUMN].min()
         max_overall_depth = classified_dataframe[DEPTH_COLUMN].max()
+
+        # Update zoom state manager with hole depth range
+        if hasattr(self, 'zoom_state_manager'):
+            self.zoom_state_manager.set_hole_depth_range(min_overall_depth, max_overall_depth)
+            print(f"DEBUG (_finalize_analysis_display): Updated zoom state manager with hole depth range: "
+                  f"{min_overall_depth:.2f} - {max_overall_depth:.2f}")
 
         # Pass the overall depth range to both stratigraphic columns
         print(f"DEBUG (_finalize_analysis_display): Drawing overview column")
