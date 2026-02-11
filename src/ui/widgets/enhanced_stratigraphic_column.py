@@ -426,72 +426,73 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             # When strat column scrolls, update curve plotter
             self.depthScrolled.connect(self._on_strat_column_scrolled)
             
-        def _on_curve_plotter_scrolled(self, min_depth, max_depth):
-            """Handle when curve plotter scrolls - update strat column view."""
-            if not self.sync_enabled or not self.sync_curve_plotter:
-                return
-                
-            # Check if synchronization should proceed (prevent infinite loops)
-            if not self.sync_tracker.should_sync():
-                return
-                
-            self.sync_tracker.begin_sync()
+    def _on_curve_plotter_scrolled(self, min_depth, max_depth):
+        """Handle when curve plotter scrolls - update strat column view."""
+        if not self.sync_enabled or not self.sync_curve_plotter:
+            return
             
-            try:
-                # Calculate center depth
-                center_depth = (min_depth + max_depth) / 2
-                
-                # Scroll strat column to match
-                self.scroll_to_depth(center_depth)
-                
-                # Update visible depth range
-                self.visible_min_depth = min_depth
-                self.visible_max_depth = max_depth
-                
-            finally:
-                self.sync_tracker.end_sync()
-        def _on_strat_column_scrolled(self, center_depth):
-            """Handle when strat column scrolls - update curve plotter view."""
-            if not self.sync_enabled or not self.sync_curve_plotter:
-                return
-                
-            # Check if synchronization should proceed (prevent infinite loops)
-            if not self.sync_tracker.should_sync():
-                return
-                
-            self.sync_tracker.begin_sync()
+        # Check if synchronization should proceed (prevent infinite loops)
+        if not self.sync_tracker.should_sync():
+            return
             
-            try:
-                # Get current view height from curve plotter
-                if hasattr(self.sync_curve_plotter, 'plot_widget'):
-                    view_range = self.sync_curve_plotter.plot_widget.viewRange()
-                    if view_range and len(view_range) > 1:
-                        current_y_min = view_range[1][0]
-                        current_y_max = view_range[1][1]
-                        current_height = current_y_max - current_y_min
-                        
-                        # Validate current_height
-                        if current_height <= 0:
-                            # Use default height
-                            if hasattr(self.sync_curve_plotter, 'data') and self.sync_curve_plotter.data is not None:
-                                data = self.sync_curve_plotter.data
-                                if hasattr(self.sync_curve_plotter, 'depth_column') and self.sync_curve_plotter.depth_column in data.columns:
-                                    data_y_min = data[self.sync_curve_plotter.depth_column].min()
-                                    data_y_max = data[self.sync_curve_plotter.depth_column].max()
-                                    current_height = (data_y_max - data_y_min) * 0.1
-                        
-                        if current_height <= 0:
-                            current_height = 10.0  # Default fallback
-                        
-                        # Calculate new range centered on target depth
-                        new_y_min = center_depth - current_height / 2
-                        new_y_max = center_depth + current_height / 2
-                        
-                        # Apply to curve plotter
-                        self.sync_curve_plotter.plot_widget.setYRange(new_y_min, new_y_max)
-                        
-            finally:
-                self.sync_tracker.end_sync()
+        self.sync_tracker.begin_sync()
+        
+        try:
+            # Calculate center depth
+            center_depth = (min_depth + max_depth) / 2
+            
+            # Scroll strat column to match
+            self.scroll_to_depth(center_depth)
+            
+            # Update visible depth range
+            self.visible_min_depth = min_depth
+            self.visible_max_depth = max_depth
+            
+        finally:
+            self.sync_tracker.end_sync()
+            
+    def _on_strat_column_scrolled(self, center_depth):
+        """Handle when strat column scrolls - update curve plotter view."""
+        if not self.sync_enabled or not self.sync_curve_plotter:
+            return
+            
+        # Check if synchronization should proceed (prevent infinite loops)
+        if not self.sync_tracker.should_sync():
+            return
+            
+        self.sync_tracker.begin_sync()
+        
+        try:
+            # Get current view height from curve plotter
+            if hasattr(self.sync_curve_plotter, 'plot_widget'):
+                view_range = self.sync_curve_plotter.plot_widget.viewRange()
+                if view_range and len(view_range) > 1:
+                    current_y_min = view_range[1][0]
+                    current_y_max = view_range[1][1]
+                    current_height = current_y_max - current_y_min
+                    
+                    # Validate current_height
+                    if current_height <= 0:
+                        # Use default height
+                        if hasattr(self.sync_curve_plotter, 'data') and self.sync_curve_plotter.data is not None:
+                            data = self.sync_curve_plotter.data
+                            if hasattr(self.sync_curve_plotter, 'depth_column') and self.sync_curve_plotter.depth_column in data.columns:
+                                data_y_min = data[self.sync_curve_plotter.depth_column].min()
+                                data_y_max = data[self.sync_curve_plotter.depth_column].max()
+                                current_height = (data_y_max - data_y_min) * 0.1
+                    
+                    if current_height <= 0:
+                        current_height = 10.0  # Default fallback
+                    
+                    # Calculate new range centered on target depth
+                    new_y_min = center_depth - current_height / 2
+                    new_y_max = center_depth + current_height / 2
+                    
+                    # Apply to curve plotter
+                    self.sync_curve_plotter.plot_widget.setYRange(new_y_min, new_y_max)
+                    
+        finally:
+            self.sync_tracker.end_sync()
     def scroll_to_depth(self, depth):
         """
         Scroll the view to make the given depth visible.

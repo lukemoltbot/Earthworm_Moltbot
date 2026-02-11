@@ -523,7 +523,7 @@ class PyQtGraphCurvePlotter(QWidget):
         self.max_depth = max_depth
         self.plot_widget.setYRange(min_depth, max_depth)
         
-        def scroll_to_depth(self, depth):
+    def scroll_to_depth(self, depth):
         """Scroll the view to make the given depth visible."""
         if self.data is None or self.data.empty:
             print("WARNING: No data available for scrolling")
