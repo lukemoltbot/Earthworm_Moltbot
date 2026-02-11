@@ -1,7 +1,7 @@
 import os
 from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsTextItem, QGraphicsLineItem
 from PyQt6.QtSvgWidgets import QGraphicsSvgItem
-from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPixmap, QPen
+from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPixmap, QPen, QTransform
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtCore import QRectF, Qt, pyqtSignal
 import numpy as np # Import numpy
@@ -125,10 +125,10 @@ class StratigraphicColumn(QGraphicsView):
         # Adjust scene rect to include space for the Y-axis
         # In overview mode, we use fitInView with padding, so scene rect should be exact content size
         if self.overview_mode:
-            # For overview mode: scene rectangle is exact content (Y-axis + column)
-            # Use a reasonable depth_scale for scene calculation (fitInView will adjust)
-            scene_height = (max_depth_for_scene - min_depth_for_scene) * 10.0  # 10px per metre as base scale
-            print(f"DEBUG (StratigraphicColumn.draw_column): Overview mode - scene height for fitInView: {scene_height:.1f}px")
+            # For overview mode: Use a reasonable scene height (fitInView will scale it)
+            # We're using 10px per metre as a base - fitInView will scale to fill height
+            scene_height = (max_depth_for_scene - min_depth_for_scene) * 10.0
+            print(f"DEBUG (StratigraphicColumn.draw_column): Overview mode - scene height: {scene_height:.1f}px")
         else:
             # In detailed mode, include X-axis height to match curve plotter
             scene_height = (max_depth_for_scene - min_depth_for_scene) * self.depth_scale + self.x_axis_height
@@ -413,30 +413,54 @@ class StratigraphicColumn(QGraphicsView):
     def fitInView(self, rect, mode=Qt.AspectRatioMode.IgnoreAspectRatio):
         """Override fitInView to handle overview mode with padding."""
         if self.overview_mode:
-            # In overview mode, apply padding to the rectangle
-            # 5% padding left/right, 10% padding top/bottom
+            # In overview mode: Width is fixed and perfect, optimize for height filling
             
             # Validate rectangle
             if rect.width() <= 0 or rect.height() <= 0:
                 print(f"WARNING (StratigraphicColumn.fitInView): Invalid rectangle for overview mode: {rect.width():.1f}x{rect.height():.1f}")
                 return
             
-            print(f"DEBUG (StratigraphicColumn.fitInView): Applying padding for overview mode")
-            print(f"DEBUG (StratigraphicColumn.fitInView): Viewport size: {self.viewport().size().width()}x{self.viewport().size().height()}")
+            print(f"DEBUG (StratigraphicColumn.fitInView): Overview mode - optimizing for height filling")
+            print(f"DEBUG (StratigraphicColumn.fitInView): Viewport: {self.viewport().size().width()}x{self.viewport().size().height()}")
+            print(f"DEBUG (StratigraphicColumn.fitInView): Scene rect: {rect.width():.1f}x{rect.height():.1f}")
             
-            # Calculate padding
-            width_padding = rect.width() * 0.05  # 5% left/right
-            height_padding = rect.height() * 0.10  # 10% top/bottom
-            
-            # Create padded rectangle
+            # Calculate padding (5% L/R, 10% T/B)
+            width_padding = rect.width() * 0.05
+            height_padding = rect.height() * 0.10
             padded_rect = rect.adjusted(-width_padding, -height_padding, width_padding, height_padding)
             
-            # Use KeepAspectRatio to maintain aspect ratio with padding
-            super().fitInView(padded_rect, Qt.AspectRatioMode.KeepAspectRatio)
+            # For overview mode: We want to fill ~80% of vertical space
+            # Calculate the scale needed to achieve this
+            viewport_height = self.viewport().size().height()
+            target_fill_ratio = 0.80  # Fill 80% of vertical space
+            target_height = viewport_height * target_fill_ratio
             
-            print(f"DEBUG (StratigraphicColumn.fitInView): Original rect: {rect.width():.1f}x{rect.height():.1f}")
-            print(f"DEBUG (StratigraphicColumn.fitInView): Padded rect: {padded_rect.width():.1f}x{padded_rect.height():.1f}")
-            print(f"DEBUG (StratigraphicColumn.fitInView): Applied to viewport: {self.viewport().size().width()}x{self.viewport().size().height()}")
+            if padded_rect.height() > 0:
+                # Calculate scale based on height target
+                height_scale = target_height / padded_rect.height()
+                
+                # But we also need to ensure width fits (it should with fixed width)
+                viewport_width = self.viewport().size().width()
+                scaled_width = padded_rect.width() * height_scale
+                
+                print(f"DEBUG (StratigraphicColumn.fitInView): Height optimization:")
+                print(f"DEBUG (StratigraphicColumn.fitInView):   Target: Fill {target_fill_ratio*100:.0f}% of {viewport_height}px = {target_height:.1f}px")
+                print(f"DEBUG (StratigraphicColumn.fitInView):   Padded height: {padded_rect.height():.1f}px")
+                print(f"DEBUG (StratigraphicColumn.fitInView):   Required scale: {height_scale:.4f}")
+                print(f"DEBUG (StratigraphicColumn.fitInView):   Scaled width: {scaled_width:.1f}px (viewport: {viewport_width}px)")
+                
+                # Apply the calculated scale
+                # We'll transform the view to achieve our target
+                self.setTransform(QTransform.fromScale(height_scale, height_scale))
+                
+                # Center the view
+                self.centerOn(padded_rect.center())
+                
+                print(f"DEBUG (StratigraphicColumn.fitInView): Applied transform with scale: {height_scale:.4f}")
+                print(f"DEBUG (StratigraphicColumn.fitInView): Expected fill: {target_height/viewport_height*100:.1f}% of vertical space")
+            else:
+                # Fallback to normal fitInView
+                super().fitInView(padded_rect, Qt.AspectRatioMode.KeepAspectRatio)
         else:
             # Allow normal fitInView behavior for non-overview mode
             super().fitInView(rect, mode)
