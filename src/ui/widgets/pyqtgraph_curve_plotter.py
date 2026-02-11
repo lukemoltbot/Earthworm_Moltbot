@@ -106,6 +106,9 @@ class PyQtGraphCurvePlotter(QWidget):
         # Get the plot item for dual-axis configuration
         self.plot_item = self.plot_widget.plotItem
         
+        # Configure Y-axis for whole metre increments
+        self.configure_y_axis_ticks()
+        
         # Initialize dual-axis system for Gamma Ray
         self.setup_dual_axes()
         
@@ -183,6 +186,82 @@ class PyQtGraphCurvePlotter(QWidget):
         # Initial update
         update_gamma_view()
         
+    def configure_y_axis_ticks(self):
+        """Configure Y-axis to show ticks at every whole metre."""
+        try:
+            # Get the Y-axis
+            y_axis = self.plot_item.getAxis('left')
+            
+            if y_axis is None:
+                print("ERROR (PyQtGraphCurvePlotter.configure_y_axis_ticks): Could not get Y-axis")
+                return
+            
+            # Disable auto-tick generation
+            y_axis.setAutoTick(False)
+            
+            # Set tick spacing for whole metre increments
+            # Major ticks at every 1.0 metre, minor ticks at every 0.1 metre
+            y_axis.setTickSpacing(major=1.0, minor=0.1)
+            
+            # Alternatively, we can use setTicks for more control
+            # This will be updated when data is available
+            self.y_axis = y_axis
+            
+            print(f"DEBUG (PyQtGraphCurvePlotter.configure_y_axis_ticks): Y-axis configured for whole metre increments")
+            
+        except Exception as e:
+            print(f"ERROR (PyQtGraphCurvePlotter.configure_y_axis_ticks): Failed to configure Y-axis: {e}")
+        
+    def update_y_axis_ticks(self):
+        """Update Y-axis ticks based on current view range."""
+        try:
+            if not hasattr(self, 'y_axis') or self.y_axis is None:
+                print("DEBUG (PyQtGraphCurvePlotter.update_y_axis_ticks): Y-axis not initialized")
+                return
+                
+            # Get current view range
+            view_range = self.get_view_range()
+            if view_range is None:
+                print("DEBUG (PyQtGraphCurvePlotter.update_y_axis_ticks): No view range available")
+                return
+                
+            y_min, y_max = view_range
+            
+            # Validate range
+            if y_min >= y_max:
+                print(f"ERROR (PyQtGraphCurvePlotter.update_y_axis_ticks): Invalid range {y_min:.1f} >= {y_max:.1f}")
+                return
+            
+            # Create ticks at every whole metre within the visible range
+            # Round to nearest whole metre
+            start_tick = np.floor(y_min)
+            end_tick = np.ceil(y_max)
+            
+            # Limit number of ticks to prevent performance issues with very long holes
+            max_ticks = 200  # Reasonable maximum for display
+            tick_count = int(end_tick - start_tick) + 1
+            
+            if tick_count > max_ticks:
+                # Show ticks at coarser intervals if there are too many
+                interval = max(1, int(np.ceil(tick_count / max_ticks)))
+                major_ticks = np.arange(start_tick, end_tick + 1, interval)
+                print(f"DEBUG (PyQtGraphCurvePlotter.update_y_axis_ticks): Too many ticks ({tick_count}), using interval {interval}")
+            else:
+                # Generate ticks at every whole metre
+                major_ticks = np.arange(start_tick, end_tick + 1, 1.0)
+            
+            # Create tick dictionary: [(position1, label1), (position2, label2), ...]
+            tick_dict = [(tick, f"{tick:.0f}") for tick in major_ticks]
+            
+            # Set the ticks
+            self.y_axis.setTicks([tick_dict])
+            
+            print(f"DEBUG (PyQtGraphCurvePlotter.update_y_axis_ticks): Updated Y-axis ticks for range {y_min:.1f}-{y_max:.1f}m, "
+                  f"{len(major_ticks)} ticks at: {[f'{t:.0f}' for t in major_ticks[:5]]}...")
+            
+        except Exception as e:
+            print(f"ERROR (PyQtGraphCurvePlotter.update_y_axis_ticks): Failed to update ticks: {e}")
+        
     def set_curve_configs(self, configs):
         """Set curve configurations and redraw."""
         self.curve_configs = configs
@@ -194,6 +273,9 @@ class PyQtGraphCurvePlotter(QWidget):
         self.data = dataframe
         self.draw_curves()
         self.on_data_updated()
+        # Update Y-axis ticks after data is set
+        if self.data is not None and not self.data.empty:
+            self.update_y_axis_ticks()
         
     def draw_curves(self):
         """Draw all configured curves using PyQtGraph with dual-axis support."""
@@ -1377,6 +1459,9 @@ class PyQtGraphCurvePlotter(QWidget):
         # Update stored depth range
         self.min_depth = min_depth
         self.max_depth = max_depth
+        
+        # Update Y-axis ticks for whole metre increments
+        self.update_y_axis_ticks()
         
         # Emit view range changed signal
         self.viewRangeChanged.emit(min_depth, max_depth)

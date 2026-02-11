@@ -61,7 +61,8 @@ class CrossSectionWindow(QWidget):
         
         # Cross-section configuration
         self.vertical_exaggeration = 1.0
-        self.column_width = 70  # pixels per column
+        self.column_width = 140  # pixels per column
+        print(f"DEBUG (CrossSectionWindow.__init__): column_width set to {self.column_width}px (2× original 70px)")
         self.spacing_factor = 100.0  # pixels per meter between holes
         self.show_polygons = True
         self.show_labels = True

@@ -20,7 +20,8 @@ class StratigraphicColumn(QGraphicsView):
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
-        self.column_width = 70
+        self.column_width = 140
+        print(f"DEBUG (StratigraphicColumn.__init__): column_width set to {self.column_width}px (2× original 70px)")
         self.min_display_height_pixels = 2 # Minimum height for very thin units
         self.litho_svg_path = "../../assets/svg/"
         self.svg_renderer = SvgRenderer()
@@ -251,34 +252,32 @@ class StratigraphicColumn(QGraphicsView):
         self.scene.addLine(self.y_axis_width, (min_depth - min_depth) * self.depth_scale, 
                            self.y_axis_width, (max_depth - min_depth) * self.depth_scale, axis_pen)
 
-        # Determine tick intervals
+        # Determine tick intervals - show every whole metre
         depth_range = max_depth - min_depth
-        major_tick_interval = 10.0
-        minor_tick_interval = 1.0
+        major_tick_interval = 1.0  # Show labels at every metre
+        minor_tick_interval = 0.1  # Minor ticks at every 0.1m (optional, can be removed)
 
-        # Adjust major tick interval for very short or very long sections
-        if depth_range < 20:
-            major_tick_interval = 5.0
-            minor_tick_interval = 0.5
-        elif depth_range > 100:
-            major_tick_interval = 20.0
-            minor_tick_interval = 2.0
+        # Remove adaptive interval logic for this view
+        # Always show whole metre increments regardless of depth range
+        print(f"DEBUG (StratigraphicColumn._draw_y_axis): Drawing Y-axis with major_tick_interval={major_tick_interval}, "
+              f"minor_tick_interval={minor_tick_interval}, depth_range={depth_range:.1f}m")
 
         # Draw tick marks and labels
         current_depth = np.floor(min_depth / minor_tick_interval) * minor_tick_interval
         while current_depth <= max_depth:
             y_pos = (current_depth - min_depth) * self.depth_scale
             
-            is_major_tick = (current_depth % major_tick_interval == 0)
+            # For whole metre increments, show label at every whole metre
+            is_major_tick = (abs(current_depth % 1.0) < 0.001)  # Check if it's a whole metre
 
             if is_major_tick:
                 tick_length = 10
                 label_offset = -30
-                label_text = f"{current_depth:.0f}"
+                label_text = f"{current_depth:.0f}"  # Show integer depth
             else:
                 tick_length = 5
                 label_offset = -15
-                label_text = "" # No label for minor ticks
+                label_text = ""  # No label for minor ticks
 
             # Draw tick mark
             self.scene.addLine(self.y_axis_width - tick_length, y_pos, self.y_axis_width, y_pos, axis_pen)
