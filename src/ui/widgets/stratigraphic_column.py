@@ -21,7 +21,6 @@ class StratigraphicColumn(QGraphicsView):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         self.column_width = 70
-        self.depth_scale = 10 # Pixels per depth unit
         self.min_display_height_pixels = 2 # Minimum height for very thin units
         self.litho_svg_path = "../../assets/svg/"
         self.svg_renderer = SvgRenderer()
@@ -42,6 +41,9 @@ class StratigraphicColumn(QGraphicsView):
         self.current_zoom_min = 0.0
         self.current_zoom_max = 100.0
         
+        # Initialize depth scale AFTER overview_mode is set
+        self.depth_scale = 10 # Pixels per depth unit
+        
         # Fixed overview attributes
         self.hole_min_depth = 0.0  # Entire hole minimum depth (for overview mode)
         self.hole_max_depth = 500.0  # Entire hole maximum depth (for overview mode)
@@ -60,7 +62,8 @@ class StratigraphicColumn(QGraphicsView):
     def depth_scale(self, value):
         """Set depth scale property with overview mode protection."""
         # In overview mode with locked scale, prevent changes
-        if self.overview_mode and self.overview_scale_locked:
+        # Check if overview_mode exists (it might not during __init__)
+        if hasattr(self, 'overview_mode') and self.overview_mode and self.overview_scale_locked:
             print(f"DEBUG (StratigraphicColumn.depth_scale.setter): Attempt to change depth_scale in overview mode blocked (value={value})")
             print(f"DEBUG (StratigraphicColumn.depth_scale.setter): Keeping fixed overview scale: {self._depth_scale}")
             return
