@@ -279,6 +279,12 @@ class StratigraphicColumn(QGraphicsView):
         self.scene.addLine(self.y_axis_width, y_top, 
                            self.y_axis_width, y_bottom, axis_pen)
 
+        # For overview mode: Skip tick marks and labels (not needed for visual reference)
+        if self.overview_mode:
+            print(f"DEBUG (StratigraphicColumn._draw_y_axis): Overview mode - skipping tick marks and labels")
+            return  # Exit early, only draw the axis line
+        
+        # For detailed mode: Draw tick marks and labels as before
         # Determine tick intervals - show every whole metre
         depth_range = max_depth - min_depth
         major_tick_interval = 1.0  # Show labels at every metre
@@ -286,20 +292,14 @@ class StratigraphicColumn(QGraphicsView):
 
         # Remove adaptive interval logic for this view
         # Always show whole metre increments regardless of depth range
-        print(f"DEBUG (StratigraphicColumn._draw_y_axis): Drawing Y-axis with major_tick_interval={major_tick_interval}, "
+        print(f"DEBUG (StratigraphicColumn._draw_y_axis): Detailed mode - drawing Y-axis with major_tick_interval={major_tick_interval}, "
               f"minor_tick_interval={minor_tick_interval}, depth_range={depth_range:.1f}m")
 
         # Draw tick marks and labels
         current_depth = np.floor(min_depth / minor_tick_interval) * minor_tick_interval
         while current_depth <= max_depth:
-            # Calculate Y position based on mode
-            if self.overview_mode:
-                # In overview mode, position is proportional to scene height
-                depth_fraction = (current_depth - min_depth) / depth_range
-                y_pos = depth_fraction * scene_height
-            else:
-                # In detailed mode, use depth_scale
-                y_pos = (current_depth - min_depth) * self.depth_scale
+            # Calculate Y position
+            y_pos = (current_depth - min_depth) * self.depth_scale
             
             # For whole metre increments, show label at every whole metre
             is_major_tick = (abs(current_depth % 1.0) < 0.001)  # Check if it's a whole metre
