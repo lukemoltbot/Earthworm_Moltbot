@@ -38,6 +38,11 @@ class PyQtGraphCurvePlotter(QWidget):
         self.depth_scale = 10  # Pixels per depth unit (should match StratigraphicColumn)
         self.plot_width = 110  # Width of the plot area
         
+        # Legacy feature migration: X-axis label area
+        self.x_axis_height = 60  # Space for curve labels, similar to legacy CurvePlotter
+        self.x_axis_labels = {}  # Dictionary to store X-axis label items
+        self.plot_area_separator = None  # Top border line separating plot from X-axis labels
+        
         # Dual-axis configuration
         self.gamma_viewbox = None  # Secondary ViewBox for Gamma Ray
         self.gamma_axis = None  # Top axis for Gamma Ray
@@ -131,13 +136,208 @@ class PyQtGraphCurvePlotter(QWidget):
         
         layout.addWidget(self.plot_widget)
         
-        # Add X-axis controls for each curve
+        # Add X-axis controls for each curve (legacy style)
         self.axis_controls_widget = QWidget()
         self.axis_controls_layout = QVBoxLayout(self.axis_controls_widget)
         self.axis_controls_layout.setContentsMargins(5, 5, 5, 5)
         self.axis_controls_layout.setSpacing(2)
         
         layout.addWidget(self.axis_controls_widget)
+        
+    def setup_x_axis_labels(self):
+        """Setup X-axis labels area similar to legacy CurvePlotter."""
+        # Clear existing labels
+        self.clear_x_axis_labels()
+        
+        if not self.curve_configs:
+            return
+            
+        # Sort curves for consistent stacking order (legacy ordering)
+        sorted_configs = self.get_sorted_curve_configs()
+        
+        # Create plot area separator (top border line)
+        self.create_plot_area_separator()
+        
+        # Create labels for each curve
+        self.create_curve_labels(sorted_configs)
+        
+    def get_sorted_curve_configs(self):
+        """Sort curves using legacy ordering: gamma → short_space_density → long_space_density → others."""
+        if not self.curve_configs:
+            return []
+            
+        # Create a copy to avoid modifying original
+        configs = self.curve_configs.copy()
+        
+        # Define sorting priority
+        def get_curve_priority(config):
+            curve_name = config['name'].lower()
+            if 'gamma' in curve_name:
+                return 0  # Gamma first
+            elif 'short_space_density' in curve_name or 'ss' in curve_name or 'short' in curve_name:
+                return 1  # Short space density second
+            elif 'long_space_density' in curve_name or 'ls' in curve_name or 'long' in curve_name:
+                return 2  # Long space density third
+            else:
+                return 3  # Other curves last
+        
+        # Sort by priority, then by name for consistent ordering
+        return sorted(configs, key=lambda x: (get_curve_priority(x), x['name']))
+        
+    def create_plot_area_separator(self):
+        """Create top border line separating plot area from X-axis labels."""
+        # Remove existing separator if any
+        if self.plot_area_separator:
+            self.plot_widget.removeItem(self.plot_area_separator)
+            
+        # Get current view range to position separator at top of X-axis area
+        view_range = self.plot_widget.viewRange()
+        if view_range and len(view_range) > 1:
+            y_min, y_max = view_range[1]
+            
+            # Position separator at the top of X-axis label area
+            # X-axis labels are below the plot, so separator goes at y_max (bottom of plot)
+            separator_y = y_max
+            
+            # Create line item
+            self.plot_area_separator = pg.InfiniteLine(
+                pos=separator_y,
+                angle=0,  # Horizontal line
+                pen=pg.mkPen(color='black', width=1),
+                movable=False
+            )
+            
+            # Add to plot
+            self.plot_widget.addItem(self.plot_area_separator)
+            
+    def create_curve_labels(self, sorted_configs):
+        """Create X-axis labels for each curve with min/max values."""
+        # Calculate label positions
+        view_range = self.plot_widget.viewRange()
+        if not view_range or len(view_range) < 2:
+            return
+            
+        y_min, y_max = view_range[1]
+        
+        # Start position for labels (below plot area)
+        current_y_offset = y_max + 5
+        
+        for config in sorted_configs:
+            curve_name = config['name']
+            min_value = config['min']
+            max_value = config['max']
+            color = config['color']
+            inverted = config.get('inverted', False)
+            
+            # Format values appropriately
+            # Gamma values are typically integers, density values are decimals
+            if 'gamma' in curve_name.lower():
+                min_str = f"{min_value:.0f}"
+                max_str = f"{max_value:.0f}"
+            else:
+                min_str = f"{min_value:.2f}"
+                max_str = f"{max_value:.2f}"
+            
+            # Create text items for min and max values
+            min_text = pg.TextItem(text=min_str, color=color, anchor=(0, 0))
+            max_text = pg.TextItem(text=max_str, color=color, anchor=(1, 0))
+            
+            # Position labels at plot edges
+            # Note: For inverted axes (well log style), x_min > x_max
+            x_range = self.plot_widget.viewRange()[0]
+            if x_range:
+                x_min, x_max = x_range
+                
+                # For inverted curves (well log style), min value is on right, max on left
+                if inverted:
+                    # Not inverted: min on left, max on right
+                    min_text.setPos(x_min, current_y_offset)
+                    max_text.setPos(x_max, current_y_offset)
+                else:
+                    # Inverted (well log style): min on right, max on left
+                    min_text.setPos(x_max, current_y_offset)
+                    max_text.setPos(x_min, current_y_offset)
+            
+            # Create curve name label (centered)
+            name_text = pg.TextItem(text=curve_name, color=color, anchor=(0.5, 0))
+            if x_range:
+                center_x = (x_min + x_max) / 2
+                name_text.setPos(center_x, current_y_offset - 15)  # Position above min/max labels
+            
+            # Add to plot and store references
+            self.plot_widget.addItem(min_text)
+            self.plot_widget.addItem(max_text)
+            self.plot_widget.addItem(name_text)
+            
+            # Store in dictionary for later updates
+            self.x_axis_labels[curve_name] = {
+                'min': min_text,
+                'max': max_text,
+                'name': name_text
+            }
+            
+            # Adjust offset for next curve
+            current_y_offset += 25  # Space for next curve's labels
+            
+    def clear_x_axis_labels(self):
+        """Remove all X-axis labels from the plot."""
+        for curve_name, labels in self.x_axis_labels.items():
+            for label_type, label_item in labels.items():
+                if label_item and label_item in self.plot_widget.items():
+                    self.plot_widget.removeItem(label_item)
+        self.x_axis_labels.clear()
+        
+        # Remove separator
+        if self.plot_area_separator and self.plot_area_separator in self.plot_widget.items():
+            self.plot_widget.removeItem(self.plot_area_separator)
+        self.plot_area_separator = None
+        
+    def update_x_axis_labels_position(self):
+        """Update X-axis labels position when view range changes."""
+        if not self.x_axis_labels:
+            return
+            
+        view_range = self.plot_widget.viewRange()
+        if not view_range or len(view_range) < 2:
+            return
+            
+        y_min, y_max = view_range[1]
+        
+        # Update separator position
+        if self.plot_area_separator:
+            self.plot_area_separator.setPos(y_max)
+        
+        # Update label positions
+        current_y_offset = y_max + 5
+        
+        # Get sorted curve names to maintain stacking order
+        sorted_configs = self.get_sorted_curve_configs()
+        
+        for config in sorted_configs:
+            curve_name = config['name']
+            if curve_name not in self.x_axis_labels:
+                continue
+                
+            labels = self.x_axis_labels[curve_name]
+            x_range = self.plot_widget.viewRange()[0]
+            
+            if x_range:
+                x_min, x_max = x_range
+                center_x = (x_min + x_max) / 2
+                
+                # Update min label position
+                if 'min' in labels and labels['min']:
+                    labels['min'].setPos(x_min, current_y_offset)
+                
+                # Update max label position
+                if 'max' in labels and labels['max']:
+                    labels['max'].setPos(x_max, current_y_offset)
+                
+                # Update name label position
+                if 'name' in labels and labels['name']:
+                    labels['name'].setPos(center_x, current_y_offset - 15)
+            
+            current_y_offset += 25
         
     def setup_dual_axes(self):
         """Setup dual X-axes for LAS curve plotting."""
@@ -196,18 +396,11 @@ class PyQtGraphCurvePlotter(QWidget):
                 print("ERROR (PyQtGraphCurvePlotter.configure_y_axis_ticks): Could not get Y-axis")
                 return
             
-            # Disable auto-tick generation
-            y_axis.setAutoTick(False)
-            
-            # Set tick spacing for whole metre increments
-            # Major ticks at every 1.0 metre, minor ticks at every 0.1 metre
-            y_axis.setTickSpacing(major=1.0, minor=0.1)
-            
-            # Alternatively, we can use setTicks for more control
-            # This will be updated when data is available
+            # Note: PyQtGraph's AxisItem doesn't have setAutoTick or setTickSpacing methods
+            # We'll handle tick configuration in update_y_axis_ticks instead
             self.y_axis = y_axis
             
-            print(f"DEBUG (PyQtGraphCurvePlotter.configure_y_axis_ticks): Y-axis configured for whole metre increments")
+            print(f"DEBUG (PyQtGraphCurvePlotter.configure_y_axis_ticks): Y-axis reference stored for tick configuration")
             
         except Exception as e:
             print(f"ERROR (PyQtGraphCurvePlotter.configure_y_axis_ticks): Failed to configure Y-axis: {e}")
@@ -267,6 +460,8 @@ class PyQtGraphCurvePlotter(QWidget):
         self.curve_configs = configs
         self.draw_curves()
         self.update_axis_controls()
+        # Update X-axis labels
+        self.setup_x_axis_labels()
         
     def set_data(self, dataframe):
         """Set data and redraw curves."""
@@ -315,11 +510,14 @@ class PyQtGraphCurvePlotter(QWidget):
             
         depth_data = self.data[self.depth_column].values
         
+        # Get sorted curve configs using legacy ordering
+        sorted_configs = self.get_sorted_curve_configs()
+        
         # Separate curve configs into gamma and density curves
         gamma_configs = []
         density_configs = []
         
-        for config in self.curve_configs:
+        for config in sorted_configs:
             curve_name = config['name'].lower()
             
             # Check if this is a gamma curve
@@ -359,8 +557,17 @@ class PyQtGraphCurvePlotter(QWidget):
             # Create pen for the curve
             pen = pg.mkPen(color=color, width=thickness)
             
-            # Plot the curve on main plot
+            # Apply inversion if specified
+            # Note: In legacy plotter:
+            # - inverted=False: axis IS inverted (for well logs) - low values on right, high on left
+            # - inverted=True: axis is NOT inverted - low values on left, high on right
+            inverted = config.get('inverted', False)
+            
+            # Plot the curve - we'll handle inversion at axis level
             curve = self.plot_widget.plot(valid_values, valid_depths, pen=pen, name=curve_name)
+            
+            # Store inversion state
+            curve.inverted = inverted
             
             # Store reference
             curve.config = config
@@ -391,8 +598,14 @@ class PyQtGraphCurvePlotter(QWidget):
             # Create pen for the curve
             pen = pg.mkPen(color=color, width=thickness)
             
+            # Apply inversion if specified
+            inverted = config.get('inverted', False)
+            
             # Create PlotCurveItem for gamma viewbox with a name for the legend
             curve = pg.PlotCurveItem(valid_values, valid_depths, pen=pen, name=curve_name)
+            
+            # Store inversion state
+            curve.inverted = inverted
             
             # Add to gamma viewbox
             if self.gamma_viewbox:
@@ -409,6 +622,9 @@ class PyQtGraphCurvePlotter(QWidget):
         
         # Set axis ranges and labels
         self.update_axis_ranges()
+        
+        # Setup X-axis labels (legacy feature migration)
+        self.setup_x_axis_labels()
         
     def update_axis_ranges(self):
         """Update plot axis ranges based on curve configurations for dual-axis system."""
@@ -445,7 +661,16 @@ class PyQtGraphCurvePlotter(QWidget):
                 
             # Set X-axis range with some padding
             x_padding = (density_x_max - density_x_min) * 0.05
-            self.plot_widget.setXRange(density_x_min - x_padding, density_x_max + x_padding)
+            
+            # Check inversion for density curves
+            # Default is inverted=False (well log style, axis inverted)
+            # If first density curve has inverted=True, don't invert axis
+            if density_configs and density_configs[0].get('inverted', False):
+                # Not inverted: low values on left, high on right
+                self.plot_widget.setXRange(density_x_min - x_padding, density_x_max + x_padding)
+            else:
+                # Inverted (well log style): low values on right, high on left
+                self.plot_widget.setXRange(density_x_max + x_padding, density_x_min - x_padding)
             
             # Update bottom axis label
             self.plot_widget.setLabel('bottom', 'Density', units='g/cc')
@@ -465,8 +690,15 @@ class PyQtGraphCurvePlotter(QWidget):
             if gamma_x_max == float('-inf'):
                 gamma_x_max = 300
                 
-            # Set gamma viewbox X-axis range
-            self.gamma_viewbox.setXRange(gamma_x_min, gamma_x_max)
+            # Check inversion for gamma curves
+            # Default is inverted=False (well log style, axis inverted)
+            # If first gamma curve has inverted=True, don't invert axis
+            if gamma_configs and gamma_configs[0].get('inverted', False):
+                # Not inverted: low values on left, high on right
+                self.gamma_viewbox.setXRange(gamma_x_min, gamma_x_max)
+            else:
+                # Inverted (well log style): low values on right, high on left
+                self.gamma_viewbox.setXRange(gamma_x_max, gamma_x_min)
             
             # Update top axis label if gamma axis exists
             if self.gamma_axis:
@@ -1462,6 +1694,9 @@ class PyQtGraphCurvePlotter(QWidget):
         
         # Update Y-axis ticks for whole metre increments
         self.update_y_axis_ticks()
+        
+        # Update X-axis labels position
+        self.update_x_axis_labels_position()
         
         # Emit view range changed signal
         self.viewRangeChanged.emit(min_depth, max_depth)
