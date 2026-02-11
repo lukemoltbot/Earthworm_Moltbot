@@ -5,9 +5,9 @@ Provides quick-access controls for toggling curve visibility with color-coded in
 
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QToolBar, QPushButton, 
-    QCheckBox, QLabel, QFrame, QMenu, QAction, QSizePolicy
+    QCheckBox, QLabel, QFrame, QMenu, QSizePolicy
 )
-from PyQt6.QtGui import QColor, QFont, QPainter, QBrush, QPen, QActionGroup
+from PyQt6.QtGui import QColor, QFont, QPainter, QBrush, QPen, QAction, QActionGroup
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 
 class CurveVisibilityToolbar(QToolBar):
