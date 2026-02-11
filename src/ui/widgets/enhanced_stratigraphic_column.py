@@ -179,7 +179,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         if units_dataframe is not None and not units_dataframe.empty:
             self._store_unit_data(units_dataframe)
             
-        # Update visible depth range
+        # Update visible depth range and redraw Y-axis
         self._update_visible_depth_range()
         
     def _store_unit_data(self, units_dataframe):
@@ -411,6 +411,9 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             
             print(f"DEBUG (EnhancedStratigraphicColumn._on_scroll_value_changed): Scroll value={value}, Visible range: {self.visible_min_depth:.2f}-{self.visible_max_depth:.2f}, Center: {center_depth:.2f}")
             
+            # Redraw Y-axis for current visible range
+            self._redraw_y_axis_for_visible_range()
+            
             # Emit signals for synchronization
             self.depthRangeChanged.emit(self.visible_min_depth, self.visible_max_depth)
             
@@ -431,6 +434,46 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         
         self.visible_min_depth = self.min_depth + (visible_min_y / self.depth_scale)
         self.visible_max_depth = self.min_depth + (visible_max_y / self.depth_scale)
+        
+        # Redraw Y-axis with current visible range to keep metre marks aligned
+        self._redraw_y_axis_for_visible_range()
+    
+    def _redraw_y_axis_for_visible_range(self):
+        """Redraw Y-axis tick marks for the current visible depth range."""
+        if not hasattr(self, 'scene') or self.scene is None:
+            return
+            
+        # Clear existing Y-axis items (tick marks and labels)
+        # We need to identify which items are part of the Y-axis
+        # Look for line items and text items near the Y-axis
+        items_to_remove = []
+        for item in self.scene.items():
+            if isinstance(item, QGraphicsLineItem):
+                # Check if it's a Y-axis tick mark (vertical line at Y-axis position)
+                line = item.line()
+                if abs(line.x1() - self.y_axis_width) < 20 and abs(line.x2() - self.y_axis_width) < 20:
+                    items_to_remove.append(item)
+            elif isinstance(item, QGraphicsTextItem) or isinstance(item, QGraphicsSimpleTextItem):
+                # Check if it's a Y-axis label (near Y-axis)
+                pos = item.pos()
+                if pos.x() < self.y_axis_width + 50:  # Labels are to the left of axis
+                    items_to_remove.append(item)
+        
+        # Remove identified Y-axis items
+        for item in items_to_remove:
+            self.scene.removeItem(item)
+        
+        # Redraw Y-axis for the visible range
+        # Use a slightly expanded range to ensure we have tick marks at the edges
+        expanded_min = max(self.min_depth, self.visible_min_depth - 5.0)
+        expanded_max = min(self.max_depth, self.visible_max_depth + 5.0)
+        
+        print(f"DEBUG (EnhancedStratigraphicColumn._redraw_y_axis_for_visible_range): "
+              f"Redrawing Y-axis for visible range: {self.visible_min_depth:.2f}-{self.visible_max_depth:.2f}, "
+              f"expanded: {expanded_min:.2f}-{expanded_max:.2f}")
+        
+        # Call parent's _draw_y_axis method with expanded range
+        super()._draw_y_axis(expanded_min, expanded_max)
         
     def sync_with_curve_plotter(self, curve_plotter):
         """
