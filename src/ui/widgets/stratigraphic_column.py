@@ -41,6 +41,37 @@ class StratigraphicColumn(QGraphicsView):
         self.zoom_overlay_rect = None  # Rectangle showing current zoom region in plot view
         self.current_zoom_min = 0.0
         self.current_zoom_max = 100.0
+        
+        # Fixed overview attributes
+        self.hole_min_depth = 0.0  # Entire hole minimum depth (for overview mode)
+        self.hole_max_depth = 500.0  # Entire hole maximum depth (for overview mode)
+        self.overview_scale_locked = False  # Whether depth scale is locked in overview mode
+        self.overview_fixed_scale = 10.0  # Fixed depth scale for overview mode
+        
+        # Private depth scale storage
+        self._depth_scale = 10.0  # Default depth scale
+
+    @property
+    def depth_scale(self):
+        """Get depth scale property."""
+        return self._depth_scale
+    
+    @depth_scale.setter
+    def depth_scale(self, value):
+        """Set depth scale property with overview mode protection."""
+        # In overview mode with locked scale, prevent changes
+        if self.overview_mode and self.overview_scale_locked:
+            print(f"DEBUG (StratigraphicColumn.depth_scale.setter): Attempt to change depth_scale in overview mode blocked (value={value})")
+            print(f"DEBUG (StratigraphicColumn.depth_scale.setter): Keeping fixed overview scale: {self._depth_scale}")
+            return
+            
+        # Validate value
+        if value <= 0:
+            print(f"WARNING (StratigraphicColumn.depth_scale.setter): Invalid depth_scale value: {value}")
+            return
+            
+        self._depth_scale = value
+        print(f"DEBUG (StratigraphicColumn.depth_scale.setter): Set depth_scale to {value}")
 
     def draw_column(self, units_dataframe, min_overall_depth, max_overall_depth, separator_thickness=0.5, draw_separators=True, disable_svg=False):
         print(f"DEBUG (StratigraphicColumn): draw_column called with {len(units_dataframe)} units, min_depth={min_overall_depth}, max_depth={max_overall_depth}, depth_scale={self.depth_scale}, overview_mode={self.overview_mode}")
@@ -55,22 +86,43 @@ class StratigraphicColumn(QGraphicsView):
         # Store data for highlighting functionality
         self.units_dataframe = units_dataframe.copy() if units_dataframe is not None else None
         
-        # In overview mode, use the entire hole range
-        if self.overview_mode:
-            self.min_depth = min_overall_depth
-            self.max_depth = max_overall_depth
+        print(f"DEBUG (StratigraphicColumn.draw_column): overview_mode={self.overview_mode}, scale_locked={self.overview_scale_locked}")
+        
+        # In overview mode, ALWAYS show entire hole from hole_min_depth to hole_max_depth
+        # Ignore the min_overall_depth/max_overall_depth parameters for depth range
+        if self.overview_mode and self.overview_scale_locked:
+            # Use fixed hole depth range and scale
+            self.min_depth = self.hole_min_depth
+            self.max_depth = self.hole_max_depth
+            
+            # Use the fixed overview scale
+            if hasattr(self, 'overview_fixed_scale') and self.overview_fixed_scale > 0:
+                # Bypass setter protection by setting _depth_scale directly
+                self._depth_scale = self.overview_fixed_scale
+                print(f"DEBUG (StratigraphicColumn.draw_column): Using fixed overview scale: {self._depth_scale:.4f} px/m")
+            else:
+                # Fallback: calculate scale to fit hole in viewport
+                available_height = max(1, self.viewport().height() - self.x_axis_height)
+                hole_depth_range = max(1.0, self.hole_max_depth - self.hole_min_depth)
+                self.overview_fixed_scale = available_height / hole_depth_range
+                # Bypass setter protection by setting _depth_scale directly
+                self._depth_scale = self.overview_fixed_scale
+                print(f"DEBUG (StratigraphicColumn.draw_column): Calculated fallback overview scale: {self._depth_scale:.4f} px/m")
         else:
+            # Normal mode: use provided depth range
             self.min_depth = min_overall_depth
             self.max_depth = max_overall_depth
+            print(f"DEBUG (StratigraphicColumn.draw_column): Using normal mode with depth_scale={self.depth_scale}")
 
-        # Use the overall min/max depths for scene scaling
-        # If units_dataframe is empty, these will be used to set an empty but correctly scaled view
+        # Use the min/max depths for scene scaling
         min_depth_for_scene = self.min_depth
         max_depth_for_scene = self.max_depth
 
         # Adjust scene rect to include space for the Y-axis and X-axis (to match curve plotter height)
         scene_height = (max_depth_for_scene - min_depth_for_scene) * self.depth_scale + self.x_axis_height
         self.scene.setSceneRect(0, min_depth_for_scene * self.depth_scale, self.y_axis_width + self.column_width, scene_height)
+        
+        print(f"DEBUG (StratigraphicColumn.draw_column): Scene rect: height={scene_height:.1f}px, depth_range={max_depth_for_scene - min_depth_for_scene:.1f}m")
 
         # Draw Y-axis scale
         self._draw_y_axis(min_depth_for_scene, max_depth_for_scene)
@@ -150,6 +202,11 @@ class StratigraphicColumn(QGraphicsView):
 
     def set_zoom_level(self, zoom_factor):
         """Set zoom level (1.0 = 100% = normal fit level)."""
+        # In overview mode, ignore zoom commands - overview should not zoom
+        if self.overview_mode:
+            print(f"DEBUG (StratigraphicColumn.set_zoom_level): Ignoring zoom command in overview mode (zoom_factor={zoom_factor})")
+            return
+            
         if self.scene.sceneRect().isEmpty():
             return  # No scene to zoom
 
@@ -306,8 +363,68 @@ class StratigraphicColumn(QGraphicsView):
                     break
         super().mousePressEvent(event)
 
+    def wheelEvent(self, event):
+        """Handle wheel events for zooming."""
+        # In overview mode, ignore wheel events - overview should not zoom or scroll
+        if self.overview_mode:
+            print(f"DEBUG (StratigraphicColumn.wheelEvent): Ignoring wheel event in overview mode")
+            event.ignore()
+            return
+            
+        # Allow normal wheel behavior for non-overview mode
+        super().wheelEvent(event)
+
+    def fitInView(self, rect, mode=Qt.AspectRatioMode.IgnoreAspectRatio):
+        """Override fitInView to prevent scale changes in overview mode."""
+        # In overview mode, prevent fitInView from changing the scale
+        if self.overview_mode:
+            print(f"DEBUG (StratigraphicColumn.fitInView): Ignoring fitInView in overview mode")
+            return
+            
+        # Allow normal fitInView behavior for non-overview mode
+        super().fitInView(rect, mode)
+
+    def resizeEvent(self, event):
+        """Handle resize events to update overview scale if needed."""
+        # Call parent resize event first
+        super().resizeEvent(event)
+        
+        # If in overview mode, recalculate fixed scale based on new viewport size
+        if self.overview_mode and self.overview_scale_locked:
+            print(f"DEBUG (StratigraphicColumn.resizeEvent): Resizing overview column")
+            
+            # Recalculate fixed scale for new viewport size
+            available_height = max(1, self.viewport().height() - self.x_axis_height)
+            hole_depth_range = max(1.0, self.hole_max_depth - self.hole_min_depth)
+            self.overview_fixed_scale = available_height / hole_depth_range
+            # Bypass setter protection by setting _depth_scale directly
+            self._depth_scale = self.overview_fixed_scale
+            
+            print(f"DEBUG (StratigraphicColumn.resizeEvent): New overview scale: {self.overview_fixed_scale:.4f} px/m")
+            print(f"DEBUG (StratigraphicColumn.resizeEvent): Viewport: {self.viewport().size().width()}x{self.viewport().size().height()}")
+            
+            # Redraw column with new scale if we have data
+            if hasattr(self, 'units_dataframe') and self.units_dataframe is not None:
+                print(f"DEBUG (StratigraphicColumn.resizeEvent): Redrawing column with new scale")
+                # We need to redraw with the new scale
+                # Store current zoom overlay state
+                current_zoom_min = self.current_zoom_min
+                current_zoom_max = self.current_zoom_max
+                
+                # Redraw column
+                self.draw_column(self.units_dataframe, self.hole_min_depth, self.hole_max_depth)
+                
+                # Restore zoom overlay
+                if current_zoom_min != 0.0 or current_zoom_max != 100.0:
+                    self.update_zoom_overlay(current_zoom_min, current_zoom_max)
+
     def scroll_to_depth(self, depth):
         """Scroll the view to make the given depth visible."""
+        # In overview mode, ignore scroll commands - overview should not scroll
+        if self.overview_mode:
+            print(f"DEBUG (StratigraphicColumn.scroll_to_depth): Ignoring scroll command in overview mode (depth={depth})")
+            return
+            
         # Add validation for depth scale
         if not hasattr(self, 'depth_scale') or self.depth_scale <= 0:
             print(f"WARNING: Invalid depth_scale in scroll_to_depth: {getattr(self, 'depth_scale', 'NOT SET')}")
@@ -337,21 +454,57 @@ class StratigraphicColumn(QGraphicsView):
         self.verticalScrollBar().setValue(scroll_value)
     def set_overview_mode(self, enabled, hole_min_depth=0.0, hole_max_depth=500.0):
         """Enable or disable overview mode (showing entire hole)."""
+        print(f"DEBUG (StratigraphicColumn.set_overview_mode): Setting overview_mode={enabled}, hole_min_depth={hole_min_depth}, hole_max_depth={hole_max_depth}")
+        
         self.overview_mode = enabled
         if enabled:
-            # In overview mode, we show the entire hole
+            # Store hole depth range for overview mode
+            self.hole_min_depth = hole_min_depth
+            self.hole_max_depth = hole_max_depth
+            
+            # In overview mode, we ALWAYS show the entire hole from top to bottom
             self.min_depth = hole_min_depth
             self.max_depth = hole_max_depth
-            # Use a smaller depth scale to fit entire hole
-            self.depth_scale = max(1, (self.viewport().height() - self.x_axis_height) / (hole_max_depth - hole_min_depth))
+            
+            # Calculate fixed depth scale to fit entire hole in viewport
+            # Account for x_axis_height at the bottom
+            available_height = max(1, self.viewport().height() - self.x_axis_height)
+            hole_depth_range = max(1.0, hole_max_depth - hole_min_depth)
+            self.overview_fixed_scale = available_height / hole_depth_range
+            
+            # Lock the depth scale to prevent changes
+            # Bypass the setter protection by setting _depth_scale directly
+            self._depth_scale = self.overview_fixed_scale
+            self.overview_scale_locked = True
+            
+            print(f"DEBUG (StratigraphicColumn.set_overview_mode): Overview scale locked to {self.overview_fixed_scale:.4f} px/m")
+            print(f"DEBUG (StratigraphicColumn.set_overview_mode): Viewport height={self.viewport().height()}, available_height={available_height}, hole_range={hole_depth_range}m")
+        else:
+            # Disable overview mode
+            self.overview_scale_locked = False
+            self.hole_min_depth = 0.0
+            self.hole_max_depth = 500.0
+            self.overview_fixed_scale = 10.0
     
     def update_zoom_overlay(self, zoom_min_depth, zoom_max_depth):
         """Update the zoom overlay rectangle showing current plot view region (Subtask 3.3)."""
+        print(f"DEBUG (StratigraphicColumn.update_zoom_overlay): zoom_min={zoom_min_depth}, zoom_max={zoom_max_depth}, overview_mode={self.overview_mode}")
+        
         self.current_zoom_min = zoom_min_depth
         self.current_zoom_max = zoom_max_depth
         
         if not self.overview_mode:
+            print(f"DEBUG (StratigraphicColumn.update_zoom_overlay): Not in overview mode, skipping overlay")
             return  # Only show overlay in overview mode
+            
+        # Validate depth scale and range
+        if not hasattr(self, 'depth_scale') or self.depth_scale <= 0:
+            print(f"WARNING (StratigraphicColumn.update_zoom_overlay): Invalid depth_scale: {getattr(self, 'depth_scale', 'NOT SET')}")
+            return
+            
+        if not hasattr(self, 'min_depth'):
+            print(f"WARNING (StratigraphicColumn.update_zoom_overlay): min_depth not set")
+            return
             
         # Remove existing overlay
         if self.zoom_overlay_rect is not None:
@@ -362,6 +515,13 @@ class StratigraphicColumn(QGraphicsView):
         y_start = (zoom_min_depth - self.min_depth) * self.depth_scale
         overlay_height = (zoom_max_depth - zoom_min_depth) * self.depth_scale
         
+        print(f"DEBUG (StratigraphicColumn.update_zoom_overlay): y_start={y_start:.1f}, overlay_height={overlay_height:.1f}, depth_scale={self.depth_scale:.4f}")
+        
+        # Validate overlay position and size
+        if overlay_height <= 0:
+            print(f"WARNING (StratigraphicColumn.update_zoom_overlay): Invalid overlay height: {overlay_height}")
+            return
+            
         # Create semi-transparent overlay rectangle
         self.zoom_overlay_rect = QGraphicsRectItem(
             self.y_axis_width, y_start,
