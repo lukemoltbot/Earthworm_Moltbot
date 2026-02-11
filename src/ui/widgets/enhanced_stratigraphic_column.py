@@ -428,6 +428,8 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             
     def _update_visible_depth_range(self):
         """Update the visible depth range based on current view."""
+        print(f"DEBUG (EnhancedStratigraphicColumn._update_visible_depth_range): ENTERING METHOD")
+        
         view_rect = self.mapToScene(self.viewport().rect()).boundingRect()
         visible_min_y = view_rect.top()
         visible_max_y = view_rect.bottom()
@@ -435,45 +437,62 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         self.visible_min_depth = self.min_depth + (visible_min_y / self.depth_scale)
         self.visible_max_depth = self.min_depth + (visible_max_y / self.depth_scale)
         
+        print(f"DEBUG (EnhancedStratigraphicColumn._update_visible_depth_range): "
+              f"Visible range: {self.visible_min_depth:.2f}-{self.visible_max_depth:.2f}, "
+              f"Viewport: {self.viewport().size().width()}x{self.viewport().size().height()}")
+        
         # Redraw Y-axis with current visible range to keep metre marks aligned
         self._redraw_y_axis_for_visible_range()
+        
+        print(f"DEBUG (EnhancedStratigraphicColumn._update_visible_depth_range): EXITING METHOD")
     
     def _redraw_y_axis_for_visible_range(self):
         """Redraw Y-axis tick marks for the current visible depth range."""
+        print(f"DEBUG (EnhancedStratigraphicColumn._redraw_y_axis_for_visible_range): ENTERING METHOD")
+        
         if not hasattr(self, 'scene') or self.scene is None:
+            print(f"DEBUG (EnhancedStratigraphicColumn._redraw_y_axis_for_visible_range): No scene, returning")
             return
             
         # Clear existing Y-axis items (tick marks and labels)
         # We need to identify which items are part of the Y-axis
         # Look for line items and text items near the Y-axis
         items_to_remove = []
-        for item in self.scene.items():
+        scene_items = list(self.scene.items())
+        print(f"DEBUG (EnhancedStratigraphicColumn._redraw_y_axis_for_visible_range): Checking {len(scene_items)} scene items")
+        
+        for item in scene_items:
             if isinstance(item, QGraphicsLineItem):
                 # Check if it's a Y-axis tick mark (vertical line at Y-axis position)
                 line = item.line()
                 if abs(line.x1() - self.y_axis_width) < 20 and abs(line.x2() - self.y_axis_width) < 20:
                     items_to_remove.append(item)
+                    print(f"DEBUG (EnhancedStratigraphicColumn._redraw_y_axis_for_visible_range): Found Y-axis line item at x={line.x1():.1f}")
             elif isinstance(item, QGraphicsTextItem) or isinstance(item, QGraphicsSimpleTextItem):
                 # Check if it's a Y-axis label (near Y-axis)
                 pos = item.pos()
                 if pos.x() < self.y_axis_width + 50:  # Labels are to the left of axis
                     items_to_remove.append(item)
+                    print(f"DEBUG (EnhancedStratigraphicColumn._redraw_y_axis_for_visible_range): Found Y-axis text item at x={pos.x():.1f}")
+        
+        print(f"DEBUG (EnhancedStratigraphicColumn._redraw_y_axis_for_visible_range): Removing {len(items_to_remove)} Y-axis items")
         
         # Remove identified Y-axis items
         for item in items_to_remove:
             self.scene.removeItem(item)
         
-        # Redraw Y-axis for the visible range
-        # Use a slightly expanded range to ensure we have tick marks at the edges
-        expanded_min = max(self.min_depth, self.visible_min_depth - 5.0)
-        expanded_max = min(self.max_depth, self.visible_max_depth + 5.0)
-        
+        # Redraw Y-axis for the FULL data range, not just visible range
+        # This ensures all metre marks are drawn and positioned correctly
+        # The viewport will show only the visible portion
         print(f"DEBUG (EnhancedStratigraphicColumn._redraw_y_axis_for_visible_range): "
-              f"Redrawing Y-axis for visible range: {self.visible_min_depth:.2f}-{self.visible_max_depth:.2f}, "
-              f"expanded: {expanded_min:.2f}-{expanded_max:.2f}")
+              f"Redrawing Y-axis for full data range: {self.min_depth:.2f}-{self.max_depth:.2f}, "
+              f"visible: {self.visible_min_depth:.2f}-{self.visible_max_depth:.2f}")
         
-        # Call parent's _draw_y_axis method with expanded range
-        super()._draw_y_axis(expanded_min, expanded_max)
+        # Call parent's _draw_y_axis method with FULL data range
+        # This ensures metre marks align with lithology units
+        super()._draw_y_axis(self.min_depth, self.max_depth)
+        
+        print(f"DEBUG (EnhancedStratigraphicColumn._redraw_y_axis_for_visible_range): EXITING METHOD")
         
     def sync_with_curve_plotter(self, curve_plotter):
         """

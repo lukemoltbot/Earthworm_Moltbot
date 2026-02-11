@@ -298,8 +298,9 @@ class StratigraphicColumn(QGraphicsView):
         # Draw tick marks and labels
         current_depth = np.floor(min_depth / minor_tick_interval) * minor_tick_interval
         while current_depth <= max_depth:
-            # Calculate Y position
-            y_pos = (current_depth - min_depth) * self.depth_scale
+            # Calculate Y position relative to self.min_depth (data reference point)
+            # This ensures metre marks align with lithology units
+            y_pos = (current_depth - self.min_depth) * self.depth_scale
             
             # For whole metre increments, show label at every whole metre
             is_major_tick = (abs(current_depth % 1.0) < 0.001)  # Check if it's a whole metre
