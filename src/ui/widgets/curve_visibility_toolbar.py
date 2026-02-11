@@ -5,7 +5,7 @@ Provides quick-access controls for toggling curve visibility with color-coded in
 
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QToolBar, QPushButton, 
-    QCheckBox, QLabel, QFrame, QMenu, QSizePolicy
+    QCheckBox, QLabel, QFrame, QMenu, QSizePolicy, QStyle
 )
 from PyQt6.QtGui import QColor, QFont, QPainter, QBrush, QPen, QAction, QActionGroup
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
@@ -427,15 +427,15 @@ class ColorCheckbox(QCheckBox):
         from PyQt6.QtWidgets import QStyleOptionButton
         option = QStyleOptionButton()
         option.initFrom(self)
-        option.state = self.style().State_Enabled
+        option.state = QStyle.StateFlag.State_Enabled
         if self.isChecked():
-            option.state |= self.style().State_On
+            option.state |= QStyle.StateFlag.State_On
         else:
-            option.state |= self.style().State_Off
+            option.state |= QStyle.StateFlag.State_Off
         
         # Calculate indicator position
         indicator_rect = self.style().subElementRect(
-            self.style().SubElement.SE_CheckBoxIndicator, 
+            QStyle.SubElement.SE_CheckBoxIndicator, 
             option,
             self
         )
