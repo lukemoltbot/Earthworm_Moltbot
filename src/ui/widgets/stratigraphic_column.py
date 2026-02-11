@@ -122,11 +122,19 @@ class StratigraphicColumn(QGraphicsView):
         min_depth_for_scene = self.min_depth
         max_depth_for_scene = self.max_depth
 
-        # Adjust scene rect to include space for the Y-axis and X-axis (to match curve plotter height)
-        scene_height = (max_depth_for_scene - min_depth_for_scene) * self.depth_scale + self.x_axis_height
+        # Adjust scene rect to include space for the Y-axis
+        # In overview mode, don't add x_axis_height (overview doesn't need X-axis labels)
+        if self.overview_mode:
+            scene_height = (max_depth_for_scene - min_depth_for_scene) * self.depth_scale
+            print(f"DEBUG (StratigraphicColumn.draw_column): Overview mode - scene height without X-axis: {scene_height:.1f}px")
+        else:
+            # In detailed mode, include X-axis height to match curve plotter
+            scene_height = (max_depth_for_scene - min_depth_for_scene) * self.depth_scale + self.x_axis_height
+            print(f"DEBUG (StratigraphicColumn.draw_column): Detailed mode - scene height with X-axis: {scene_height:.1f}px")
+            
         self.scene.setSceneRect(0, min_depth_for_scene * self.depth_scale, self.y_axis_width + self.column_width, scene_height)
         
-        print(f"DEBUG (StratigraphicColumn.draw_column): Scene rect: height={scene_height:.1f}px, depth_range={max_depth_for_scene - min_depth_for_scene:.1f}m")
+        print(f"DEBUG (StratigraphicColumn.draw_column): Scene rect: height={scene_height:.1f}px, depth_range={max_depth_for_scene - min_depth_for_scene:.1f}m, overview_mode={self.overview_mode}")
 
         # Draw Y-axis scale
         self._draw_y_axis(min_depth_for_scene, max_depth_for_scene)
@@ -395,15 +403,16 @@ class StratigraphicColumn(QGraphicsView):
         if self.overview_mode and self.overview_scale_locked:
             print(f"DEBUG (StratigraphicColumn.resizeEvent): Resizing overview column")
             
-            # Recalculate fixed scale for new viewport size
-            available_height = max(1, self.viewport().height() - self.x_axis_height)
+            # Recalculate fixed scale for new viewport size using 90% of vertical space
+            viewport_height = max(1, self.viewport().height())
+            available_height = viewport_height * 0.9  # Use 90% of vertical space
             hole_depth_range = max(1.0, self.hole_max_depth - self.hole_min_depth)
             self.overview_fixed_scale = available_height / hole_depth_range
             # Bypass setter protection by setting _depth_scale directly
             self._depth_scale = self.overview_fixed_scale
             
             print(f"DEBUG (StratigraphicColumn.resizeEvent): New overview scale: {self.overview_fixed_scale:.4f} px/m")
-            print(f"DEBUG (StratigraphicColumn.resizeEvent): Viewport: {self.viewport().size().width()}x{self.viewport().size().height()}")
+            print(f"DEBUG (StratigraphicColumn.resizeEvent): Viewport: {self.viewport().size().width()}x{viewport_height}, 90% available={available_height:.0f}")
             
             # Redraw column with new scale if we have data
             if hasattr(self, 'units_dataframe') and self.units_dataframe is not None:
@@ -468,9 +477,11 @@ class StratigraphicColumn(QGraphicsView):
             self.min_depth = hole_min_depth
             self.max_depth = hole_max_depth
             
-            # Calculate fixed depth scale to fit entire hole in viewport
-            # Account for x_axis_height at the bottom
-            available_height = max(1, self.viewport().height() - self.x_axis_height)
+            # Calculate fixed depth scale to fill 90% of vertical space in viewport
+            # Use 90% of viewport height (not 100%) to prevent squashing
+            viewport_height = max(1, self.viewport().height())
+            available_height = viewport_height * 0.9  # Use 90% of vertical space
+            
             hole_depth_range = max(1.0, hole_max_depth - hole_min_depth)
             self.overview_fixed_scale = available_height / hole_depth_range
             
@@ -480,7 +491,7 @@ class StratigraphicColumn(QGraphicsView):
             self.overview_scale_locked = True
             
             print(f"DEBUG (StratigraphicColumn.set_overview_mode): Overview scale locked to {self.overview_fixed_scale:.4f} px/m")
-            print(f"DEBUG (StratigraphicColumn.set_overview_mode): Viewport height={self.viewport().height()}, available_height={available_height}, hole_range={hole_depth_range}m")
+            print(f"DEBUG (StratigraphicColumn.set_overview_mode): Viewport height={viewport_height}, 90% available={available_height:.0f}, hole_range={hole_depth_range}m")
         else:
             # Disable overview mode
             self.overview_scale_locked = False
