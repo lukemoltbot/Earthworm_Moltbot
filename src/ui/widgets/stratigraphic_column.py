@@ -424,15 +424,15 @@ class StratigraphicColumn(QGraphicsView):
             print(f"DEBUG (StratigraphicColumn.fitInView): Viewport: {self.viewport().size().width()}x{self.viewport().size().height()}")
             print(f"DEBUG (StratigraphicColumn.fitInView): Scene rect: {rect.width():.1f}x{rect.height():.1f}")
             
-            # Calculate padding (5% L/R, 10% T/B)
+            # Calculate padding (5% L/R, 3% T/B) - reduced top/bottom padding
             width_padding = rect.width() * 0.05
-            height_padding = rect.height() * 0.10
+            height_padding = rect.height() * 0.03  # Reduced from 10% to 3%
             padded_rect = rect.adjusted(-width_padding, -height_padding, width_padding, height_padding)
             
-            # For overview mode: We want to fill ~80% of vertical space
+            # For overview mode: We want to fill ~94% of vertical space (100% - 2*3% padding)
             # Calculate the scale needed to achieve this
             viewport_height = self.viewport().size().height()
-            target_fill_ratio = 0.80  # Fill 80% of vertical space
+            target_fill_ratio = 0.94  # Fill 94% of vertical space (with 3% top/bottom padding)
             target_height = viewport_height * target_fill_ratio
             
             if padded_rect.height() > 0:
@@ -445,6 +445,7 @@ class StratigraphicColumn(QGraphicsView):
                 
                 print(f"DEBUG (StratigraphicColumn.fitInView): Height optimization:")
                 print(f"DEBUG (StratigraphicColumn.fitInView):   Target: Fill {target_fill_ratio*100:.0f}% of {viewport_height}px = {target_height:.1f}px")
+                print(f"DEBUG (StratigraphicColumn.fitInView):   Padding: 5% L/R, 3% T/B (reduced)")
                 print(f"DEBUG (StratigraphicColumn.fitInView):   Padded height: {padded_rect.height():.1f}px")
                 print(f"DEBUG (StratigraphicColumn.fitInView):   Required scale: {height_scale:.4f}")
                 print(f"DEBUG (StratigraphicColumn.fitInView):   Scaled width: {scaled_width:.1f}px (viewport: {viewport_width}px)")
@@ -458,6 +459,9 @@ class StratigraphicColumn(QGraphicsView):
                 
                 print(f"DEBUG (StratigraphicColumn.fitInView): Applied transform with scale: {height_scale:.4f}")
                 print(f"DEBUG (StratigraphicColumn.fitInView): Expected fill: {target_height/viewport_height*100:.1f}% of vertical space")
+                
+                # Force immediate update
+                self.viewport().update()
             else:
                 # Fallback to normal fitInView
                 super().fitInView(padded_rect, Qt.AspectRatioMode.KeepAspectRatio)
@@ -472,17 +476,26 @@ class StratigraphicColumn(QGraphicsView):
         
         # If in overview mode, immediately reapply fitInView with new viewport size
         if self.overview_mode:
-            print(f"DEBUG (StratigraphicColumn.resizeEvent): Resizing overview column - forcing immediate rescale")
-            print(f"DEBUG (StratigraphicColumn.resizeEvent): New viewport size: {self.viewport().size().width()}x{self.viewport().size().height()}")
+            print(f"DEBUG (StratigraphicColumn.resizeEvent): === RESIZE EVENT TRIGGERED ===")
+            print(f"DEBUG (StratigraphicColumn.resizeEvent): Old size: {event.oldSize().width()}x{event.oldSize().height()}")
+            print(f"DEBUG (StratigraphicColumn.resizeEvent): New size: {event.size().width()}x{event.size().height()}")
+            print(f"DEBUG (StratigraphicColumn.resizeEvent): Viewport: {self.viewport().size().width()}x{self.viewport().size().height()}")
             print(f"DEBUG (StratigraphicColumn.resizeEvent): Scene rect: {self.scene.sceneRect().width():.1f}x{self.scene.sceneRect().height():.1f}")
             
             # Always reapply fitInView for overview mode, even if we don't have data yet
             # This ensures immediate rescaling on any resize
             if not self.scene.sceneRect().isEmpty():
                 print(f"DEBUG (StratigraphicColumn.resizeEvent): Reapplying fitInView with padding")
+                # Force immediate update by calling our overridden fitInView
                 self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+                
+                # Force immediate repaint
+                self.viewport().update()
+                print(f"DEBUG (StratigraphicColumn.resizeEvent): Forced immediate update")
             else:
                 print(f"DEBUG (StratigraphicColumn.resizeEvent): Scene rect is empty, cannot apply fitInView")
+            
+            print(f"DEBUG (StratigraphicColumn.resizeEvent): === RESIZE COMPLETE ===")
             
             # Also redraw if we have data (for completeness)
             if hasattr(self, 'units_dataframe') and self.units_dataframe is not None:
@@ -574,10 +587,16 @@ class StratigraphicColumn(QGraphicsView):
     def force_overview_rescale(self):
         """Force immediate rescale of overview column (call after pane/window resize)."""
         if self.overview_mode and not self.scene.sceneRect().isEmpty():
-            print(f"DEBUG (StratigraphicColumn.force_overview_rescale): Forcing immediate rescale")
+            print(f"DEBUG (StratigraphicColumn.force_overview_rescale): === MANUAL RESCALE TRIGGERED ===")
             print(f"DEBUG (StratigraphicColumn.force_overview_rescale): Viewport: {self.viewport().size().width()}x{self.viewport().size().height()}")
             print(f"DEBUG (StratigraphicColumn.force_overview_rescale): Scene: {self.scene.sceneRect().width():.1f}x{self.scene.sceneRect().height():.1f}")
+            
+            # Call fitInView to apply scaling with padding
             self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+            
+            # Force immediate update
+            self.viewport().update()
+            print(f"DEBUG (StratigraphicColumn.force_overview_rescale): === MANUAL RESCALE COMPLETE ===")
             return True
         return False
     
