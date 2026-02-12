@@ -197,19 +197,19 @@ class HoleEditorWindow(QWidget):
         overview_layout.setContentsMargins(0, 0, 0, 0)
         overview_layout.addWidget(self.stratigraphicColumnView)
 
-        # Add to Splitter in correct order: Plot | Enhanced Column | Table | Overview
+        # Create a splitter for the first 3 widgets (Plot | Enhanced Column | Table)
+        # Overview will be a fixed-width sidebar (NO SPLITTER)
+        main_splitter = QSplitter(Qt.Orientation.Horizontal)
         main_splitter.addWidget(plot_container)
         main_splitter.addWidget(enhanced_column_container)
         main_splitter.addWidget(table_container)
-        main_splitter.addWidget(overview_container)
         main_splitter.setStretchFactor(0, 2)  # Plot view gets more space
         main_splitter.setStretchFactor(1, 2)  # Enhanced column gets more space
         main_splitter.setStretchFactor(2, 3)  # Table gets most space
-        main_splitter.setStretchFactor(3, 0)  # Overview gets FIXED width (0 stretch = non-resizable)
         
-        # Set overview container to fixed width (140px = 100px column + 40px Y-axis)
-        overview_container.setMinimumWidth(140)
-        overview_container.setMaximumWidth(140)
+        # Set overview container to fixed width (60px = 40px column + 20px Y-axis) - 1/3 of original
+        overview_container.setMinimumWidth(60)
+        overview_container.setMaximumWidth(60)
         
         # Connect splitter move event to force overview rescale
         # Use lambda to ensure correct self reference
@@ -217,7 +217,7 @@ class HoleEditorWindow(QWidget):
             lambda pos, index: self._on_splitter_moved(pos, index)
         )
         
-        print(f"DEBUG (MainWindow): Set overview pane to fixed width: 140px")
+        print(f"DEBUG (MainWindow): Set overview pane to fixed width: 60px (1/3 of original), NO SPLITTER")
 
         # Create container for main content and zoom controls
         main_content_widget = QWidget()
@@ -225,9 +225,19 @@ class HoleEditorWindow(QWidget):
         main_content_layout.setContentsMargins(0, 0, 0, 0)
         main_content_layout.setSpacing(5)
         
-        # Note: We'll add a proper resizeEvent method to the MainWindow class
-        # to handle overview rescaling when window is resized
-        main_content_layout.addWidget(main_splitter)
+        # Create horizontal layout: [3-widget splitter] + [fixed-width overview sidebar]
+        horizontal_layout = QHBoxLayout()
+        horizontal_layout.setContentsMargins(0, 0, 0, 0)
+        horizontal_layout.setSpacing(0)  # No spacing between splitter and overview
+        
+        # Add splitter (takes most space)
+        horizontal_layout.addWidget(main_splitter)
+        
+        # Add overview as fixed-width sidebar (NO SPLITTER HANDLE)
+        horizontal_layout.addWidget(overview_container)
+        
+        # Add the horizontal layout to main content
+        main_content_layout.addLayout(horizontal_layout)
 
         # Zoom Controls
         zoom_controls_layout = QHBoxLayout()

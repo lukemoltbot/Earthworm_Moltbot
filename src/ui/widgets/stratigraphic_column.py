@@ -20,13 +20,13 @@ class StratigraphicColumn(QGraphicsView):
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
-        self.column_width = 140
-        print(f"DEBUG (StratigraphicColumn.__init__): column_width set to {self.column_width}px (2× original 70px)")
+        self.column_width = 40  # Reduced from 140px to 40px (1/3 of original)
+        print(f"DEBUG (StratigraphicColumn.__init__): column_width set to {self.column_width}px (1/3 of original 140px)")
         self.min_display_height_pixels = 2 # Minimum height for very thin units
         self.litho_svg_path = "../../assets/svg/"
         self.svg_renderer = SvgRenderer()
 
-        self.y_axis_width = 40 # Width reserved for the Y-axis scale
+        self.y_axis_width = 20  # Reduced from 40px to 20px for Y-axis scale
         self.x_axis_height = 60 # Height reserved for X-axis (to match curve plotter)
 
         # Selection highlighting attributes
