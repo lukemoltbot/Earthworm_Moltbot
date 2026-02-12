@@ -295,36 +295,51 @@ class StratigraphicColumn(QGraphicsView):
         print(f"DEBUG (StratigraphicColumn._draw_y_axis): Detailed mode - drawing Y-axis with major_tick_interval={major_tick_interval}, "
               f"minor_tick_interval={minor_tick_interval}, depth_range={depth_range:.1f}m")
 
-        # Draw tick marks and labels
-        current_depth = np.floor(min_depth / minor_tick_interval) * minor_tick_interval
-        while current_depth <= max_depth:
+        # Draw tick marks and labels - ensure EVERY whole metre gets a mark
+        # Start from the first whole metre at or below min_depth
+        start_whole_metre = np.floor(min_depth)
+        end_whole_metre = np.ceil(max_depth)
+        
+        print(f"DEBUG (StratigraphicColumn._draw_y_axis): Drawing metre marks from {start_whole_metre:.0f}m to {end_whole_metre:.0f}m")
+        
+        # Draw major ticks at every whole metre
+        current_whole_metre = start_whole_metre
+        while current_whole_metre <= end_whole_metre:
             # Calculate Y position relative to self.min_depth (data reference point)
-            # This ensures metre marks align with lithology units
-            y_pos = (current_depth - self.min_depth) * self.depth_scale
+            y_pos = (current_whole_metre - self.min_depth) * self.depth_scale
             
-            # For whole metre increments, show label at every whole metre
-            is_major_tick = (abs(current_depth % 1.0) < 0.001)  # Check if it's a whole metre
-
-            if is_major_tick:
-                tick_length = 10
-                label_offset = -30
-                label_text = f"{current_depth:.0f}"  # Show integer depth
-            else:
-                tick_length = 5
-                label_offset = -15
-                label_text = ""  # No label for minor ticks
-
-            # Draw tick mark
-            self.scene.addLine(self.y_axis_width - tick_length, y_pos, self.y_axis_width, y_pos, axis_pen)
-
-            # Draw label
-            if label_text:
-                text_item = QGraphicsTextItem(label_text)
-                text_item.setFont(axis_font)
-                text_item.setPos(self.y_axis_width + label_offset, y_pos - text_item.boundingRect().height() / 2)
-                self.scene.addItem(text_item)
+            # Draw tick mark (10px long)
+            self.scene.addLine(self.y_axis_width - 10, y_pos, self.y_axis_width, y_pos, axis_pen)
             
-            current_depth += minor_tick_interval
+            # Draw label (integer depth)
+            label_text = f"{current_whole_metre:.0f}"
+            text_item = QGraphicsTextItem(label_text)
+            text_item.setFont(axis_font)
+            text_item.setPos(self.y_axis_width - 30, y_pos - text_item.boundingRect().height() / 2)
+            self.scene.addItem(text_item)
+            
+            print(f"DEBUG (StratigraphicColumn._draw_y_axis): Drew metre mark at {current_whole_metre:.0f}m, y_pos={y_pos:.1f}px")
+            
+            current_whole_metre += 1.0
+        
+        # Optional: Draw minor ticks at 0.1m intervals for better visual reference
+        # Start from first 0.1m increment at or below min_depth
+        start_minor = np.floor(min_depth / minor_tick_interval) * minor_tick_interval
+        end_minor = np.ceil(max_depth / minor_tick_interval) * minor_tick_interval
+        
+        current_minor = start_minor
+        minor_tick_count = 0
+        while current_minor <= end_minor and minor_tick_count < 1000:  # Safety limit
+            # Skip whole metres (already drawn as major ticks)
+            if abs(current_minor % 1.0) >= 0.001:
+                y_pos = (current_minor - self.min_depth) * self.depth_scale
+                # Draw minor tick (5px long)
+                self.scene.addLine(self.y_axis_width - 5, y_pos, self.y_axis_width, y_pos, axis_pen)
+                minor_tick_count += 1
+            
+            current_minor += minor_tick_interval
+        
+        print(f"DEBUG (StratigraphicColumn._draw_y_axis): Drew {end_whole_metre - start_whole_metre + 1:.0f} whole metre marks and {minor_tick_count} minor ticks")
 
         # Remove the old depth labels from the units
         # The previous code for from_depth_text and to_depth_text is removed as it's replaced by the Y-axis.
