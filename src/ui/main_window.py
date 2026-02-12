@@ -3597,13 +3597,30 @@ class MainWindow(QMainWindow):
             print(f"DEBUG (MainWindow._force_overview_rescale): Forcing overview rescale")
             # Check if overview mode is enabled
             if hasattr(self.stratigraphicColumnView, 'overview_mode') and self.stratigraphicColumnView.overview_mode:
-                # Force a resize event by calling the method directly
-                # This will trigger fitInView with new viewport dimensions
-                self.stratigraphicColumnView.fitInView(
-                    self.stratigraphicColumnView.scene.sceneRect(), 
-                    Qt.AspectRatioMode.KeepAspectRatioByExpanding
-                )
+                print(f"DEBUG (MainWindow._force_overview_rescale): Overview mode is enabled")
+                print(f"DEBUG (MainWindow._force_overview_rescale): Viewport size: {self.stratigraphicColumnView.viewport().size().width()}x{self.stratigraphicColumnView.viewport().size().height()}")
+                
+                # Method 1: Call the overview column's resizeEvent directly
+                # Create a dummy resize event
+                from PyQt6.QtGui import QResizeEvent
+                new_size = self.stratigraphicColumnView.size()
+                old_size = self.stratigraphicColumnView.size()  # Same for dummy
+                dummy_event = QResizeEvent(new_size, old_size)
+                self.stratigraphicColumnView.resizeEvent(dummy_event)
+                
+                # Method 2: Also call fitInView directly as backup
+                if hasattr(self.stratigraphicColumnView.scene, 'sceneRect'):
+                    scene_rect = self.stratigraphicColumnView.scene.sceneRect()
+                    if not scene_rect.isEmpty():
+                        print(f"DEBUG (MainWindow._force_overview_rescale): Calling fitInView with scene rect: {scene_rect.width():.1f}x{scene_rect.height():.1f}")
+                        self.stratigraphicColumnView.fitInView(
+                            scene_rect, 
+                            Qt.AspectRatioMode.KeepAspectRatioByExpanding
+                        )
+                
+                # Force immediate repaint
                 self.stratigraphicColumnView.viewport().update()
+                print(f"DEBUG (MainWindow._force_overview_rescale): Rescale complete")
     
     def resizeEvent(self, event):
         """Handle main window resize to update overview column."""
