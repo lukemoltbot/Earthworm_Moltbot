@@ -205,13 +205,53 @@ class HoleEditorWindow(QWidget):
         main_splitter.setStretchFactor(0, 2)  # Plot view gets more space
         main_splitter.setStretchFactor(1, 2)  # Enhanced column gets more space
         main_splitter.setStretchFactor(2, 3)  # Table gets most space
-        main_splitter.setStretchFactor(3, 1)  # Overview gets less space
+        main_splitter.setStretchFactor(3, 0)  # Overview gets FIXED width (0 stretch = non-resizable)
+        
+        # Set overview container to fixed width (140px = 100px column + 40px Y-axis)
+        overview_container.setMinimumWidth(140)
+        overview_container.setMaximumWidth(140)
+        
+        # Connect splitter move event to force overview rescale
+        def on_splitter_moved(pos, index):
+            print(f"DEBUG (MainWindow): Splitter moved: pos={pos}, index={index}")
+            if index == 2 or index == 3:  # Table or overview pane moved
+                print(f"DEBUG (MainWindow): Overview pane might need rescale")
+                # Schedule a delayed update to ensure geometry is settled
+                QTimer.singleShot(50, self._force_overview_rescale)
+        
+        main_splitter.splitterMoved.connect(on_splitter_moved)
+        
+        print(f"DEBUG (MainWindow): Set overview pane to fixed width: 140px")
+    
+    def _force_overview_rescale(self):
+        """Force overview column to rescale after window/splitter resize."""
+        if hasattr(self, 'stratigraphicColumnView') and self.stratigraphicColumnView:
+            print(f"DEBUG (MainWindow._force_overview_rescale): Forcing overview rescale")
+            # Check if overview mode is enabled
+            if hasattr(self.stratigraphicColumnView, 'overview_mode') and self.stratigraphicColumnView.overview_mode:
+                # Force a resize event by calling the method directly
+                # This will trigger fitInView with new viewport dimensions
+                self.stratigraphicColumnView.fitInView(
+                    self.stratigraphicColumnView.scene.sceneRect(), 
+                    Qt.AspectRatioMode.KeepAspectRatioByExpanding
+                )
+                self.stratigraphicColumnView.viewport().update()
+    
+    def resizeEvent(self, event):
+        """Handle main window resize to update overview column."""
+        super().resizeEvent(event)
+        print(f"DEBUG (MainWindow.resizeEvent): Window resized to {self.size().width()}x{self.size().height()}")
+        # Schedule overview rescale after geometry is settled
+        QTimer.singleShot(100, self._force_overview_rescale)
 
         # Create container for main content and zoom controls
         main_content_widget = QWidget()
         main_content_layout = QVBoxLayout(main_content_widget)
         main_content_layout.setContentsMargins(0, 0, 0, 0)
         main_content_layout.setSpacing(5)
+        
+        # Note: We'll add a proper resizeEvent method to the MainWindow class
+        # to handle overview rescaling when window is resized
         main_content_layout.addWidget(main_splitter)
 
         # Zoom Controls
