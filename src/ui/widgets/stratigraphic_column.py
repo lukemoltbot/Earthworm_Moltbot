@@ -255,7 +255,15 @@ class StratigraphicColumn(QGraphicsView):
 
 
     def _draw_y_axis(self, min_depth, max_depth):
-        axis_pen = QPen(Qt.GlobalColor.black)
+        # Debug: Track how many times this method is called
+        if not hasattr(self, '_y_axis_draw_count'):
+            self._y_axis_draw_count = 0
+        self._y_axis_draw_count += 1
+        
+        print(f"DEBUG (StratigraphicColumn._draw_y_axis): CALL #{self._y_axis_draw_count} with range {min_depth:.2f}-{max_depth:.2f}")
+        
+        # Use a thinner pen for the axis (0.5px instead of default 1px)
+        axis_pen = QPen(Qt.GlobalColor.black, 0.5)
         axis_font = QFont("Arial", 8)
 
         # Calculate Y positions based on scene height and depth range
@@ -271,13 +279,17 @@ class StratigraphicColumn(QGraphicsView):
             y_bottom = scene_height
             print(f"DEBUG (StratigraphicColumn._draw_y_axis): Overview mode - using scene height: {scene_height:.1f}px")
         else:
-            # In detailed mode, use depth_scale
-            y_top = (min_depth - min_depth) * self.depth_scale
-            y_bottom = (max_depth - min_depth) * self.depth_scale
+            # In detailed mode, calculate Y positions relative to self.min_depth
+            # This ensures axis line aligns with lithology units
+            y_top = (min_depth - self.min_depth) * self.depth_scale
+            y_bottom = (max_depth - self.min_depth) * self.depth_scale
+            print(f"DEBUG (StratigraphicColumn._draw_y_axis): Detailed mode - y_top={y_top:.1f}, y_bottom={y_bottom:.1f}, "
+                  f"min_depth={min_depth:.2f}, self.min_depth={self.min_depth:.2f}")
 
-        # Draw the main axis line
+        # Draw the main axis line with thin pen
         self.scene.addLine(self.y_axis_width, y_top, 
                            self.y_axis_width, y_bottom, axis_pen)
+        print(f"DEBUG (StratigraphicColumn._draw_y_axis): Drew axis line from y={y_top:.1f} to y={y_bottom:.1f}")
 
         # For overview mode: Skip tick marks and labels (not needed for visual reference)
         if self.overview_mode:
@@ -322,24 +334,36 @@ class StratigraphicColumn(QGraphicsView):
             
             current_whole_metre += 1.0
         
-        # Optional: Draw minor ticks at 0.1m intervals for better visual reference
-        # Start from first 0.1m increment at or below min_depth
-        start_minor = np.floor(min_depth / minor_tick_interval) * minor_tick_interval
-        end_minor = np.ceil(max_depth / minor_tick_interval) * minor_tick_interval
+        # Draw minor ticks at 0.1m intervals, but only if there's enough space
+        # Calculate pixels per metre at current scale
+        pixels_per_metre = self.depth_scale
+        pixels_per_minor_tick = pixels_per_metre * minor_tick_interval  # Typically 1px at 10px/m scale
         
-        current_minor = start_minor
-        minor_tick_count = 0
-        while current_minor <= end_minor and minor_tick_count < 1000:  # Safety limit
-            # Skip whole metres (already drawn as major ticks)
-            if abs(current_minor % 1.0) >= 0.001:
-                y_pos = (current_minor - self.min_depth) * self.depth_scale
-                # Draw minor tick (5px long)
-                self.scene.addLine(self.y_axis_width - 5, y_pos, self.y_axis_width, y_pos, axis_pen)
-                minor_tick_count += 1
+        # Only draw minor ticks if they won't create a solid black line
+        # (i.e., at least 0.5px spacing between ticks)
+        if pixels_per_minor_tick >= 0.5:
+            start_minor = np.floor(min_depth / minor_tick_interval) * minor_tick_interval
+            end_minor = np.ceil(max_depth / minor_tick_interval) * minor_tick_interval
             
-            current_minor += minor_tick_interval
+            current_minor = start_minor
+            minor_tick_count = 0
+            while current_minor <= end_minor and minor_tick_count < 1000:  # Safety limit
+                # Skip whole metres (already drawn as major ticks)
+                if abs(current_minor % 1.0) >= 0.001:
+                    y_pos = (current_minor - self.min_depth) * self.depth_scale
+                    # Draw minor tick (3px long, thinner)
+                    self.scene.addLine(self.y_axis_width - 3, y_pos, self.y_axis_width, y_pos, axis_pen)
+                    minor_tick_count += 1
+                
+                current_minor += minor_tick_interval
+            
+            print(f"DEBUG (StratigraphicColumn._draw_y_axis): Drew {minor_tick_count} minor ticks "
+                  f"(pixels_per_minor_tick={pixels_per_minor_tick:.2f}px)")
+        else:
+            print(f"DEBUG (StratigraphicColumn._draw_y_axis): Skipping minor ticks - too dense "
+                  f"(pixels_per_minor_tick={pixels_per_minor_tick:.2f}px < 0.5px)")
         
-        print(f"DEBUG (StratigraphicColumn._draw_y_axis): Drew {end_whole_metre - start_whole_metre + 1:.0f} whole metre marks and {minor_tick_count} minor ticks")
+        print(f"DEBUG (StratigraphicColumn._draw_y_axis): Drew {end_whole_metre - start_whole_metre + 1:.0f} whole metre marks")
 
         # Remove the old depth labels from the units
         # The previous code for from_depth_text and to_depth_text is removed as it's replaced by the Y-axis.
