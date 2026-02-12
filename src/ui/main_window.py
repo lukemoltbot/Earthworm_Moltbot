@@ -628,6 +628,37 @@ class HoleEditorWindow(QWidget):
 
         # Reset window title
         self.set_window_title("Untitled Hole")
+    
+    def force_overview_rescale(self):
+        """Force overview column to rescale after window/splitter resize."""
+        if hasattr(self, 'stratigraphicColumnView') and self.stratigraphicColumnView:
+            print(f"DEBUG (HoleEditorWindow.force_overview_rescale): Forcing overview rescale")
+            # Check if overview mode is enabled
+            if hasattr(self.stratigraphicColumnView, 'overview_mode') and self.stratigraphicColumnView.overview_mode:
+                print(f"DEBUG (HoleEditorWindow.force_overview_rescale): Overview mode is enabled")
+                print(f"DEBUG (HoleEditorWindow.force_overview_rescale): Viewport size: {self.stratigraphicColumnView.viewport().size().width()}x{self.stratigraphicColumnView.viewport().size().height()}")
+                
+                # Method 1: Call the overview column's resizeEvent directly
+                # Create a dummy resize event
+                from PyQt6.QtGui import QResizeEvent
+                new_size = self.stratigraphicColumnView.size()
+                old_size = self.stratigraphicColumnView.size()  # Same for dummy
+                dummy_event = QResizeEvent(new_size, old_size)
+                self.stratigraphicColumnView.resizeEvent(dummy_event)
+                
+                # Method 2: Also call fitInView directly as backup
+                if hasattr(self.stratigraphicColumnView.scene, 'sceneRect'):
+                    scene_rect = self.stratigraphicColumnView.scene.sceneRect()
+                    if not scene_rect.isEmpty():
+                        print(f"DEBUG (HoleEditorWindow.force_overview_rescale): Calling fitInView with scene rect: {scene_rect.width():.1f}x{scene_rect.height():.1f}")
+                        self.stratigraphicColumnView.fitInView(
+                            scene_rect, 
+                            Qt.AspectRatioMode.KeepAspectRatioByExpanding
+                        )
+                
+                # Force immediate repaint
+                self.stratigraphicColumnView.viewport().update()
+                print(f"DEBUG (HoleEditorWindow.force_overview_rescale): Rescale complete")
 
 
 class Worker(QObject):
@@ -3589,34 +3620,11 @@ class MainWindow(QMainWindow):
     
     def _force_overview_rescale(self):
         """Force overview column to rescale after window/splitter resize."""
-        if hasattr(self, 'stratigraphicColumnView') and self.stratigraphicColumnView:
-            print(f"DEBUG (MainWindow._force_overview_rescale): Forcing overview rescale")
-            # Check if overview mode is enabled
-            if hasattr(self.stratigraphicColumnView, 'overview_mode') and self.stratigraphicColumnView.overview_mode:
-                print(f"DEBUG (MainWindow._force_overview_rescale): Overview mode is enabled")
-                print(f"DEBUG (MainWindow._force_overview_rescale): Viewport size: {self.stratigraphicColumnView.viewport().size().width()}x{self.stratigraphicColumnView.viewport().size().height()}")
-                
-                # Method 1: Call the overview column's resizeEvent directly
-                # Create a dummy resize event
-                from PyQt6.QtGui import QResizeEvent
-                new_size = self.stratigraphicColumnView.size()
-                old_size = self.stratigraphicColumnView.size()  # Same for dummy
-                dummy_event = QResizeEvent(new_size, old_size)
-                self.stratigraphicColumnView.resizeEvent(dummy_event)
-                
-                # Method 2: Also call fitInView directly as backup
-                if hasattr(self.stratigraphicColumnView.scene, 'sceneRect'):
-                    scene_rect = self.stratigraphicColumnView.scene.sceneRect()
-                    if not scene_rect.isEmpty():
-                        print(f"DEBUG (MainWindow._force_overview_rescale): Calling fitInView with scene rect: {scene_rect.width():.1f}x{scene_rect.height():.1f}")
-                        self.stratigraphicColumnView.fitInView(
-                            scene_rect, 
-                            Qt.AspectRatioMode.KeepAspectRatioByExpanding
-                        )
-                
-                # Force immediate repaint
-                self.stratigraphicColumnView.viewport().update()
-                print(f"DEBUG (MainWindow._force_overview_rescale): Rescale complete")
+        # The overview column is inside editor_hole (HoleEditorWindow)
+        # Call the HoleEditorWindow's method instead
+        if hasattr(self, 'editor_hole') and self.editor_hole:
+            print(f"DEBUG (MainWindow._force_overview_rescale): Calling editor_hole.force_overview_rescale()")
+            self.editor_hole.force_overview_rescale()
     
     def _on_splitter_moved(self, pos, index):
         """Handle splitter movement to update overview column."""
