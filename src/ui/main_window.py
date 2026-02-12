@@ -646,29 +646,54 @@ class HoleEditorWindow(QWidget):
             # Check if overview mode is enabled
             if hasattr(self.stratigraphicColumnView, 'overview_mode') and self.stratigraphicColumnView.overview_mode:
                 print(f"DEBUG (HoleEditorWindow.force_overview_rescale): Overview mode is enabled")
+                print(f"DEBUG (HoleEditorWindow.force_overview_rescale): Widget size: {self.stratigraphicColumnView.size().width()}x{self.stratigraphicColumnView.size().height()}")
                 print(f"DEBUG (HoleEditorWindow.force_overview_rescale): Viewport size: {self.stratigraphicColumnView.viewport().size().width()}x{self.stratigraphicColumnView.viewport().size().height()}")
                 
-                # Method 1: Call the overview column's resizeEvent directly
-                # Create a dummy resize event
-                from PyQt6.QtGui import QResizeEvent
-                new_size = self.stratigraphicColumnView.size()
-                old_size = self.stratigraphicColumnView.size()  # Same for dummy
-                dummy_event = QResizeEvent(new_size, old_size)
-                self.stratigraphicColumnView.resizeEvent(dummy_event)
+                # Check if the widget has a valid size
+                if self.stratigraphicColumnView.size().height() <= 0:
+                    print(f"WARNING (HoleEditorWindow.force_overview_rescale): Widget has invalid height: {self.stratigraphicColumnView.size().height()}")
                 
-                # Method 2: Also call fitInView directly as backup
+                # Directly call fitInView with current scene rectangle
+                # This is more reliable than creating dummy resize events
                 if hasattr(self.stratigraphicColumnView.scene, 'sceneRect'):
                     scene_rect = self.stratigraphicColumnView.scene.sceneRect()
                     if not scene_rect.isEmpty():
                         print(f"DEBUG (HoleEditorWindow.force_overview_rescale): Calling fitInView with scene rect: {scene_rect.width():.1f}x{scene_rect.height():.1f}")
+                        print(f"DEBUG (HoleEditorWindow.force_overview_rescale): Viewport: {self.stratigraphicColumnView.viewport().size().width()}x{self.stratigraphicColumnView.viewport().size().height()}")
+                        
+                        # Calculate what scale should be applied
+                        viewport_height = self.stratigraphicColumnView.viewport().size().height()
+                        scene_height = scene_rect.height()
+                        if scene_height > 0:
+                            required_scale = (viewport_height - 4.0) / scene_height  # Minus 4px padding
+                            print(f"DEBUG (HoleEditorWindow.force_overview_rescale): Required scale: {required_scale:.4f} (viewport={viewport_height}px, scene={scene_height:.1f}px)")
+                        
                         self.stratigraphicColumnView.fitInView(
                             scene_rect, 
                             Qt.AspectRatioMode.KeepAspectRatioByExpanding
                         )
+                    else:
+                        print(f"WARNING (HoleEditorWindow.force_overview_rescale): Scene rect is empty!")
+                        # Try to trigger a redraw of the column
+                        if hasattr(self.stratigraphicColumnView, 'draw_column') and hasattr(self, 'units_dataframe'):
+                            print(f"DEBUG (HoleEditorWindow.force_overview_rescale): Attempting to redraw column")
+                            # This would require having min/max depth values stored
+                
+                # Also ensure the overview column's own resizeEvent is called
+                # This handles any internal logic that fitInView might not cover
+                from PyQt6.QtGui import QResizeEvent
+                current_size = self.stratigraphicColumnView.size()
+                # Use a slightly different size to ensure event is processed
+                dummy_event = QResizeEvent(current_size, QSize(current_size.width(), current_size.height() - 1))
+                self.stratigraphicColumnView.resizeEvent(dummy_event)
                 
                 # Force immediate repaint
                 self.stratigraphicColumnView.viewport().update()
                 print(f"DEBUG (HoleEditorWindow.force_overview_rescale): Rescale complete")
+            else:
+                print(f"WARNING (HoleEditorWindow.force_overview_rescale): Overview mode is NOT enabled!")
+        else:
+            print(f"WARNING (HoleEditorWindow.force_overview_rescale): stratigraphicColumnView not found!")
 
 
 class Worker(QObject):
@@ -3634,6 +3659,8 @@ class MainWindow(QMainWindow):
         # Call the HoleEditorWindow's method instead
         if hasattr(self, 'editor_hole') and self.editor_hole:
             print(f"DEBUG (MainWindow._force_overview_rescale): Calling editor_hole.force_overview_rescale()")
+            print(f"DEBUG (MainWindow._force_overview_rescale): Main window size: {self.size().width()}x{self.size().height()}")
+            print(f"DEBUG (MainWindow._force_overview_rescale): Main window maximized: {self.isMaximized()}")
             self.editor_hole.force_overview_rescale()
     
     def _on_splitter_moved(self, pos, index):
@@ -3647,9 +3674,16 @@ class MainWindow(QMainWindow):
     def resizeEvent(self, event):
         """Handle main window resize to update overview column."""
         super().resizeEvent(event)
-        print(f"DEBUG (MainWindow.resizeEvent): Window resized to {self.size().width()}x{self.size().height()}")
+        old_size = event.oldSize()
+        new_size = event.size()
+        print(f"DEBUG (MainWindow.resizeEvent): Window resized from {old_size.width()}x{old_size.height()} to {new_size.width()}x{new_size.height()}")
+        print(f"DEBUG (MainWindow.resizeEvent): Is maximized: {self.isMaximized()}")
+        
         # Schedule overview rescale after geometry is settled
-        QTimer.singleShot(100, self._force_overview_rescale)
+        # Use shorter delay for maximize events
+        delay = 50 if self.isMaximized() else 100
+        print(f"DEBUG (MainWindow.resizeEvent): Scheduling rescale in {delay}ms")
+        QTimer.singleShot(delay, self._force_overview_rescale)
 
 
 class UserGuideDialog(QDialog):

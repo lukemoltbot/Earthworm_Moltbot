@@ -211,7 +211,7 @@ class StratigraphicColumn(QGraphicsView):
                 line_item.setPen(separator_pen)
                 self.scene.addItem(line_item)
 
-        self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+        self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.IgnoreAspectRatio)
         self.verticalScrollBar().setValue(self.verticalScrollBar().maximum()) # Scroll to bottom to show top of log
 
     def set_zoom_level(self, zoom_factor):
@@ -525,7 +525,7 @@ class StratigraphicColumn(QGraphicsView):
             if not self.scene.sceneRect().isEmpty():
                 print(f"DEBUG (StratigraphicColumn.resizeEvent): Reapplying fitInView with padding")
                 # Force immediate update by calling our overridden fitInView
-                self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+                self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.IgnoreAspectRatio)
                 
                 # Force immediate repaint
                 self.viewport().update()
@@ -614,7 +614,7 @@ class StratigraphicColumn(QGraphicsView):
             # If we already have a scene rect, immediately apply fitInView
             if not self.scene.sceneRect().isEmpty():
                 print(f"DEBUG (StratigraphicColumn.set_overview_mode): Immediately applying fitInView")
-                self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+                self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.IgnoreAspectRatio)
         else:
             # Disable overview mode - restore original width
             if hasattr(self, 'original_column_width'):
@@ -630,7 +630,7 @@ class StratigraphicColumn(QGraphicsView):
             print(f"DEBUG (StratigraphicColumn.force_overview_rescale): Scene: {self.scene.sceneRect().width():.1f}x{self.scene.sceneRect().height():.1f}")
             
             # Call fitInView to apply scaling with padding
-            self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+            self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.IgnoreAspectRatio)
             
             # Force immediate update
             self.viewport().update()
