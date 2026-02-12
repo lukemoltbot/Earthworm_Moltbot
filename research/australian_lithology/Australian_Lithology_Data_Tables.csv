@@ -1,0 +1,41 @@
+Lithology_Type,Subtype,Australian_Examples,Density_Min_gcc,Density_Max_gcc,Density_Avg_gcc,GammaRay_Min_API,GammaRay_Max_API,GammaRay_Avg_API,Resistivity_Min_ohmm,Resistivity_Max_ohmm,Resistivity_Avg_ohmm,ShortSpace_Density_gcc,LongSpace_Density_gcc,Characteristic_Features,Primary_Basins,Data_Sources
+Sandstone,Clean,Cooper Basin sands,2.1,2.4,2.25,15,35,25,50,500,200,2.2,2.25,Low GR, moderate resistivity,Cooper,Surat,Bowen,Geoscience Australia,GSQ
+Sandstone,Shaly,Surat Basin shaly sands,2.2,2.5,2.35,45,75,60,20,200,80,2.3,2.35,Moderate GR, variable resistivity,Surat,Bowen,Cooper,GSQ,Academic papers
+Sandstone,Calcareous,Canning Basin calc sands,2.3,2.6,2.45,20,40,30,100,1000,400,2.4,2.45,Low GR, high resistivity,Canning,Perth,Geoscience Australia
+Shale,Mudstone,Roseneath Shale,2.3,2.6,2.45,80,150,115,2,20,8,2.4,2.45,High GR, low resistivity,Cooper,Geoscience Australia,SA Geological Survey
+Shale,Siltstone,Bowen Basin silts,2.4,2.7,2.55,70,120,95,5,30,15,2.5,2.55,High GR, very low resistivity,Bowen,GSQ
+Limestone,Pure,Nullarbor Limestone,2.5,2.7,2.6,10,25,18,100,1000,400,2.55,2.6,Very low GR, high resistivity,Nullarbor,Canning,Geoscience Australia
+Limestone,Dolomitic,Canning Basin dolomite,2.8,3.0,2.9,15,30,22,200,2000,800,2.85,2.9,Low GR, very high resistivity,Canning,Geoscience Australia
+Coal,Bituminous,Bowen Basin coal,1.2,1.5,1.35,15,30,22,100,1000,400,1.3,1.35,Very low density, mod GR, high resistivity,Bowen,Sydney,GSQ,Industry reports
+Coal,Sub-bituminous,Surat Basin coal,1.3,1.6,1.45,20,40,30,50,500,200,1.4,1.45,Low density, variable GR,Surat,GSQ
+Evaporite,Halite,Murray Basin salt,2.1,2.2,2.15,10,20,15,1000,10000,5000,2.15,2.15,Very low GR, very high resistivity,Murray,Officer,Geoscience Australia
+Evaporite,Gypsum,Officer Basin gypsum,2.3,2.4,2.35,15,25,20,100,1000,400,2.35,2.35,Low GR, high resistivity,Officer,Geoscience Australia
+Evaporite,Anhydrite,Canning Basin anhydrite,2.9,3.0,2.95,10,20,15,200,2000,800,2.95,2.95,Very low GR, very high resistivity,Canning,Geoscience Australia
+Basalt,Volcanic,Newer Volcanics,2.8,3.0,2.9,5,20,12,100,1000,400,2.85,2.9,Very low GR, high density,Victoria,Geoscience Australia
+Basalt,Andesitic,Glass House Mtns,2.7,2.9,2.8,20,40,30,200,2000,800,2.75,2.8,Low GR, high resistivity,QLD,GSQ
+Granite,Felsic,Lachlan Fold Belt,2.6,2.8,2.7,50,150,100,1000,10000,5000,2.65,2.7,High GR (K-feldspar), very high resistivity,Lachlan,Geoscience Australia
+Schist,Metamorphic,Adelaide Fold Belt,2.6,2.9,2.75,30,80,55,100,1000,400,2.7,2.75,Variable GR, foliated texture,Adelaide,SA Geological Survey
+Gneiss,Metamorphic,Tasmanian gneiss,2.7,3.0,2.85,40,100,70,200,2000,800,2.8,2.85,Banded texture, variable properties,Tasmania,Geoscience Australia
+Mudstone,Fine-grained,Surat Basin mudstone,2.3,2.6,2.45,60,110,85,3,25,12,2.4,2.45,High GR, very low resistivity,Surat,Bowen,GSQ
+Siltstone,Medium-grained,Bowen Basin silt,2.4,2.7,2.55,50,90,70,5,30,15,2.5,2.55,Moderate GR, low resistivity,Bowen,GSQ
+Conglomerate,Coarse-grained,Surat Basin conglomerate,2.2,2.5,2.35,20,50,35,30,300,120,2.3,2.35,Variable GR, pebbly texture,Surat,GSQ
+Breccia,Volcanic,Newer Volcanics breccia,2.5,2.8,2.65,15,35,25,50,500,200,2.6,2.65,Angular fragments, variable properties,Victoria,Geoscience Australia
+Tuff,Volcanic ash,Bowen Basin tuff,2.2,2.5,2.35,40,80,60,20,200,80,2.3,2.35,Moderate GR, fine-grained,Bowen,GSQ
+Chert,Siliceous,Canning Basin chert,2.4,2.6,2.5,10,25,18,500,5000,2000,2.45,2.5,Very low GR, very high resistivity,Canning,Geoscience Australia
+Phyllite,Metamorphic,Adelaide Fold Belt,2.7,2.9,2.8,40,90,65,100,1000,400,2.75,2.8,Foliated, silky sheen,Adelaide,SA Geological Survey
+Quartzite,Metamorphic,Yilgarn Craton,2.6,2.8,2.7,10,30,20,1000,10000,5000,2.65,2.7,Very low GR, very high resistivity,Yilgarn,Geoscience Australia
+Marble,Metamorphic,Adelaide Fold Belt,2.7,2.9,2.8,10,25,18,500,5000,2000,2.75,2.8,Very low GR, crystalline texture,Adelaide,SA Geological Survey
+Slate,Metamorphic,Tasmanian slate,2.7,2.9,2.8,30,70,50,100,1000,400,2.75,2.8,Cleavage, low GR,Tasmania,Geoscience Australia
+Arkose,Feldspathic,Surat Basin arkose,2.2,2.5,2.35,30,60,45,40,400,160,2.3,2.35,Moderate GR (feldspar),Surat,GSQ
+Greywacke,Immature,Bowen Basin greywacke,2.4,2.7,2.55,40,80,60,30,300,120,2.5,2.55,Dirty sandstone, angular grains,Bowen,GSQ
+Laterite,Weathered,Yilgarn Craton,1.8,2.2,2.0,40,100,70,10,100,40,1.9,2.0,High GR, iron-rich,Yilgarn,Geoscience Australia
+Bauxite,Aluminous,Weipa deposits,1.5,2.0,1.75,30,70,50,50,500,200,1.6,1.75,Aluminum-rich, porous,Cape York,Geoscience Australia
+Ironstone,Banded,Hamersley Range,3.0,3.5,3.25,20,50,35,100,1000,400,3.1,3.25,High density, banded,Hamersley,Geoscience Australia
+Phosphorite,Phosphate,Georgina Basin,2.4,2.7,2.55,50,150,100,100,1000,400,2.5,2.55,High GR (uranium),Georgina,Geoscience Australia
+Diatomite,Siliceous,Murray Basin,1.8,2.2,2.0,20,50,35,100,1000,400,1.9,2.0,Very porous, low density,Murray,Geoscience Australia
+Tuffite,Volcaniclastic,Bowen Basin,2.3,2.6,2.45,35,75,55,25,250,100,2.4,2.45,Mixed volcanic/sedimentary,Bowen,GSQ
+Coquina,Shell limestone,Nullarbor Plain,2.0,2.4,2.2,15,35,25,200,2000,800,2.1,2.2,Shell fragments, porous,Nullarbor,Geoscience Australia
+Travertine,Calcareous sinter,Nullarbor,2.3,2.6,2.45,10,25,18,300,3000,1200,2.4,2.45,Chemical precipitate, banded,Nullarbor,Geoscience Australia
+Oolite,Limestone,Canning Basin,2.4,2.7,2.55,15,30,22,150,1500,600,2.5,2.55,Ooid grains, porous,Canning,Geoscience Australia
+Pisolitic,Bauxite/ironstone,Weipa/Darwin,2.0,2.5,2.25,30,70,50,80,800,320,2.1,2.25,Pisolith grains, variable,Cape York/Darwin,Geoscience Australia
+Radiolarite,Siliceous,Canning Basin,2.3,2.6,2.45,20,50,35,200,2000,800,2.4,2.45,Radiolarian tests, siliceous,Canning,Geoscience Australia
