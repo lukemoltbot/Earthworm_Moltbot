@@ -212,14 +212,10 @@ class HoleEditorWindow(QWidget):
         overview_container.setMaximumWidth(140)
         
         # Connect splitter move event to force overview rescale
-        def on_splitter_moved(pos, index):
-            print(f"DEBUG (MainWindow): Splitter moved: pos={pos}, index={index}")
-            if index == 2 or index == 3:  # Table or overview pane moved
-                print(f"DEBUG (MainWindow): Overview pane might need rescale")
-                # Schedule a delayed update to ensure geometry is settled
-                QTimer.singleShot(50, self._force_overview_rescale)
-        
-        main_splitter.splitterMoved.connect(on_splitter_moved)
+        # Use lambda to ensure correct self reference
+        main_splitter.splitterMoved.connect(
+            lambda pos, index: self._on_splitter_moved(pos, index)
+        )
         
         print(f"DEBUG (MainWindow): Set overview pane to fixed width: 140px")
 
@@ -3621,6 +3617,14 @@ class MainWindow(QMainWindow):
                 # Force immediate repaint
                 self.stratigraphicColumnView.viewport().update()
                 print(f"DEBUG (MainWindow._force_overview_rescale): Rescale complete")
+    
+    def _on_splitter_moved(self, pos, index):
+        """Handle splitter movement to update overview column."""
+        print(f"DEBUG (MainWindow._on_splitter_moved): Splitter moved: pos={pos}, index={index}")
+        if index == 2 or index == 3:  # Table or overview pane moved
+            print(f"DEBUG (MainWindow._on_splitter_moved): Overview pane might need rescale")
+            # Schedule a delayed update to ensure geometry is settled
+            QTimer.singleShot(50, self._force_overview_rescale)
     
     def resizeEvent(self, event):
         """Handle main window resize to update overview column."""

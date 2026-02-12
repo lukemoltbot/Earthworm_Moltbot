@@ -461,15 +461,14 @@ class StratigraphicColumn(QGraphicsView):
             print(f"DEBUG (StratigraphicColumn.fitInView): Viewport: {self.viewport().size().width()}x{self.viewport().size().height()}")
             print(f"DEBUG (StratigraphicColumn.fitInView): Scene rect: {rect.width():.1f}x{rect.height():.1f}")
             
-            # Calculate MINIMAL padding (1% L/R, 1% T/B) - user reported too much white space
-            width_padding = rect.width() * 0.01  # Reduced from 5% to 1%
-            height_padding = rect.height() * 0.01  # Reduced from 3% to 1%
-            padded_rect = rect.adjusted(-width_padding, -height_padding, width_padding, height_padding)
+            # NO PADDING - user reported excessive white space even with 1% padding
+            # Use the exact scene rectangle with no padding
+            padded_rect = rect  # No adjustment - use exact rectangle
             
-            # For overview mode: We want to fill ~98% of vertical space (100% - 2*1% padding)
+            # For overview mode: We want to fill 100% of vertical space (no padding)
             # Calculate the scale needed to achieve this
             viewport_height = self.viewport().size().height()
-            target_fill_ratio = 0.98  # Fill 98% of vertical space (with 1% top/bottom padding)
+            target_fill_ratio = 1.00  # Fill 100% of vertical space (NO padding)
             target_height = viewport_height * target_fill_ratio
             
             if padded_rect.height() > 0:
@@ -482,7 +481,7 @@ class StratigraphicColumn(QGraphicsView):
                 
                 print(f"DEBUG (StratigraphicColumn.fitInView): Height optimization:")
                 print(f"DEBUG (StratigraphicColumn.fitInView):   Target: Fill {target_fill_ratio*100:.0f}% of {viewport_height}px = {target_height:.1f}px")
-                print(f"DEBUG (StratigraphicColumn.fitInView):   Padding: 1% L/R, 1% T/B (MINIMAL)")
+                print(f"DEBUG (StratigraphicColumn.fitInView):   Padding: 0% L/R, 0% T/B (NO PADDING)")
                 print(f"DEBUG (StratigraphicColumn.fitInView):   Padded height: {padded_rect.height():.1f}px")
                 print(f"DEBUG (StratigraphicColumn.fitInView):   Required scale: {height_scale:.4f}")
                 print(f"DEBUG (StratigraphicColumn.fitInView):   Scaled width: {scaled_width:.1f}px (viewport: {viewport_width}px)")
