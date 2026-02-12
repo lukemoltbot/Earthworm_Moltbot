@@ -334,34 +334,31 @@ class StratigraphicColumn(QGraphicsView):
             
             current_whole_metre += 1.0
         
-        # Draw minor ticks at 0.1m intervals, but only if there's enough space
-        # Calculate pixels per metre at current scale
-        pixels_per_metre = self.depth_scale
-        pixels_per_minor_tick = pixels_per_metre * minor_tick_interval  # Typically 1px at 10px/m scale
+        # Draw minor ticks ONLY when zoomed in enough (pixels between ticks > 5px)
+        # This prevents solid gray bar from too many tick marks
+        pixels_between_minor_ticks = self.depth_scale * minor_tick_interval
         
-        # Only draw minor ticks if they won't create a solid black line
-        # (i.e., at least 0.5px spacing between ticks)
-        if pixels_per_minor_tick >= 0.5:
+        if pixels_between_minor_ticks > 5.0:  # Only draw if at least 5px between minor ticks
             start_minor = np.floor(min_depth / minor_tick_interval) * minor_tick_interval
             end_minor = np.ceil(max_depth / minor_tick_interval) * minor_tick_interval
             
             current_minor = start_minor
             minor_tick_count = 0
-            while current_minor <= end_minor and minor_tick_count < 1000:  # Safety limit
+            while current_minor <= end_minor and minor_tick_count < 500:  # Safety limit
                 # Skip whole metres (already drawn as major ticks)
                 if abs(current_minor % 1.0) >= 0.001:
                     y_pos = (current_minor - self.min_depth) * self.depth_scale
-                    # Draw minor tick (3px long, thinner)
-                    self.scene.addLine(self.y_axis_width - 3, y_pos, self.y_axis_width, y_pos, axis_pen)
+                    # Draw very short, thin minor tick (2px long)
+                    self.scene.addLine(self.y_axis_width - 2, y_pos, self.y_axis_width, y_pos, axis_pen)
                     minor_tick_count += 1
                 
                 current_minor += minor_tick_interval
             
             print(f"DEBUG (StratigraphicColumn._draw_y_axis): Drew {minor_tick_count} minor ticks "
-                  f"(pixels_per_minor_tick={pixels_per_minor_tick:.2f}px)")
+                  f"(pixels_between_minor_ticks={pixels_between_minor_ticks:.1f}px > 5px)")
         else:
             print(f"DEBUG (StratigraphicColumn._draw_y_axis): Skipping minor ticks - too dense "
-                  f"(pixels_per_minor_tick={pixels_per_minor_tick:.2f}px < 0.5px)")
+                  f"(pixels_between_minor_ticks={pixels_between_minor_ticks:.1f}px <= 5px)")
         
         print(f"DEBUG (StratigraphicColumn._draw_y_axis): Drew {end_whole_metre - start_whole_metre + 1:.0f} whole metre marks")
 
