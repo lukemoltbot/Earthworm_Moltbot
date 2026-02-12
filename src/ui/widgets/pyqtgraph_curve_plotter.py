@@ -13,6 +13,11 @@ import pyqtgraph as pg
 # Import ScrollPolicyManager for scroll control
 from .scroll_policy_manager import ScrollPolicyManager
 
+# Import Phase 3 performance components
+from .data_stream_manager import DataStreamManager, LoadingStrategy
+from .viewport_cache_manager import ViewportCacheManager
+from .scroll_optimizer import ScrollOptimizer
+
 class PyQtGraphCurvePlotter(QWidget):
     """A PyQtGraph-based curve plotter widget with improved performance and dual-axis support."""
     
@@ -92,6 +97,12 @@ class PyQtGraphCurvePlotter(QWidget):
         self.sync_tracker = SyncStateTracker(debounce_ms=50)
         self.sync_enabled = True
         
+        # Phase 3 Performance Components
+        self.data_stream_manager = None
+        self.viewport_cache_manager = None
+        self.scroll_optimizer = None
+        self.performance_monitor_enabled = False
+        
         # Setup UI
         self.setup_ui()
         
@@ -143,6 +154,48 @@ class PyQtGraphCurvePlotter(QWidget):
         self.axis_controls_layout.setSpacing(2)
         
         layout.addWidget(self.axis_controls_widget)
+        
+        # Initialize Phase 3 performance components
+        self.initialize_performance_components()
+        
+    def initialize_performance_components(self):
+        """Initialize Phase 3 performance optimization components."""
+        try:
+            # Initialize DataStreamManager for efficient LAS data loading
+            self.data_stream_manager = DataStreamManager(
+                max_memory_mb=500,  # 500MB memory limit
+                chunk_size_points=10000,  # 10,000 points per chunk
+                loading_strategy=LoadingStrategy.PROGRESSIVE
+            )
+            print("✓ DataStreamManager initialized for LAS file loading")
+            
+            # Initialize ViewportCacheManager for hardware-accelerated rendering
+            self.viewport_cache_manager = ViewportCacheManager(
+                max_cache_size_mb=50.0  # 50MB cache limit
+            )
+            print("✓ ViewportCacheManager initialized for viewport caching")
+            
+            # Initialize ScrollOptimizer for smooth scrolling
+            self.scroll_optimizer = ScrollOptimizer(
+                target_fps=60,
+                enable_inertia=True,
+                enable_prediction=True
+            )
+            print("✓ ScrollOptimizer initialized for smooth scrolling")
+            
+            # Note: Full integration requires:
+            # 1. Connecting ScrollOptimizer to mouse events
+            # 2. Using ViewportCacheManager for viewport rendering
+            # 3. Using DataStreamManager for LAS file loading
+            
+            # Enable performance monitoring
+            self.performance_monitor_enabled = True
+            print("Phase 3 performance components initialized successfully")
+            
+        except Exception as e:
+            print(f"Warning: Could not initialize Phase 3 performance components: {e}")
+            print("Falling back to standard rendering mode")
+            self.performance_monitor_enabled = False
         
     def setup_x_axis_labels(self):
         """Setup X-axis labels area similar to legacy CurvePlotter."""
@@ -942,6 +995,10 @@ class PyQtGraphCurvePlotter(QWidget):
                 
     def on_view_range_changed(self):
         """Handle view range changes and emit signal for overview synchronization."""
+        # Use ScrollOptimizer for smooth scrolling if available
+        if self.scroll_optimizer and self.performance_monitor_enabled:
+            self.scroll_optimizer.handle_view_range_change()
+        
         # Check if synchronization should proceed (prevent infinite loops)
         if self.sync_enabled and not self.sync_tracker.should_sync():
             print(f"DEBUG (PyQtGraphCurvePlotter.on_view_range_changed): Sync blocked by tracker")
@@ -1655,6 +1712,109 @@ class PyQtGraphCurvePlotter(QWidget):
         """Enable or disable fixed scale (prevent scale changes during scrolling)."""
         self.fixed_scale_enabled = enabled
         print(f"DEBUG (PyQtGraphCurvePlotter): Fixed scale {'enabled' if enabled else 'disabled'}")
+        
+    # =========================================================================
+    # Phase 3 Performance Monitoring Methods
+    # =========================================================================
+    
+    def get_performance_metrics(self):
+        """Get performance metrics from all Phase 3 components."""
+        metrics = {
+            'performance_monitor_enabled': self.performance_monitor_enabled,
+            'data_stream_manager': None,
+            'viewport_cache_manager': None,
+            'scroll_optimizer': None
+        }
+        
+        if self.data_stream_manager:
+            metrics['data_stream_manager'] = {
+                'cache_hit_rate': self.data_stream_manager.get_cache_hit_rate(),
+                'memory_usage_mb': self.data_stream_manager.get_memory_usage_mb(),
+                'active_chunks': self.data_stream_manager.get_active_chunk_count(),
+                'loading_strategy': str(self.data_stream_manager.loading_strategy)
+            }
+            
+        if self.viewport_cache_manager:
+            metrics['viewport_cache_manager'] = {
+                'cache_hit_rate': self.viewport_cache_manager.get_cache_hit_rate(),
+                'cache_size': self.viewport_cache_manager.get_cache_size(),
+                'gpu_acceleration': self.viewport_cache_manager.gpu_acceleration,
+                'items_cached': len(self.viewport_cache_manager.get_cached_items())
+            }
+            
+        if self.scroll_optimizer:
+            metrics['scroll_optimizer'] = {
+                'current_fps': self.scroll_optimizer.get_current_fps(),
+                'target_fps': self.scroll_optimizer.target_fps,
+                'event_batching': self.scroll_optimizer.event_batching,
+                'predictive_rendering': self.scroll_optimizer.predictive_rendering,
+                'smooth_scrolling': self.scroll_optimizer.smooth_scrolling
+            }
+            
+        return metrics
+        
+    def print_performance_report(self):
+        """Print a performance report to console."""
+        if not self.performance_monitor_enabled:
+            print("Performance monitoring is disabled")
+            return
+            
+        metrics = self.get_performance_metrics()
+        
+        print("\n" + "="*60)
+        print("PHASE 3 PERFORMANCE REPORT")
+        print("="*60)
+        
+        print(f"\nPerformance Monitoring: {'ENABLED' if metrics['performance_monitor_enabled'] else 'DISABLED'}")
+        
+        if metrics['data_stream_manager']:
+            ds_metrics = metrics['data_stream_manager']
+            print(f"\nDataStreamManager:")
+            print(f"  • Cache Hit Rate: {ds_metrics['cache_hit_rate']:.1%}")
+            print(f"  • Memory Usage: {ds_metrics['memory_usage_mb']:.1f} MB")
+            print(f"  • Active Chunks: {ds_metrics['active_chunks']}")
+            print(f"  • Loading Strategy: {ds_metrics['loading_strategy']}")
+            
+        if metrics['viewport_cache_manager']:
+            vc_metrics = metrics['viewport_cache_manager']
+            print(f"\nViewportCacheManager:")
+            print(f"  • Cache Hit Rate: {vc_metrics['cache_hit_rate']:.1%}")
+            print(f"  • Cache Size: {vc_metrics['cache_size']}")
+            print(f"  • GPU Acceleration: {'ENABLED' if vc_metrics['gpu_acceleration'] else 'DISABLED'}")
+            print(f"  • Items Cached: {vc_metrics['items_cached']}")
+            
+        if metrics['scroll_optimizer']:
+            so_metrics = metrics['scroll_optimizer']
+            print(f"\nScrollOptimizer:")
+            print(f"  • Current FPS: {so_metrics['current_fps']:.1f}")
+            print(f"  • Target FPS: {so_metrics['target_fps']}")
+            print(f"  • Event Batching: {'ENABLED' if so_metrics['event_batching'] else 'DISABLED'}")
+            print(f"  • Predictive Rendering: {'ENABLED' if so_metrics['predictive_rendering'] else 'DISABLED'}")
+            print(f"  • Smooth Scrolling: {'ENABLED' if so_metrics['smooth_scrolling'] else 'DISABLED'}")
+            
+        print("\n" + "="*60)
+        
+    def enable_performance_monitoring(self, enable=True):
+        """Enable or disable performance monitoring."""
+        self.performance_monitor_enabled = enable
+        print(f"Performance monitoring {'enabled' if enable else 'disabled'}")
+        
+    def cleanup_performance_components(self):
+        """Clean up Phase 3 performance components."""
+        if self.data_stream_manager:
+            self.data_stream_manager.cleanup()
+            self.data_stream_manager = None
+            
+        if self.viewport_cache_manager:
+            self.viewport_cache_manager.cleanup()
+            self.viewport_cache_manager = None
+            
+        if self.scroll_optimizer:
+            self.scroll_optimizer.disconnect_widget()
+            self.scroll_optimizer = None
+            
+        self.performance_monitor_enabled = False
+        print("Phase 3 performance components cleaned up")
         
     def setYRange(self, min_depth, max_depth, padding=0):
         """
