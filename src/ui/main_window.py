@@ -90,12 +90,12 @@ class HoleEditorWindow(QWidget):
         self.createInterbeddingIconButton = QToolButton()
         self.createInterbeddingIconButton.setIcon(QIcon.fromTheme("list-add", QIcon(":/icons/add.svg")))
         self.createInterbeddingIconButton.setToolTip("Create Interbedding")
-        self.createInterbeddingIconButton.setStyleSheet("QToolButton { padding: 5px; }")
+        self.createInterbeddingIconButton.setStyleSheet("QToolButton { padding: 5px; border: none; }")
         
         self.exportCsvIconButton = QToolButton()
         self.exportCsvIconButton.setIcon(QIcon.fromTheme("document-save", QIcon(":/icons/save.svg")))
         self.exportCsvIconButton.setToolTip("Export to CSV")
-        self.exportCsvIconButton.setStyleSheet("QToolButton { padding: 5px; }")
+        self.exportCsvIconButton.setStyleSheet("QToolButton { padding: 5px; border: none; }")
         
         # Keep backward compatibility with existing code
         self.exportCsvButton = QPushButton("Export to CSV")
@@ -446,23 +446,6 @@ class HoleEditorWindow(QWidget):
         if hasattr(self.stratigraphicColumnView, 'set_lithology_data'):
             self.stratigraphicColumnView.set_lithology_data(dataframe)
 
-    def on_zoom_changed(self):
-        """Handle zoom control changes."""
-        sender = self.sender()
-        if sender == self.zoomSlider:
-            zoom_percentage = self.zoomSlider.value()
-            self.zoomSpinBox.blockSignals(True)
-            self.zoomSpinBox.setValue(zoom_percentage)
-            self.zoomSpinBox.blockSignals(False)
-        else:
-            zoom_percentage = self.zoomSpinBox.value()
-            self.zoomSlider.blockSignals(True)
-            self.zoomSlider.setValue(int(zoom_percentage))
-            self.zoomSlider.blockSignals(False)
-
-        zoom_factor = zoom_percentage / 100.0
-        self.apply_synchronized_zoom(zoom_factor)
-
     def apply_synchronized_zoom(self, zoom_factor):
         """Apply zoom factor to both curve plotter and stratigraphic column."""
         self.curvePlotter.set_zoom_level(zoom_factor)
@@ -671,6 +654,33 @@ class HoleEditorWindow(QWidget):
                 print(f"WARNING (HoleEditorWindow.force_overview_rescale): Overview mode is NOT enabled!")
         else:
             print(f"WARNING (HoleEditorWindow.force_overview_rescale): stratigraphicColumnView not found!")
+
+    def toggle_pane_visibility(self, pane_name, visible):
+        """Toggle visibility of a specific pane in this hole editor window."""
+        # Store references to pane containers for easy access
+        pane_containers = {
+            "las_curves": self.plot_container,
+            "enhanced_stratigraphic": self.enhanced_column_container,
+            "data_editor": self.table_container,
+            "overview_stratigraphic": self.overview_container
+        }
+        
+        if pane_name in pane_containers:
+            container = pane_containers[pane_name]
+            if container:
+                container.setVisible(visible)
+                # Update layout to account for hidden/shown pane
+                self.update_layout_for_pane_toggle()
+    
+    def update_layout_for_pane_toggle(self):
+        """Update the layout when panes are toggled to ensure proper spacing."""
+        # This method will be called after pane visibility changes
+        # to ensure the layout adjusts properly
+        if hasattr(self, 'main_splitter'):
+            # Force splitter to update its sizes
+            self.main_splitter.update()
+            # Update the parent widget
+            self.update()
 
 
 class Worker(QObject):
@@ -1152,10 +1162,16 @@ class MainWindow(QMainWindow):
         self.addToolBar(toolbar)
 
         # Add common actions
-        load_action = QAction("📂", self)
+        load_action = QAction(QIcon.fromTheme("document-open", QIcon(":/icons/open.svg")), "Load LAS File", self)
         load_action.setToolTip("Load LAS File")
         load_action.triggered.connect(self.load_las_file_dialog)
         toolbar.addAction(load_action)
+
+        # Add separator
+        toolbar.addSeparator()
+
+        # Create pane toggle toolbar section
+        self.create_pane_toggle_toolbar(toolbar)
 
         # Add separator
         toolbar.addSeparator()
@@ -1171,13 +1187,14 @@ class MainWindow(QMainWindow):
         settings_icon_button.setIcon(QIcon.fromTheme("preferences-system", QIcon(":/icons/settings.svg")))
         settings_icon_button.setToolTip("Settings")
         settings_icon_button.clicked.connect(self.open_advanced_settings_dialog)
-        settings_icon_button.setStyleSheet("QToolButton { padding: 5px; }")
+        settings_icon_button.setStyleSheet("QToolButton { padding: 5px; border: none; }")
         icon_area_layout.addWidget(settings_icon_button)
 
         # Add separator
         separator1 = QFrame()
         separator1.setFrameShape(QFrame.Shape.VLine)
         separator1.setFrameShadow(QFrame.Shadow.Sunken)
+        separator1.setStyleSheet("color: #cccccc;")
         icon_area_layout.addWidget(separator1)
 
         # Create Interbedding icon button
@@ -1185,7 +1202,7 @@ class MainWindow(QMainWindow):
         create_interbedding_icon_button.setIcon(QIcon.fromTheme("list-add", QIcon(":/icons/add.svg")))
         create_interbedding_icon_button.setToolTip("Create Interbedding")
         create_interbedding_icon_button.clicked.connect(self.create_manual_interbedding)
-        create_interbedding_icon_button.setStyleSheet("QToolButton { padding: 5px; }")
+        create_interbedding_icon_button.setStyleSheet("QToolButton { padding: 5px; border: none; }")
         icon_area_layout.addWidget(create_interbedding_icon_button)
 
         # Export CSV icon button
@@ -1193,7 +1210,7 @@ class MainWindow(QMainWindow):
         export_csv_icon_button.setIcon(QIcon.fromTheme("document-save", QIcon(":/icons/save.svg")))
         export_csv_icon_button.setToolTip("Export to CSV")
         export_csv_icon_button.clicked.connect(self.export_editor_data_to_csv)
-        export_csv_icon_button.setStyleSheet("QToolButton { padding: 5px; }")
+        export_csv_icon_button.setStyleSheet("QToolButton { padding: 5px; border: none; }")
         icon_area_layout.addWidget(export_csv_icon_button)
 
         # Add the icon area widget to the toolbar
@@ -1203,6 +1220,96 @@ class MainWindow(QMainWindow):
         self.settings_icon_button = settings_icon_button
         self.create_interbedding_icon_button = create_interbedding_icon_button
         self.export_csv_icon_button = export_csv_icon_button
+
+    def create_pane_toggle_toolbar(self, parent_toolbar):
+        """Create pane toggle buttons in the toolbar."""
+        # Create container for pane toggle buttons
+        pane_toggle_widget = QWidget()
+        pane_toggle_layout = QHBoxLayout(pane_toggle_widget)
+        pane_toggle_layout.setContentsMargins(5, 0, 5, 0)
+        pane_toggle_layout.setSpacing(5)
+
+        # Create pane toggle buttons
+        self.pane_toggle_buttons = {}
+        
+        # File Explorer Pane Toggle
+        file_explorer_button = QToolButton()
+        file_explorer_button.setIcon(QIcon.fromTheme("folder", QIcon(":/icons/folder.svg")))
+        file_explorer_button.setToolTip("Toggle File Explorer Pane")
+        file_explorer_button.setCheckable(True)
+        file_explorer_button.setChecked(self.pane_visibility.get("file_explorer", True))
+        file_explorer_button.clicked.connect(lambda checked: self.toggle_pane_visibility("file_explorer", checked))
+        file_explorer_button.setStyleSheet("QToolButton { padding: 5px; border: none; }")
+        pane_toggle_layout.addWidget(file_explorer_button)
+        self.pane_toggle_buttons["file_explorer"] = file_explorer_button
+
+        # LAS Curves Pane Toggle
+        las_curves_button = QToolButton()
+        las_curves_button.setIcon(QIcon.fromTheme("chart-line", QIcon(":/icons/chart.svg")))
+        las_curves_button.setToolTip("Toggle LAS Curves Pane")
+        las_curves_button.setCheckable(True)
+        las_curves_button.setChecked(self.pane_visibility.get("las_curves", True))
+        las_curves_button.clicked.connect(lambda checked: self.toggle_pane_visibility("las_curves", checked))
+        las_curves_button.setStyleSheet("QToolButton { padding: 5px; border: none; }")
+        pane_toggle_layout.addWidget(las_curves_button)
+        self.pane_toggle_buttons["las_curves"] = las_curves_button
+
+        # Enhanced Stratigraphic Pane Toggle
+        enhanced_strat_button = QToolButton()
+        enhanced_strat_button.setIcon(QIcon.fromTheme("layers", QIcon(":/icons/layers.svg")))
+        enhanced_strat_button.setToolTip("Toggle Enhanced Stratigraphic Pane")
+        enhanced_strat_button.setCheckable(True)
+        enhanced_strat_button.setChecked(self.pane_visibility.get("enhanced_stratigraphic", True))
+        enhanced_strat_button.clicked.connect(lambda checked: self.toggle_pane_visibility("enhanced_stratigraphic", checked))
+        enhanced_strat_button.setStyleSheet("QToolButton { padding: 5px; border: none; }")
+        pane_toggle_layout.addWidget(enhanced_strat_button)
+        self.pane_toggle_buttons["enhanced_stratigraphic"] = enhanced_strat_button
+
+        # Data Editor Pane Toggle
+        data_editor_button = QToolButton()
+        data_editor_button.setIcon(QIcon.fromTheme("table", QIcon(":/icons/table.svg")))
+        data_editor_button.setToolTip("Toggle Data Editor Pane")
+        data_editor_button.setCheckable(True)
+        data_editor_button.setChecked(self.pane_visibility.get("data_editor", True))
+        data_editor_button.clicked.connect(lambda checked: self.toggle_pane_visibility("data_editor", checked))
+        data_editor_button.setStyleSheet("QToolButton { padding: 5px; border: none; }")
+        pane_toggle_layout.addWidget(data_editor_button)
+        self.pane_toggle_buttons["data_editor"] = data_editor_button
+
+        # Overview Stratigraphic Pane Toggle
+        overview_strat_button = QToolButton()
+        overview_strat_button.setIcon(QIcon.fromTheme("overview", QIcon(":/icons/overview.svg")))
+        overview_strat_button.setToolTip("Toggle Overview Stratigraphic Pane")
+        overview_strat_button.setCheckable(True)
+        overview_strat_button.setChecked(self.pane_visibility.get("overview_stratigraphic", True))
+        overview_strat_button.clicked.connect(lambda checked: self.toggle_pane_visibility("overview_stratigraphic", checked))
+        overview_strat_button.setStyleSheet("QToolButton { padding: 5px; border: none; }")
+        pane_toggle_layout.addWidget(overview_strat_button)
+        self.pane_toggle_buttons["overview_stratigraphic"] = overview_strat_button
+
+        # Add pane toggle widget to parent toolbar
+        parent_toolbar.addWidget(pane_toggle_widget)
+
+    def toggle_pane_visibility(self, pane_name, visible):
+        """Toggle visibility of a specific pane."""
+        # Update pane visibility setting
+        self.pane_visibility[pane_name] = visible
+        
+        # Apply visibility to all open hole editor windows
+        for subwindow in self.mdi_area.subWindowList():
+            widget = subwindow.widget()
+            if isinstance(widget, HoleEditorWindow):
+                widget.toggle_pane_visibility(pane_name, visible)
+        
+        # Apply visibility to main window components
+        if pane_name == "file_explorer":
+            if visible:
+                self.holes_dock.show()
+            else:
+                self.holes_dock.hide()
+        
+        # Save settings
+        self.update_settings(auto_save=True)
 
     def _synchronize_views(self):
         """Connects the two views to scroll in sync with perfect 1:1 depth alignment."""
@@ -1502,7 +1609,7 @@ class MainWindow(QMainWindow):
 
         # Add to MDI area
         self.mdi_area.addSubWindow(subwindow)
-        subwindow.show()
+        subwindow.showMaximized()
 
         # Optionally tile windows
         # self.mdi_area.tileSubWindows()
@@ -1523,7 +1630,7 @@ class MainWindow(QMainWindow):
 
         # Add to MDI area
         self.mdi_area.addSubWindow(subwindow)
-        subwindow.show()
+        subwindow.showMaximized()
 
         # Connect selection changed signal to sync with holes list
         map_window.selectionChanged.connect(self.on_map_selection_changed)
@@ -1622,7 +1729,7 @@ class MainWindow(QMainWindow):
 
         # Add to MDI area
         self.mdi_area.addSubWindow(subwindow)
-        subwindow.show()
+        subwindow.showMaximized()
 
         return cross_section
 
@@ -1977,6 +2084,7 @@ class MainWindow(QMainWindow):
                     theme=self.current_theme,
                     column_visibility=self.column_visibility,
                     curve_visibility=current_curve_visibility,
+                    pane_visibility=self.pane_visibility,
                     file_path=file_path
                 )
                 QMessageBox.information(self, "Settings Saved", f"Settings saved to {os.path.basename(file_path)}")
@@ -2026,7 +2134,8 @@ class MainWindow(QMainWindow):
             'avg_executable_path': self.avg_executable_path,
             'svg_directory_path': self.svg_directory_path,
             'column_visibility': self.column_visibility,
-            'curve_visibility': self.curve_visibility
+            'curve_visibility': self.curve_visibility,
+            'pane_visibility': self.pane_visibility
         }
         return settings
 
@@ -2055,6 +2164,7 @@ class MainWindow(QMainWindow):
         self.svg_directory_path = settings.get('svg_directory_path', self.svg_directory_path)
         self.column_visibility = settings.get('column_visibility', self.column_visibility)
         self.curve_visibility = settings.get('curve_visibility', self.curve_visibility)
+        self.pane_visibility = settings.get('pane_visibility', self.pane_visibility)
         # UI controls removed (settings dock no longer exists)
         # Save updated settings to disk
         self.update_settings(auto_save=True)
@@ -2650,25 +2760,6 @@ class MainWindow(QMainWindow):
         # Note: setRowCount is not needed for QTableView with PandasModel
         # The model will handle row count automatically
         self.editorTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-
-    def on_zoom_changed(self):
-        """Handle zoom control changes and apply synchronized zoom to both views."""
-        # Get zoom value from the sender to avoid recursive calls
-        sender = self.sender()
-        if sender == self.zoomSlider:
-            zoom_percentage = self.zoomSlider.value()
-            self.zoomSpinBox.blockSignals(True)  # Prevent recursive call
-            self.zoomSpinBox.setValue(zoom_percentage)
-            self.zoomSpinBox.blockSignals(False)
-        else:
-            zoom_percentage = self.zoomSpinBox.value()
-            self.zoomSlider.blockSignals(True)  # Prevent recursive call
-            self.zoomSlider.setValue(int(zoom_percentage))
-            self.zoomSlider.blockSignals(False)
-
-        # Apply zoom to both views
-        zoom_factor = zoom_percentage / 100.0  # Convert percentage to factor (1.0 = 100%)
-        self.apply_synchronized_zoom(zoom_factor)
 
     def apply_synchronized_zoom(self, zoom_factor):
         """Apply the same zoom factor to both curve plotter and stratigraphic column."""
@@ -3610,7 +3701,7 @@ class MainWindow(QMainWindow):
         # Activate the editor subwindow in MDI area
         if hasattr(self, 'mdi_area') and hasattr(self, 'editor_subwindow'):
             self.mdi_area.setActiveSubWindow(self.editor_subwindow)
-            self.editor_subwindow.show()
+            self.editor_subwindow.showMaximized()
         QMessageBox.information(self, "Analysis Complete", "Borehole analysis finished successfully!")
 
     def _schedule_gap_visualization_update(self):
