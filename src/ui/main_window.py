@@ -206,6 +206,7 @@ class HoleEditorWindow(QWidget):
 
         # Right Container: Overview View (Stratigraphic Column - entire hole)
         overview_container = QWidget()
+        overview_container.setObjectName("overview_container")  # Make it findable
         overview_layout = QVBoxLayout(overview_container)
         overview_layout.setContentsMargins(0, 0, 0, 0)
         overview_layout.addWidget(self.stratigraphicColumnView)
@@ -220,9 +221,13 @@ class HoleEditorWindow(QWidget):
         main_splitter.setStretchFactor(1, 2)  # Enhanced column gets more space
         main_splitter.setStretchFactor(2, 3)  # Table gets most space
         
-        # Set overview container to fixed width (60px = 40px column + 20px Y-axis) - 1/3 of original
-        overview_container.setMinimumWidth(60)
-        overview_container.setMaximumWidth(60)
+        # FIX: Make overview width proportional to window size instead of fixed
+        # Use 5% of window width, with reasonable min/max bounds
+        overview_container.setMinimumWidth(40)   # Minimum width for readability
+        overview_container.setMaximumWidth(120)  # Maximum width to prevent taking too much space
+        
+        # Set size policy to allow expansion
+        overview_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         
         # Connect splitter move event to force overview rescale
         # Use lambda to ensure correct self reference
@@ -230,7 +235,7 @@ class HoleEditorWindow(QWidget):
             lambda pos, index: self._on_splitter_moved(pos, index)
         )
         
-        print(f"DEBUG (MainWindow): Set overview pane to fixed width: 60px (1/3 of original), NO SPLITTER")
+        print(f"DEBUG (MainWindow): Set overview pane to proportional width (5% of window, min 40px, max 120px)")
 
         # Create container for main content and zoom controls
         main_content_widget = QWidget()
@@ -246,8 +251,8 @@ class HoleEditorWindow(QWidget):
         # Add splitter (takes most space)
         horizontal_layout.addWidget(main_splitter)
         
-        # Add overview as fixed-width sidebar (NO SPLITTER HANDLE)
-        horizontal_layout.addWidget(overview_container)
+        # Add overview as proportional sidebar (takes 5% of available space)
+        horizontal_layout.addWidget(overview_container, 1)  # Stretch factor 1 (splitter gets stretch factor 4)
         
         # Add the horizontal layout to main content
         main_content_layout.addLayout(horizontal_layout)
@@ -3798,6 +3803,23 @@ class MainWindow(QMainWindow):
             print(f"DEBUG (MainWindow._force_overview_rescale): Main window maximized: {self.isMaximized()}")
             self.editor_hole.force_overview_rescale()
     
+        
+    def _update_overview_width(self):
+        """Update overview width based on current window size (called on resize)."""
+        if hasattr(self, 'editor_hole') and self.editor_hole:
+            # Find the overview container
+            for child in self.editor_hole.findChildren(QWidget):
+                if child.objectName() == "overview_container" or "overview" in str(type(child)).lower():
+                    # Calculate proportional width (5% of window width)
+                    window_width = self.width()
+                    proportional_width = max(40, min(120, int(window_width * 0.05)))
+                    
+                    # Update width constraints
+                    child.setMinimumWidth(proportional_width)
+                    child.setMaximumWidth(proportional_width)
+                    
+                    print(f"DEBUG (MainWindow._update_overview_width): Updated overview width to {proportional_width}px (5% of {window_width}px window)")
+    
     def _on_splitter_moved(self, pos, index):
         """Handle splitter movement to update overview column."""
         print(f"DEBUG (MainWindow._on_splitter_moved): Splitter moved: pos={pos}, index={index}")
@@ -3817,6 +3839,9 @@ class MainWindow(QMainWindow):
         # Schedule overview rescale after geometry is settled
         # Use shorter delay for maximize events
         delay = 50 if self.isMaximized() else 100
+        
+        # Also update overview width proportionally
+        self._update_overview_width()
         print(f"DEBUG (MainWindow.resizeEvent): Scheduling rescale in {delay}ms")
         QTimer.singleShot(delay, self._force_overview_rescale)
 
