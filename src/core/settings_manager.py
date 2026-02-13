@@ -37,7 +37,14 @@ def load_settings(file_path=None):
         "workspace": None,  # Default to no workspace state
         "theme": "dark",  # Default theme (dark/light)
         "column_visibility": {},  # Mapping column internal name -> bool (True = visible)
-        "curve_visibility": {}  # Mapping curve internal name -> bool (True = visible)
+        "curve_visibility": {},  # Mapping curve internal name -> bool (True = visible)
+        "pane_visibility": {  # Pane visibility settings
+            "file_explorer": True,
+            "las_curves": True,
+            "enhanced_stratigraphic": True,
+            "data_editor": True,
+            "overview_stratigraphic": True
+        }
     }
     if os.path.exists(file_path):
         try:
@@ -55,7 +62,7 @@ def load_settings(file_path=None):
             print(f"Warning: Error loading settings from {file_path}: {e}. Using default settings.")
     return settings
 
-def save_settings(lithology_rules, separator_thickness, draw_separator_lines, curve_inversion_settings, curve_thickness, use_researched_defaults, analysis_method="standard", merge_thin_units=False, merge_threshold=0.05, smart_interbedding=False, smart_interbedding_max_sequence_length=10, smart_interbedding_thick_unit_threshold=0.5, fallback_classification=DEFAULT_FALLBACK_CLASSIFICATION, bit_size_mm=DEFAULT_BIT_SIZE_MM, show_anomaly_highlights=DEFAULT_SHOW_ANOMALY_HIGHLIGHTS, casing_depth_enabled=DEFAULT_CASING_DEPTH_ENABLED, casing_depth_m=DEFAULT_CASING_DEPTH_M, disable_svg=DISABLE_SVG_DEFAULT, avg_executable_path="", svg_directory_path="", workspace_state=None, theme="dark", column_visibility=None, curve_visibility=None, file_path=None):
+def save_settings(lithology_rules, separator_thickness, draw_separator_lines, curve_inversion_settings, curve_thickness, use_researched_defaults, analysis_method="standard", merge_thin_units=False, merge_threshold=0.05, smart_interbedding=False, smart_interbedding_max_sequence_length=10, smart_interbedding_thick_unit_threshold=0.5, fallback_classification=DEFAULT_FALLBACK_CLASSIFICATION, bit_size_mm=DEFAULT_BIT_SIZE_MM, show_anomaly_highlights=DEFAULT_SHOW_ANOMALY_HIGHLIGHTS, casing_depth_enabled=DEFAULT_CASING_DEPTH_ENABLED, casing_depth_m=DEFAULT_CASING_DEPTH_M, disable_svg=DISABLE_SVG_DEFAULT, avg_executable_path="", svg_directory_path="", workspace_state=None, theme="dark", column_visibility=None, curve_visibility=None, pane_visibility=None, file_path=None):
     """Saves application settings to a JSON file."""
     if file_path is None:
         file_path = DEFAULT_SETTINGS_FILE
@@ -84,7 +91,14 @@ def save_settings(lithology_rules, separator_thickness, draw_separator_lines, cu
         "workspace": workspace_state,  # Save workspace state
         "theme": theme,  # Save theme preference
         "column_visibility": column_visibility or {},  # Save column visibility mapping
-        "curve_visibility": curve_visibility or {}  # Save curve visibility mapping
+        "curve_visibility": curve_visibility or {},  # Save curve visibility mapping
+        "pane_visibility": pane_visibility or {  # Save pane visibility mapping
+            "file_explorer": True,
+            "las_curves": True,
+            "enhanced_stratigraphic": True,
+            "data_editor": True,
+            "overview_stratigraphic": True
+        }
     }
     try:
         # Ensure the directory exists before writing

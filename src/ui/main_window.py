@@ -4,10 +4,10 @@ from PyQt6.QtWidgets import (
     QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView, QColorDialog, QGraphicsScene, QDoubleSpinBox, QCheckBox, QSlider, QSpinBox, QFrame, QSplitter, QAbstractItemView,
     QGroupBox, QGridLayout, QFormLayout, QSizePolicy,
     QMdiArea, QMdiSubWindow, QMenu,
-    QTreeView, QProgressBar, QApplication, QToolBar,
+    QTreeView, QProgressBar, QApplication, QToolBar, QToolButton,
     QTextBrowser, QListWidget, QLineEdit, QListWidgetItem
 )
-from PyQt6.QtGui import QPainter, QPixmap, QColor, QFont, QBrush, QFileSystemModel, QAction
+from PyQt6.QtGui import QPainter, QPixmap, QColor, QFont, QBrush, QFileSystemModel, QAction, QIcon
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtSvgWidgets import QGraphicsSvgItem
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject, QPointF, QTimer
@@ -31,7 +31,6 @@ from .widgets.pyqtgraph_curve_plotter import PyQtGraphCurvePlotter # Import PyQt
 from .widgets.enhanced_range_gap_visualizer import EnhancedRangeGapVisualizer # Import enhanced widget
 from .widgets.curve_visibility_manager import CurveVisibilityManager # Import curve visibility manager
 from .widgets.curve_visibility_toolbar import CurveVisibilityToolbar # Import curve visibility toolbar
-from .widgets.interactive_legend import InteractiveLegend # Import interactive legend
 from ..core.settings_manager import load_settings, save_settings
 from .dialogs.researched_defaults_dialog import ResearchedDefaultsDialog # Import new dialog
 from .dialogs.column_configurator_dialog import ColumnConfiguratorDialog # Import column configurator dialog
@@ -86,6 +85,19 @@ class HoleEditorWindow(QWidget):
         self.stratigraphicColumnView = StratigraphicColumn()  # Overview column (entire hole)
         self.enhancedStratColumnView = EnhancedStratigraphicColumn()  # Enhanced column (detailed, synchronized)
         self.editorTable = LithologyTableWidget()
+        
+        # Create icon buttons for actions
+        self.createInterbeddingIconButton = QToolButton()
+        self.createInterbeddingIconButton.setIcon(QIcon.fromTheme("list-add", QIcon(":/icons/add.svg")))
+        self.createInterbeddingIconButton.setToolTip("Create Interbedding")
+        self.createInterbeddingIconButton.setStyleSheet("QToolButton { padding: 5px; }")
+        
+        self.exportCsvIconButton = QToolButton()
+        self.exportCsvIconButton.setIcon(QIcon.fromTheme("document-save", QIcon(":/icons/save.svg")))
+        self.exportCsvIconButton.setToolTip("Export to CSV")
+        self.exportCsvIconButton.setStyleSheet("QToolButton { padding: 5px; }")
+        
+        # Keep backward compatibility with existing code
         self.exportCsvButton = QPushButton("Export to CSV")
         
         # Create zoom state manager for synchronization
@@ -98,9 +110,6 @@ class HoleEditorWindow(QWidget):
         
         # Create curve visibility toolbar
         self.curve_visibility_toolbar = CurveVisibilityToolbar(self, self.curve_visibility_manager)
-        
-        # Create interactive legend
-        self.interactive_legend = InteractiveLegend(self, self.curve_visibility_manager)
 
         # Set bit size for anomaly detection if main_window is available
         if main_window and hasattr(main_window, 'bit_size_mm') and hasattr(self.curvePlotter, 'set_bit_size'):
@@ -126,6 +135,10 @@ class HoleEditorWindow(QWidget):
 
         # Connect table data changes to update boundary lines (bidirectional sync)
         self.editorTable.dataChangedSignal.connect(self._on_table_data_changed)
+
+        # Connect icon buttons to their methods
+        self.createInterbeddingIconButton.clicked.connect(self.create_manual_interbedding)
+        self.exportCsvIconButton.clicked.connect(self.export_editor_data_to_csv)
 
         # Set stratigraphic column to overview mode (showing entire hole)
         self.stratigraphicColumnView.set_overview_mode(True, hole_min_depth=0.0, hole_max_depth=500.0)
@@ -157,17 +170,14 @@ class HoleEditorWindow(QWidget):
         # 1. Create the Splitter
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Left Container: Plot View (PyQtGraph Curves) with Legend
+        # Left Container: Plot View (PyQtGraph Curves)
         plot_container = QWidget()
         plot_layout = QVBoxLayout(plot_container)
         plot_layout.setContentsMargins(0, 0, 0, 0)
         plot_layout.setSpacing(5)
         
-        # Add curve plotter
-        plot_layout.addWidget(self.curvePlotter, 4)  # 4 parts to plotter
-        
-        # Add interactive legend below the plotter
-        plot_layout.addWidget(self.interactive_legend, 1)  # 1 part to legend
+        # Add curve plotter - use all available space
+        plot_layout.addWidget(self.curvePlotter)
 
         # Second Container: Enhanced Stratigraphic Column (detailed, synchronized)
         enhanced_column_container = QWidget()
@@ -180,12 +190,10 @@ class HoleEditorWindow(QWidget):
         table_layout = QVBoxLayout(table_container)
         table_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Add Create Interbedding button (placeholder)
+        # Add icon buttons for actions
         button_layout = QHBoxLayout()
-        self.createInterbeddingButton = QPushButton("Create Interbedding")
-        # self.createInterbeddingButton.clicked.connect(self.create_manual_interbedding)
-        button_layout.addWidget(self.createInterbeddingButton)
-        button_layout.addWidget(self.exportCsvButton)
+        button_layout.addWidget(self.createInterbeddingIconButton)
+        button_layout.addWidget(self.exportCsvIconButton)
         button_layout.addStretch()
 
         table_layout.addWidget(self.editorTable)
@@ -239,38 +247,7 @@ class HoleEditorWindow(QWidget):
         # Add the horizontal layout to main content
         main_content_layout.addLayout(horizontal_layout)
 
-        # Zoom Controls
-        zoom_controls_layout = QHBoxLayout()
-        zoom_label = QLabel("Zoom:")
-        zoom_controls_layout.addWidget(zoom_label)
-
-        self.zoomSlider = QSlider(Qt.Orientation.Horizontal)
-        self.zoomSlider.setMinimum(50)
-        self.zoomSlider.setMaximum(500)
-        self.zoomSlider.setValue(100)
-        self.zoomSlider.setSingleStep(10)
-        self.zoomSlider.setPageStep(50)
-        zoom_controls_layout.addWidget(self.zoomSlider)
-
-        self.zoomSpinBox = QDoubleSpinBox()
-        self.zoomSpinBox.setRange(50.0, 500.0)
-        self.zoomSpinBox.setValue(100.0)
-        self.zoomSpinBox.setSingleStep(10.0)
-        self.zoomSpinBox.setSuffix("%")
-        zoom_controls_layout.addWidget(self.zoomSpinBox)
-
-        zoom_controls_layout.addStretch()
-
-        zoom_container = QWidget()
-        zoom_container.setLayout(zoom_controls_layout)
-        zoom_container.setFixedHeight(40)
-        main_content_layout.addWidget(zoom_container)
-
         main_layout.addWidget(main_content_widget)
-
-        # Connect zoom controls
-        self.zoomSlider.valueChanged.connect(self.on_zoom_changed)
-        self.zoomSpinBox.valueChanged.connect(self.on_zoom_changed)
 
         # Initialize empty table
         # Note: setRowCount is not needed for QTableView with PandasModel
@@ -854,6 +831,13 @@ class MainWindow(QMainWindow):
         self.svg_directory_path = app_settings.get("svg_directory_path", "")  # Load SVG directory path
         self.disable_svg = app_settings.get("disable_svg", False)  # Load SVG disable setting
         self.current_theme = app_settings.get("theme", "light")  # Load theme preference
+        self.pane_visibility = app_settings.get("pane_visibility", {  # Load pane visibility settings
+            "file_explorer": True,
+            "las_curves": True,
+            "enhanced_stratigraphic": True,
+            "data_editor": True,
+            "overview_stratigraphic": True
+        })
 
         self.lithology_qualifier_map = self.load_lithology_qualifier_map()
         self.coallog_data = self.load_coallog_data()
@@ -956,6 +940,8 @@ class MainWindow(QMainWindow):
         self.enhancedStratColumnView = self.editor_hole.enhancedStratColumnView
         self.editorTable = self.editor_hole.editorTable
         self.exportCsvButton = self.editor_hole.exportCsvButton
+        self.createInterbeddingIconButton = self.editor_hole.createInterbeddingIconButton
+        self.exportCsvIconButton = self.editor_hole.exportCsvIconButton
 
         # Connect table row selection to stratigraphic column highlighting
         self.editorTable.rowSelectionChangedSignal.connect(self._on_table_row_selected)
@@ -1160,7 +1146,7 @@ class MainWindow(QMainWindow):
         QMessageBox.about(self, "About Earthworm", about_text)
 
     def create_toolbar(self):
-        """Create main toolbar with common actions."""
+        """Create main toolbar with common actions and dedicated icon area."""
         toolbar = QToolBar("Main Toolbar", self)
         toolbar.setMovable(True)
         self.addToolBar(toolbar)
@@ -1171,10 +1157,52 @@ class MainWindow(QMainWindow):
         load_action.triggered.connect(self.load_las_file_dialog)
         toolbar.addAction(load_action)
 
-        settings_action = QAction("⚙️", self)
-        settings_action.setToolTip("Settings")
-        settings_action.triggered.connect(self.open_advanced_settings_dialog)
-        toolbar.addAction(settings_action)
+        # Add separator
+        toolbar.addSeparator()
+
+        # Create dedicated icon area container
+        icon_area_widget = QWidget()
+        icon_area_layout = QHBoxLayout(icon_area_widget)
+        icon_area_layout.setContentsMargins(5, 0, 5, 0)
+        icon_area_layout.setSpacing(5)
+
+        # Settings icon button
+        settings_icon_button = QToolButton()
+        settings_icon_button.setIcon(QIcon.fromTheme("preferences-system", QIcon(":/icons/settings.svg")))
+        settings_icon_button.setToolTip("Settings")
+        settings_icon_button.clicked.connect(self.open_advanced_settings_dialog)
+        settings_icon_button.setStyleSheet("QToolButton { padding: 5px; }")
+        icon_area_layout.addWidget(settings_icon_button)
+
+        # Add separator
+        separator1 = QFrame()
+        separator1.setFrameShape(QFrame.Shape.VLine)
+        separator1.setFrameShadow(QFrame.Shadow.Sunken)
+        icon_area_layout.addWidget(separator1)
+
+        # Create Interbedding icon button
+        create_interbedding_icon_button = QToolButton()
+        create_interbedding_icon_button.setIcon(QIcon.fromTheme("list-add", QIcon(":/icons/add.svg")))
+        create_interbedding_icon_button.setToolTip("Create Interbedding")
+        create_interbedding_icon_button.clicked.connect(self.create_manual_interbedding)
+        create_interbedding_icon_button.setStyleSheet("QToolButton { padding: 5px; }")
+        icon_area_layout.addWidget(create_interbedding_icon_button)
+
+        # Export CSV icon button
+        export_csv_icon_button = QToolButton()
+        export_csv_icon_button.setIcon(QIcon.fromTheme("document-save", QIcon(":/icons/save.svg")))
+        export_csv_icon_button.setToolTip("Export to CSV")
+        export_csv_icon_button.clicked.connect(self.export_editor_data_to_csv)
+        export_csv_icon_button.setStyleSheet("QToolButton { padding: 5px; }")
+        icon_area_layout.addWidget(export_csv_icon_button)
+
+        # Add the icon area widget to the toolbar
+        toolbar.addWidget(icon_area_widget)
+
+        # Store references for potential updates
+        self.settings_icon_button = settings_icon_button
+        self.create_interbedding_icon_button = create_interbedding_icon_button
+        self.export_csv_icon_button = export_csv_icon_button
 
     def _synchronize_views(self):
         """Connects the two views to scroll in sync with perfect 1:1 depth alignment."""
@@ -1332,7 +1360,11 @@ class MainWindow(QMainWindow):
         self.loadLasButton.clicked.connect(self.load_las_file_dialog)
         self.runAnalysisButton.clicked.connect(self.run_analysis)
         self.settingsButton.clicked.connect(self.open_advanced_settings_dialog)
-        self.exportCsvButton.clicked.connect(self.export_editor_data_to_csv)
+        # Connect icon buttons (text button kept for backward compatibility)
+        if hasattr(self, 'exportCsvIconButton'):
+            self.exportCsvIconButton.clicked.connect(self.export_editor_data_to_csv)
+        else:
+            self.exportCsvButton.clicked.connect(self.export_editor_data_to_csv)
         # self.tab_widget.currentChanged.connect(self.on_tab_changed)  # MDI removes tabs
         # Connect stratigraphic column unit clicks
         if hasattr(self, 'stratigraphicColumnView'):
@@ -2114,7 +2146,8 @@ class MainWindow(QMainWindow):
             workspace_state=workspace_state,
             theme=self.current_theme,
             column_visibility=self.column_visibility,
-            curve_visibility=current_curve_visibility
+            curve_visibility=current_curve_visibility,
+            pane_visibility=self.pane_visibility
         )
 
         # Update instance variables to ensure smart interbedding uses current values
@@ -2185,6 +2218,13 @@ class MainWindow(QMainWindow):
                 self.casing_depth_m = loaded_settings.get("casing_depth_m", 0.0)
                 self.column_visibility = loaded_settings.get("column_visibility", {})
                 self.curve_visibility = loaded_settings.get("curve_visibility", {})
+                self.pane_visibility = loaded_settings.get("pane_visibility", {
+                    "file_explorer": True,
+                    "las_curves": True,
+                    "enhanced_stratigraphic": True,
+                    "data_editor": True,
+                    "overview_stratigraphic": True
+                })
                 self.disable_svg = loaded_settings.get("disable_svg", False)
                 self.avg_executable_path = loaded_settings.get("avg_executable_path", "")
                 self.svg_directory_path = loaded_settings.get("svg_directory_path", "")
@@ -2603,41 +2643,8 @@ class MainWindow(QMainWindow):
         # Add Splitter to the content layout
         main_content_layout.addWidget(self.main_splitter)
 
-        # 7. Zoom Controls (affects both curve and strat views)
-        zoom_controls_layout = QHBoxLayout()
-
-        zoom_label = QLabel("Zoom:")
-        zoom_controls_layout.addWidget(zoom_label)
-
-        self.zoomSlider = QSlider(Qt.Orientation.Horizontal)
-        self.zoomSlider.setMinimum(50)  # 50% zoom
-        self.zoomSlider.setMaximum(500)  # 500% zoom
-        self.zoomSlider.setValue(100)  # Default 100% zoom
-        self.zoomSlider.setSingleStep(10)
-        self.zoomSlider.setPageStep(50)
-        zoom_controls_layout.addWidget(self.zoomSlider)
-
-        self.zoomSpinBox = QDoubleSpinBox()
-        self.zoomSpinBox.setRange(50.0, 500.0)
-        self.zoomSpinBox.setValue(100.0)
-        self.zoomSpinBox.setSingleStep(10.0)
-        self.zoomSpinBox.setSuffix("%")
-        zoom_controls_layout.addWidget(self.zoomSpinBox)
-
-        zoom_controls_layout.addStretch()  # Push controls to the left
-
-        # Add zoom controls to content layout with fixed height
-        zoom_container = QWidget()
-        zoom_container.setLayout(zoom_controls_layout)
-        zoom_container.setFixedHeight(40)  # Fixed height for zoom controls
-        main_content_layout.addWidget(zoom_container)
-
         # Add the main content widget to the editor tab layout
         self.editor_tab_layout.addWidget(main_content_widget)
-
-        # Connect zoom controls to synchronize between curve and strat views
-        self.zoomSlider.valueChanged.connect(self.on_zoom_changed)
-        self.zoomSpinBox.valueChanged.connect(self.on_zoom_changed)
 
         # Initialize empty table
         # Note: setRowCount is not needed for QTableView with PandasModel
@@ -3637,7 +3644,6 @@ class MainWindow(QMainWindow):
             # Update UI controls
             self.curve_visibility_toolbar.register_curves_from_manager()
             self.curve_visibility_toolbar.update_from_visibility_manager()
-            self.interactive_legend.register_curves_from_manager()
             
             print(f"Registered {len(self.curve_visibility_manager.curve_metadata)} curves with visibility manager")
             
