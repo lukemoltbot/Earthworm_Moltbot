@@ -461,42 +461,56 @@ class StratigraphicColumn(QGraphicsView):
             print(f"DEBUG (StratigraphicColumn.fitInView): Viewport: {self.viewport().size().width()}x{self.viewport().size().height()}")
             print(f"DEBUG (StratigraphicColumn.fitInView): Scene rect: {rect.width():.1f}x{rect.height():.1f}")
             
-            # MINIMAL FIXED PIXEL PADDING (2px on all sides) - not percentage based
-            # This ensures consistent minimal spacing regardless of window size
-            width_padding = 2.0  # Fixed 2px left/right
-            height_padding = 2.0  # Fixed 2px top/bottom
+            # Use percentage-based padding that adapts to viewport size
+            # 5% padding on all sides, but with minimum of 2px
+            viewport_width = self.viewport().size().width()
+            viewport_height = self.viewport().size().height()
+            
+            # Calculate padding as percentage of viewport size
+            width_padding_pct = 0.05  # 5% padding
+            height_padding_pct = 0.05  # 5% padding
+            
+            width_padding = max(viewport_width * width_padding_pct, 2.0)
+            height_padding = max(viewport_height * height_padding_pct, 2.0)
+            
             padded_rect = rect.adjusted(-width_padding, -height_padding, width_padding, height_padding)
             
-            # For overview mode: Calculate scale to fill viewport with minimal padding
-            viewport_height = self.viewport().size().height()
-            # Account for 2px top + 2px bottom = 4px total vertical padding
-            target_height = viewport_height - 4.0  # Viewport height minus fixed padding
+            # For overview mode: Calculate scale to fill viewport with adaptive padding
+            # Account for padding on both top and bottom
+            target_height = viewport_height - (2 * height_padding)
             target_height = max(target_height, 1.0)  # Ensure positive
             
             if padded_rect.height() > 0:
                 # Calculate scale based on height target
                 height_scale = target_height / padded_rect.height()
                 
-                # But we also need to ensure width fits (it should with fixed width)
-                viewport_width = self.viewport().size().width()
-                scaled_width = padded_rect.width() * height_scale
+                # Also calculate width scale to ensure content fits horizontally
+                target_width = viewport_width - (2 * width_padding)
+                target_width = max(target_width, 1.0)
+                width_scale = target_width / padded_rect.width() if padded_rect.width() > 0 else height_scale
                 
-                print(f"DEBUG (StratigraphicColumn.fitInView): Height optimization:")
-                print(f"DEBUG (StratigraphicColumn.fitInView):   Viewport: {viewport_height}px, Target: {target_height:.1f}px (minus 4px fixed padding)")
-                print(f"DEBUG (StratigraphicColumn.fitInView):   Padding: 2px L/R, 2px T/B (FIXED PIXEL)")
-                print(f"DEBUG (StratigraphicColumn.fitInView):   Padded height: {padded_rect.height():.1f}px")
-                print(f"DEBUG (StratigraphicColumn.fitInView):   Required scale: {height_scale:.4f}")
-                print(f"DEBUG (StratigraphicColumn.fitInView):   Scaled width: {scaled_width:.1f}px (viewport: {viewport_width}px)")
+                # Use the smaller scale to ensure everything fits
+                scale = min(height_scale, width_scale)
+                
+                scaled_width = padded_rect.width() * scale
+                scaled_height = padded_rect.height() * scale
+                
+                print(f"DEBUG (StratigraphicColumn.fitInView): Adaptive padding optimization:")
+                print(f"DEBUG (StratigraphicColumn.fitInView):   Viewport: {viewport_width}x{viewport_height}px")
+                print(f"DEBUG (StratigraphicColumn.fitInView):   Padding: {width_padding:.1f}px L/R, {height_padding:.1f}px T/B")
+                print(f"DEBUG (StratigraphicColumn.fitInView):   Target area: {target_width:.1f}x{target_height:.1f}px")
+                print(f"DEBUG (StratigraphicColumn.fitInView):   Padded rect: {padded_rect.width():.1f}x{padded_rect.height():.1f}px")
+                print(f"DEBUG (StratigraphicColumn.fitInView):   Calculated scale: {scale:.4f} (height_scale={height_scale:.4f}, width_scale={width_scale:.4f})")
+                print(f"DEBUG (StratigraphicColumn.fitInView):   Scaled size: {scaled_width:.1f}x{scaled_height:.1f}px")
                 
                 # Apply the calculated scale
-                # We'll transform the view to achieve our target
-                self.setTransform(QTransform.fromScale(height_scale, height_scale))
+                self.setTransform(QTransform.fromScale(scale, scale))
                 
-                # Center the view
+                # Center the view on the padded rectangle
                 self.centerOn(padded_rect.center())
                 
-                print(f"DEBUG (StratigraphicColumn.fitInView): Applied transform with scale: {height_scale:.4f}")
-                print(f"DEBUG (StratigraphicColumn.fitInView): Expected fill: {target_height/viewport_height*100:.1f}% of vertical space")
+                print(f"DEBUG (StratigraphicColumn.fitInView): Applied transform with scale: {scale:.4f}")
+                print(f"DEBUG (StratigraphicColumn.fitInView): Expected fill: {scaled_height/viewport_height*100:.1f}% vertical, {scaled_width/viewport_width*100:.1f}% horizontal")
                 
                 # Force immediate update
                 self.viewport().update()
@@ -535,19 +549,14 @@ class StratigraphicColumn(QGraphicsView):
             
             print(f"DEBUG (StratigraphicColumn.resizeEvent): === RESIZE COMPLETE ===")
             
-            # Also redraw if we have data (for completeness)
-            if hasattr(self, 'units_dataframe') and self.units_dataframe is not None:
-                print(f"DEBUG (StratigraphicColumn.resizeEvent): Redrawing overview column for new size")
-                # Store current state
-                current_zoom_min = self.current_zoom_min
-                current_zoom_max = self.current_zoom_max
-                
-                # Redraw column
-                self.draw_column(self.units_dataframe, self.hole_min_depth, self.hole_max_depth)
-                
-                # Restore zoom overlay
-                if current_zoom_min != 0.0 or current_zoom_max != 100.0:
-                    self.update_zoom_overlay(current_zoom_min, current_zoom_max)
+            # DO NOT redraw the column - this resets the scaling
+            # The fitInView call above already handles the scaling correctly
+            # Redrawing would recreate the scene and lose the applied transform
+            # Only update zoom overlay if needed
+            if hasattr(self, 'current_zoom_min') and hasattr(self, 'current_zoom_max'):
+                if self.current_zoom_min != 0.0 or self.current_zoom_max != 100.0:
+                    print(f"DEBUG (StratigraphicColumn.resizeEvent): Updating zoom overlay after resize")
+                    self.update_zoom_overlay(self.current_zoom_min, self.current_zoom_max)
 
     def scroll_to_depth(self, depth):
         """Scroll the view to make the given depth visible."""
