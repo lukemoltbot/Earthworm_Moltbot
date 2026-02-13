@@ -450,3 +450,33 @@ class ScrollOptimizer:
                 self.adaptive_settings["performance_mode"] = "smooth"
                 self.set_scroll_mode(ScrollMode.SMOOTH)
                 self.adaptive_settings["last_adjustment_time"] = current_time
+    
+    # Methods and attributes expected by PyQtGraphCurvePlotter
+    def get_current_fps(self) -> float:
+        """Get current frames per second."""
+        if not self.frame_times:
+            return 0.0
+        
+        # Calculate average frame time
+        avg_frame_time = sum(self.frame_times) / len(self.frame_times)
+        
+        # Convert to FPS
+        if avg_frame_time > 0:
+            return 1000.0 / avg_frame_time
+        return 0.0
+    
+    @property
+    def event_batching(self) -> bool:
+        """Check if event batching is enabled."""
+        # Event batching is enabled in PERFORMANCE mode
+        return self.scroll_mode == ScrollMode.PERFORMANCE
+    
+    @property
+    def predictive_rendering(self) -> bool:
+        """Check if predictive rendering is enabled."""
+        return self.enable_prediction
+    
+    @property
+    def smooth_scrolling(self) -> bool:
+        """Check if smooth scrolling is enabled."""
+        return self.enable_inertia

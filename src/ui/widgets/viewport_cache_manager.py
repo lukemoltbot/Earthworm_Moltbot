@@ -392,3 +392,28 @@ class ViewportCacheManager(QObject):
         # Clear render queue
         with self.render_queue_lock:
             self.render_queue.clear()
+    
+    # Methods expected by PyQtGraphCurvePlotter
+    def get_cache_hit_rate(self) -> float:
+        """Get cache hit rate as percentage (0.0-1.0)."""
+        total = self.cache_hits + self.cache_misses
+        return self.cache_hits / max(1, total)
+    
+    def get_cache_size(self) -> float:
+        """Get cache size in megabytes."""
+        return self.current_cache_size_bytes / (1024 * 1024)
+    
+    def get_cached_items(self) -> list:
+        """Get list of cached item keys."""
+        return list(self.cache.keys())
+    
+    def cleanup(self):
+        """Alias for stop() method for compatibility."""
+        self.stop()
+    
+    @property
+    def gpu_acceleration(self) -> bool:
+        """Check if GPU acceleration is available."""
+        # TODO: Implement actual GPU detection
+        # For now, return False to indicate software rendering
+        return False

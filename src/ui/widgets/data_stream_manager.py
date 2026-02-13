@@ -501,3 +501,17 @@ class DataStreamManager:
         self.data_chunks.clear()
         self.total_memory_usage = 0
         self.metrics["chunks_evicted"] += len(self.data_chunks)
+    
+    # Methods expected by PyQtGraphCurvePlotter
+    def get_cache_hit_rate(self) -> float:
+        """Get cache hit rate as percentage (0.0-1.0)."""
+        total = self.metrics["cache_hits"] + self.metrics["cache_misses"]
+        return self.metrics["cache_hits"] / max(1, total)
+    
+    def get_memory_usage_mb(self) -> float:
+        """Get memory usage in megabytes."""
+        return self.total_memory_usage / (1024 * 1024)
+    
+    def get_active_chunk_count(self) -> int:
+        """Get number of active chunks in memory."""
+        return len(self.data_chunks)
