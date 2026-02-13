@@ -137,7 +137,12 @@ class HoleEditorWindow(QWidget):
         self.editorTable.dataChangedSignal.connect(self._on_table_data_changed)
 
         # Connect icon buttons to their methods
-        self.createInterbeddingIconButton.clicked.connect(self.create_manual_interbedding)
+        if self.main_window and hasattr(self.main_window, 'create_manual_interbedding'):
+            self.createInterbeddingIconButton.clicked.connect(self.main_window.create_manual_interbedding)
+        else:
+            # Fallback: connect to a local method that shows a message
+            self.createInterbeddingIconButton.clicked.connect(self._create_interbedding_fallback)
+        
         self.exportCsvIconButton.clicked.connect(self.export_editor_data_to_csv)
 
         # Set stratigraphic column to overview mode (showing entire hole)
@@ -681,6 +686,39 @@ class HoleEditorWindow(QWidget):
             self.main_splitter.update()
             # Update the parent widget
             self.update()
+    
+    def _create_interbedding_fallback(self):
+        """Fallback method when main_window.create_manual_interbedding is not available."""
+        from PyQt6.QtWidgets import QMessageBox
+        QMessageBox.information(self, "Create Interbedding", 
+                               "Interbedding functionality requires connection to main window.\n"
+                               "Please use the Create Interbedding button in the main toolbar.")
+    
+    def export_editor_data_to_csv(self):
+        """Export the editor table data to CSV file."""
+        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+        import os
+        
+        if not hasattr(self, 'editorTable') or self.editorTable.rowCount() == 0:
+            QMessageBox.warning(self, "No Data", "No data to export in this editor window.")
+            return
+        
+        file_dialog = QFileDialog()
+        file_path, _ = file_dialog.getSaveFileName(self, "Export to CSV", "", "CSV Files (*.csv);;All Files (*)")
+        
+        if file_path:
+            try:
+                # Get data from the editor table
+                df_to_export = self.editorTable.get_dataframe()
+                if df_to_export is None or df_to_export.empty:
+                    QMessageBox.warning(self, "Export Error", "No data to export.")
+                    return
+                
+                df_to_export.to_csv(file_path, index=False)
+                QMessageBox.information(self, "Export Successful", 
+                                       f"Data exported to {os.path.basename(file_path)}")
+            except Exception as e:
+                QMessageBox.critical(self, "Export Error", f"Failed to export data: {e}")
 
 
 class Worker(QObject):
