@@ -528,14 +528,15 @@ class PyQtGraphCurvePlotter(QWidget):
     def draw_curves(self):
         """Draw all configured curves using PyQtGraph with dual-axis support."""
         # Phase 3.2: Try to use viewport cache first
-        if self.viewport_cache_manager and self.performance_monitor_enabled:
-            cache_key = self._get_viewport_cache_key()
-            cached_result = self.viewport_cache_manager.get_cached(cache_key)
-            
-            if cached_result:
-                # Apply cached rendering
-                self._apply_cached_curves(cached_result)
-                return
+        # TODO: Implement viewport cache properly
+        # if self.viewport_cache_manager and self.performance_monitor_enabled:
+        #     cache_key = self._get_viewport_cache_key()
+        #     cached_result = self.viewport_cache_manager.get_cached(cache_key)
+        #     
+        #     if cached_result:
+        #         # Apply cached rendering
+        #         self._apply_cached_curves(cached_result)
+        #         return
         
         # Remove existing curve items without clearing the entire plot
         # This preserves the dual-axis setup
