@@ -121,6 +121,7 @@ class PyQtGraphCurvePlotter(QWidget):
         
         # Get the plot item for dual-axis configuration
         self.plot_item = self.plot_widget.plotItem
+        self.plot_item.legend = None  # Ensure no legend
         
         # Configure Y-axis for whole metre increments
         self.configure_y_axis_ticks()
@@ -684,11 +685,24 @@ class PyQtGraphCurvePlotter(QWidget):
         # Add legend (commented out per user request)
         # self.plot_item.addLegend()
         
+        # Ensure no legend exists
+        if hasattr(self.plot_item, 'legend') and self.plot_item.legend is not None:
+            print(f"DEBUG: Legend found, removing")
+            self.plot_item.legend.hide()
+            self.plot_item.legend.setParent(None)
+            self.plot_item.legend = None
+        
         # Set axis ranges and labels
         self.update_axis_ranges()
         
         # Setup X-axis labels (legacy feature migration)
         self.setup_x_axis_labels()
+        # Final legend check
+        if hasattr(self.plot_item, 'legend') and self.plot_item.legend is not None:
+            print(f"ERROR: Legend still exists after drawing curves")
+            self.plot_item.legend.hide()
+            self.plot_item.legend.setParent(None)
+            self.plot_item.legend = None
         
     def update_axis_ranges(self):
         """Update plot axis ranges based on curve configurations for dual-axis system."""
@@ -1043,6 +1057,53 @@ class PyQtGraphCurvePlotter(QWidget):
         """Enable or disable synchronization with stratigraphic column."""
         self.sync_enabled = enabled
         print(f"DEBUG (PyQtGraphCurvePlotter.set_sync_enabled): Sync enabled = {enabled}")
+    
+    def wheelEvent(self, event):
+        """Handle wheel events for vertical scrolling (or zoom with Ctrl)."""
+        # Check for Ctrl modifier for zoom
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            # Let PyQtGraph handle zoom (default behavior)
+            super().wheelEvent(event)
+            return
+        
+        # Normal wheel scroll: move view vertically
+        delta = event.angleDelta().y()
+        if delta == 0:
+            # Horizontal wheel, ignore
+            return
+        
+        # Get current view range
+        view_range = self.plot_widget.viewRange()
+        y_min, y_max = view_range[1]
+        visible_height = y_max - y_min
+        
+        # Scroll step: move by 10% of visible height per wheel step
+        scroll_factor = 0.1
+        scroll_amount = visible_height * scroll_factor * (delta / 120.0)  # delta typically 120 per step
+        
+        # Apply new range
+        new_y_min = y_min + scroll_amount
+        new_y_max = y_max + scroll_amount
+        
+        # Ensure we stay within data bounds if data is loaded
+        if self.data is not None and not self.data.empty:
+            data_min = self.data[self.depth_column].min()
+            data_max = self.data[self.depth_column].max()
+            # If new range exceeds bounds, adjust
+            if new_y_min < data_min:
+                offset = data_min - new_y_min
+                new_y_min += offset
+                new_y_max += offset
+            if new_y_max > data_max:
+                offset = new_y_max - data_max
+                new_y_min -= offset
+                new_y_max -= offset
+        
+        # Apply the new Y range (this will emit viewRangeChanged signal)
+        self.setYRange(new_y_min, new_y_max)
+        
+        # Accept the event
+        event.accept()
     
     # =========================================================================
     # Boundary Line Methods (Phase 4: Depth Correction)

@@ -274,6 +274,18 @@ class ScrollOptimizer:
         if self.timer:
             self.timer.deleteLater()
     
+    def handle_view_range_change(self):
+        """Handle view range changes (stub for compatibility)."""
+        # This method is called when the view range changes in PyQtGraphCurvePlotter
+        # Currently no specific action needed for scroll optimization
+        pass
+    
+    def disconnect_widget(self):
+        """Disconnect from widget (stub for compatibility)."""
+        # This method is called when cleaning up PyQtGraphCurvePlotter
+        # Currently no specific action needed
+        pass
+    
     # Private methods
     
     def _update_velocity(self, delta_x: float, delta_y: float, current_time: float):

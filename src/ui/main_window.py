@@ -360,6 +360,12 @@ class HoleEditorWindow(QWidget):
         if hasattr(self, 'statusBar'):
             self.statusBar().showMessage(f"Zoom: {zoom_factor:.1f}x", 2000)
 
+    def _on_splitter_moved(self, pos, index):
+        """Handle splitter movement to maintain proportional overview width."""
+        # This method is required by the splitterMoved connection
+        # Currently no action needed, but must exist to prevent AttributeError
+        pass
+
     def _on_table_row_selected(self, row):
         """Handle table row selection to highlight stratigraphic column and scroll plot view (Subtask 4.1)."""
         if row == -1:
@@ -1006,6 +1012,8 @@ class MainWindow(QMainWindow):
         self.exportCsvButton = self.editor_hole.exportCsvIconButton  # Renamed to exportCsvIconButton
         self.createInterbeddingIconButton = self.editor_hole.createInterbeddingIconButton
         self.exportCsvIconButton = self.editor_hole.exportCsvIconButton
+        self.curve_visibility_manager = self.editor_hole.curve_visibility_manager
+        self.curve_visibility_toolbar = self.editor_hole.curve_visibility_toolbar
 
         # Connect table row selection to stratigraphic column highlighting
         self.editorTable.rowSelectionChangedSignal.connect(self._on_table_row_selected)
