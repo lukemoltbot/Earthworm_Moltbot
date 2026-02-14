@@ -1003,7 +1003,7 @@ class MainWindow(QMainWindow):
         self.stratigraphicColumnView = self.editor_hole.stratigraphicColumnView
         self.enhancedStratColumnView = self.editor_hole.enhancedStratColumnView
         self.editorTable = self.editor_hole.editorTable
-        self.exportCsvButton = self.editor_hole.exportCsvButton
+        self.exportCsvButton = self.editor_hole.exportCsvIconButton  # Renamed to exportCsvIconButton
         self.createInterbeddingIconButton = self.editor_hole.createInterbeddingIconButton
         self.exportCsvIconButton = self.editor_hole.exportCsvIconButton
 
