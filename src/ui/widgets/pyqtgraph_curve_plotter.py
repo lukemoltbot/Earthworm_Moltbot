@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox,
 from PyQt6.QtGui import QColor, QPen, QFont
 from PyQt6.QtCore import Qt, pyqtSignal, QPointF, QTimer
 import pyqtgraph as pg
+from pyqtgraph import AxisItem
 
 # Import ScrollPolicyManager for scroll control
 from .scroll_policy_manager import ScrollPolicyManager
@@ -48,16 +49,24 @@ class PyQtGraphCurvePlotter(QWidget):
         self.x_axis_labels = {}  # Dictionary to store X-axis label items
         self.plot_area_separator = None  # Top border line separating plot from X-axis labels
         
-        # Dual-axis configuration
+        # Multi-axis configuration
         self.gamma_viewbox = None  # Secondary ViewBox for Gamma Ray
         self.gamma_axis = None  # Top axis for Gamma Ray
         self.gamma_curves = []  # List of Gamma Ray curves
         self.density_curves = []  # List of Density curves
+        self.caliper_viewbox = None  # Third ViewBox for Caliper
+        self.caliper_axis = None  # Bottom2 axis for Caliper
+        self.caliper_curves = []  # List of Caliper curves
+        self.resistivity_viewbox = None  # Fourth ViewBox for Resistivity
+        self.resistivity_axis = None  # Bottom3 axis for Resistivity
+        self.resistivity_curves = []  # List of Resistivity curves
         self.curve_items = {}  # Dictionary mapping curve_name -> curve item(s)
         
         # Curve type identification patterns
         self.gamma_patterns = ['gamma', 'gr', 'gamma_ray', 'gammaray']
-        self.density_patterns = ['density', 'den', 'rhob', 'ss', 'ls', 'cd']
+        self.density_patterns = ['density', 'den', 'rhob', 'ss', 'ls']
+        self.caliper_patterns = ['caliper', 'cal', 'cd', 'diameter']
+        self.resistivity_patterns = ['resistivity', 'res', 'rt', 'ild']
         
         # Lithology data for boundary lines
         self.lithology_data = None
@@ -394,7 +403,7 @@ class PyQtGraphCurvePlotter(QWidget):
             current_y_offset += 25
         
     def setup_dual_axes(self):
-        """Setup dual X-axes for LAS curve plotting."""
+        """Setup multi X-axes for LAS curve plotting (gamma, density, caliper, resistivity)."""
         # Show and configure top axis for Gamma Ray
         self.plot_item.showAxis('top')
         self.gamma_axis = self.plot_item.getAxis('top')
@@ -410,35 +419,70 @@ class PyQtGraphCurvePlotter(QWidget):
         self.gamma_viewbox.setYLink(self.plot_item.vb)
         self.gamma_axis.setLabel('Gamma Ray', units='API', color='#8b008b')
         
-        # Handle view synchronization
-        def update_gamma_view():
-            """Update Gamma Ray ViewBox geometry when main view changes."""
-            if self.gamma_viewbox:
-                self.gamma_viewbox.setGeometry(self.plot_item.vb.sceneBoundingRect())
-                # Force Y-axis synchronization with main view
-                self.gamma_viewbox.linkedViewChanged(self.plot_item.vb, self.gamma_viewbox.YAxis)
+        # Create caliper axis (bottom2) and ViewBox
+        self.caliper_axis = AxisItem('bottom')
+        self.plot_item.layout.addItem(self.caliper_axis, 2, 1)  # row 2, col 1 (below main bottom axis)
+        self.caliper_axis.linkToView(self.plot_item.vb)  # Link to main viewbox for Y
+        self.caliper_viewbox = pg.ViewBox()
+        self.plot_item.scene().addItem(self.caliper_viewbox)
+        self.caliper_axis.linkToView(self.caliper_viewbox)
+        self.caliper_viewbox.setXLink(self.plot_item)  # Share X-axis transform
+        self.caliper_viewbox.setYLink(self.plot_item.vb)
+        self.caliper_axis.setLabel('Caliper', units='mm', color='#FFA500')
+        self.caliper_axis.setVisible(False)  # Hide until caliper curves are added
         
-        def update_gamma_view_on_scroll():
-            """Update Gamma Ray ViewBox during scrolling (not just resize)."""
+        # Create resistivity axis (bottom3) and ViewBox
+        self.resistivity_axis = AxisItem('bottom')
+        self.plot_item.layout.addItem(self.resistivity_axis, 3, 1)  # row 3, col 1 (below caliper axis)
+        self.resistivity_axis.linkToView(self.plot_item.vb)
+        self.resistivity_viewbox = pg.ViewBox()
+        self.plot_item.scene().addItem(self.resistivity_viewbox)
+        self.resistivity_axis.linkToView(self.resistivity_viewbox)
+        self.resistivity_viewbox.setXLink(self.plot_item)
+        self.resistivity_viewbox.setYLink(self.plot_item.vb)
+        self.resistivity_axis.setLabel('Resistivity', units='ohm.m', color='#FF0000')
+        self.resistivity_axis.setVisible(False)  # Hide until resistivity curves are added
+        
+        # Handle view synchronization for all viewboxes
+        def update_all_viewboxes():
+            """Update all ViewBox geometries when main view changes."""
+            rect = self.plot_item.vb.sceneBoundingRect()
             if self.gamma_viewbox:
-                # Update geometry to match main view
-                self.gamma_viewbox.setGeometry(self.plot_item.vb.sceneBoundingRect())
-                # Ensure Y-axis is synchronized with main view range
-                view_range = self.plot_item.vb.viewRange()
-                if view_range and len(view_range) > 1:
-                    y_min, y_max = view_range[1]
+                self.gamma_viewbox.setGeometry(rect)
+                self.gamma_viewbox.linkedViewChanged(self.plot_item.vb, self.gamma_viewbox.YAxis)
+            if self.caliper_viewbox:
+                self.caliper_viewbox.setGeometry(rect)
+                self.caliper_viewbox.linkedViewChanged(self.plot_item.vb, self.caliper_viewbox.YAxis)
+            if self.resistivity_viewbox:
+                self.resistivity_viewbox.setGeometry(rect)
+                self.resistivity_viewbox.linkedViewChanged(self.plot_item.vb, self.resistivity_viewbox.YAxis)
+        
+        def update_all_on_scroll():
+            """Update all ViewBoxes during scrolling."""
+            rect = self.plot_item.vb.sceneBoundingRect()
+            view_range = self.plot_item.vb.viewRange()
+            if view_range and len(view_range) > 1:
+                y_min, y_max = view_range[1]
+                if self.gamma_viewbox:
+                    self.gamma_viewbox.setGeometry(rect)
                     self.gamma_viewbox.setYRange(y_min, y_max, padding=0)
+                if self.caliper_viewbox:
+                    self.caliper_viewbox.setGeometry(rect)
+                    self.caliper_viewbox.setYRange(y_min, y_max, padding=0)
+                if self.resistivity_viewbox:
+                    self.resistivity_viewbox.setGeometry(rect)
+                    self.resistivity_viewbox.setYRange(y_min, y_max, padding=0)
         
         # Connect resize signal
-        self.plot_item.vb.sigResized.connect(update_gamma_view)
-        # CRITICAL FIX: Connect to view range changes for scrolling
-        self.plot_item.vb.sigRangeChanged.connect(update_gamma_view_on_scroll)
+        self.plot_item.vb.sigResized.connect(update_all_viewboxes)
+        # Connect view range changes for scrolling
+        self.plot_item.vb.sigRangeChanged.connect(update_all_on_scroll)
         
-        # Store update function for later use
-        self.update_gamma_view_func = update_gamma_view
+        # Store update functions for later use
+        self.update_gamma_view_func = update_all_viewboxes
         
         # Initial update
-        update_gamma_view()
+        update_all_viewboxes()
         
     def configure_y_axis_ticks(self):
         """Configure Y-axis to show ticks at every whole metre."""
@@ -578,18 +622,26 @@ class PyQtGraphCurvePlotter(QWidget):
         # Get sorted curve configs using legacy ordering
         sorted_configs = self.get_sorted_curve_configs()
         
-        # Separate curve configs into gamma and density curves
+        # Separate curve configs into gamma, density, caliper, and resistivity curves
         gamma_configs = []
         density_configs = []
+        caliper_configs = []
+        resistivity_configs = []
         
         for config in sorted_configs:
             curve_name = config['name'].lower()
             
-            # Check if this is a gamma curve
+            # Check curve type patterns
             is_gamma = any(pattern in curve_name for pattern in self.gamma_patterns)
+            is_caliper = any(pattern in curve_name for pattern in self.caliper_patterns)
+            is_resistivity = any(pattern in curve_name for pattern in self.resistivity_patterns)
             
             if is_gamma:
                 gamma_configs.append(config)
+            elif is_caliper:
+                caliper_configs.append(config)
+            elif is_resistivity:
+                resistivity_configs.append(config)
             else:
                 # Assume it's a density curve (or other curve that goes on main axis)
                 density_configs.append(config)
@@ -597,6 +649,8 @@ class PyQtGraphCurvePlotter(QWidget):
         # Track curves for legend and visibility control
         self.gamma_curves = []
         self.density_curves = []
+        self.caliper_curves = []
+        self.resistivity_curves = []
         self.curve_items = {}  # Dictionary mapping curve_name -> curve item(s)
         
         # Plot density curves on main plot (bottom axis)
@@ -638,6 +692,90 @@ class PyQtGraphCurvePlotter(QWidget):
             curve.config = config
             self.density_curves.append(curve)
             # Store in dictionary for visibility control
+            self.curve_items[curve_name] = curve
+        
+        # Plot caliper curves on caliper viewbox (bottom2 axis)
+        for config in caliper_configs:
+            curve_name = config['name']
+            color = config['color']
+            thickness = config.get('thickness', 1.5)
+            
+            if curve_name not in self.data.columns:
+                continue
+                
+            # Extract curve data
+            curve_data = self.data[curve_name].values
+            
+            # Filter out NaN values
+            mask = ~np.isnan(curve_data)
+            if not np.any(mask):
+                continue
+                
+            valid_depths = depth_data[mask]
+            valid_values = curve_data[mask]
+            
+            # Create pen for the curve
+            pen = pg.mkPen(color=color, width=thickness)
+            
+            # Apply inversion if specified
+            inverted = config.get('inverted', False)
+            
+            # Create PlotCurveItem for caliper viewbox
+            curve = pg.PlotCurveItem(valid_values, valid_depths, pen=pen, name=curve_name)
+            curve.inverted = inverted
+            curve.config = config
+            
+            # Add to caliper viewbox
+            if self.caliper_viewbox:
+                self.caliper_viewbox.addItem(curve)
+                # Make axis visible
+                if self.caliper_axis:
+                    self.caliper_axis.setVisible(True)
+            
+            # Store reference
+            self.caliper_curves.append(curve)
+            self.curve_items[curve_name] = curve
+        
+        # Plot resistivity curves on resistivity viewbox (bottom3 axis)
+        for config in resistivity_configs:
+            curve_name = config['name']
+            color = config['color']
+            thickness = config.get('thickness', 1.5)
+            
+            if curve_name not in self.data.columns:
+                continue
+                
+            # Extract curve data
+            curve_data = self.data[curve_name].values
+            
+            # Filter out NaN values
+            mask = ~np.isnan(curve_data)
+            if not np.any(mask):
+                continue
+                
+            valid_depths = depth_data[mask]
+            valid_values = curve_data[mask]
+            
+            # Create pen for the curve
+            pen = pg.mkPen(color=color, width=thickness)
+            
+            # Apply inversion if specified
+            inverted = config.get('inverted', False)
+            
+            # Create PlotCurveItem for resistivity viewbox
+            curve = pg.PlotCurveItem(valid_values, valid_depths, pen=pen, name=curve_name)
+            curve.inverted = inverted
+            curve.config = config
+            
+            # Add to resistivity viewbox
+            if self.resistivity_viewbox:
+                self.resistivity_viewbox.addItem(curve)
+                # Make axis visible
+                if self.resistivity_axis:
+                    self.resistivity_axis.setVisible(True)
+            
+            # Store reference
+            self.resistivity_curves.append(curve)
             self.curve_items[curve_name] = curve
         
         # Plot gamma curves on gamma viewbox (top axis)
@@ -709,16 +847,24 @@ class PyQtGraphCurvePlotter(QWidget):
         if not self.curve_configs:
             return
             
-        # Separate curve configs into gamma and density
+        # Separate curve configs into gamma, density, caliper, and resistivity
         gamma_configs = []
         density_configs = []
+        caliper_configs = []
+        resistivity_configs = []
         
         for config in self.curve_configs:
             curve_name = config['name'].lower()
             is_gamma = any(pattern in curve_name for pattern in self.gamma_patterns)
+            is_caliper = any(pattern in curve_name for pattern in self.caliper_patterns)
+            is_resistivity = any(pattern in curve_name for pattern in self.resistivity_patterns)
             
             if is_gamma:
                 gamma_configs.append(config)
+            elif is_caliper:
+                caliper_configs.append(config)
+            elif is_resistivity:
+                resistivity_configs.append(config)
             else:
                 density_configs.append(config)
         
@@ -782,6 +928,62 @@ class PyQtGraphCurvePlotter(QWidget):
             if self.gamma_axis:
                 self.gamma_axis.setLabel('Gamma Ray', units='API', color='#8b008b')
         
+        # Set X-axis range for caliper curves (caliper viewbox, bottom2 axis)
+        if caliper_configs and self.caliper_viewbox:
+            caliper_x_min = float('inf')
+            caliper_x_max = float('-inf')
+            
+            for config in caliper_configs:
+                caliper_x_min = min(caliper_x_min, config['min'])
+                caliper_x_max = max(caliper_x_max, config['max'])
+            
+            # Default range for caliper curves if not specified: 100 to 300 mm
+            if caliper_x_min == float('inf'):
+                caliper_x_min = 100.0
+            if caliper_x_max == float('-inf'):
+                caliper_x_max = 300.0
+                
+            # Check inversion for caliper curves
+            if caliper_configs and caliper_configs[0].get('inverted', False):
+                # Not inverted: low values on left, high on right
+                self.caliper_viewbox.setXRange(caliper_x_min, caliper_x_max)
+            else:
+                # Inverted (well log style): low values on right, high on left
+                self.caliper_viewbox.setXRange(caliper_x_max, caliper_x_min)
+            
+            # Update caliper axis label
+            if self.caliper_axis:
+                self.caliper_axis.setLabel('Caliper', units='mm', color='#FFA500')
+                self.caliper_axis.setVisible(True)
+        
+        # Set X-axis range for resistivity curves (resistivity viewbox, bottom3 axis)
+        if resistivity_configs and self.resistivity_viewbox:
+            resistivity_x_min = float('inf')
+            resistivity_x_max = float('-inf')
+            
+            for config in resistivity_configs:
+                resistivity_x_min = min(resistivity_x_min, config['min'])
+                resistivity_x_max = max(resistivity_x_max, config['max'])
+            
+            # Default range for resistivity curves if not specified: 0.1 to 1000 ohm.m
+            if resistivity_x_min == float('inf'):
+                resistivity_x_min = 0.1
+            if resistivity_x_max == float('-inf'):
+                resistivity_x_max = 1000.0
+                
+            # Check inversion for resistivity curves
+            if resistivity_configs and resistivity_configs[0].get('inverted', False):
+                # Not inverted: low values on left, high on right
+                self.resistivity_viewbox.setXRange(resistivity_x_min, resistivity_x_max)
+            else:
+                # Inverted (well log style): low values on right, high on left
+                self.resistivity_viewbox.setXRange(resistivity_x_max, resistivity_x_min)
+            
+            # Update resistivity axis label
+            if self.resistivity_axis:
+                self.resistivity_axis.setLabel('Resistivity', units='ohm.m', color='#FF0000')
+                self.resistivity_axis.setVisible(True)
+        
         # Set Y-axis range based on data
         if self.data is not None and not self.data.empty:
             y_min = self.data[self.depth_column].min()
@@ -799,16 +1001,24 @@ class PyQtGraphCurvePlotter(QWidget):
         if not self.curve_configs:
             return
             
-        # Separate curves into gamma and density for better organization
+        # Separate curves into gamma, density, caliper, and resistivity for better organization
         gamma_configs = []
         density_configs = []
+        caliper_configs = []
+        resistivity_configs = []
         
         for config in self.curve_configs:
             curve_name = config['name'].lower()
             is_gamma = any(pattern in curve_name for pattern in self.gamma_patterns)
+            is_caliper = any(pattern in curve_name for pattern in self.caliper_patterns)
+            is_resistivity = any(pattern in curve_name for pattern in self.resistivity_patterns)
             
             if is_gamma:
                 gamma_configs.append(config)
+            elif is_caliper:
+                caliper_configs.append(config)
+            elif is_resistivity:
+                resistivity_configs.append(config)
             else:
                 density_configs.append(config)
         
@@ -824,9 +1034,36 @@ class PyQtGraphCurvePlotter(QWidget):
             for config in sorted_density:
                 self.add_curve_control_row(config, 'density')
         
+        # Add section header for Caliper curves (bottom2 axis)
+        if caliper_configs:
+            separator = QLabel()
+            separator.setFixedHeight(10)
+            self.axis_controls_layout.addWidget(separator)
+            
+            caliper_header = QLabel("<b>Caliper Curves (Bottom2 Axis)</b>")
+            caliper_header.setStyleSheet("color: #FFA500; padding: 2px;")
+            self.axis_controls_layout.addWidget(caliper_header)
+            
+            sorted_caliper = sorted(caliper_configs, key=lambda x: x['name'])
+            for config in sorted_caliper:
+                self.add_curve_control_row(config, 'caliper')
+        
+        # Add section header for Resistivity curves (bottom3 axis)
+        if resistivity_configs:
+            separator = QLabel()
+            separator.setFixedHeight(10)
+            self.axis_controls_layout.addWidget(separator)
+            
+            resistivity_header = QLabel("<b>Resistivity Curves (Bottom3 Axis)</b>")
+            resistivity_header.setStyleSheet("color: #FF0000; padding: 2px;")
+            self.axis_controls_layout.addWidget(resistivity_header)
+            
+            sorted_resistivity = sorted(resistivity_configs, key=lambda x: x['name'])
+            for config in sorted_resistivity:
+                self.add_curve_control_row(config, 'resistivity')
+        
         # Add section header for Gamma Ray curves (top axis)
         if gamma_configs:
-            # Add separator
             separator = QLabel()
             separator.setFixedHeight(10)
             self.axis_controls_layout.addWidget(separator)
@@ -865,6 +1102,10 @@ class PyQtGraphCurvePlotter(QWidget):
         name_label.setFixedWidth(120)
         if curve_type == 'gamma':
             name_label.setStyleSheet("color: #8b008b;")
+        elif curve_type == 'caliper':
+            name_label.setStyleSheet("color: #FFA500;")
+        elif curve_type == 'resistivity':
+            name_label.setStyleSheet("color: #FF0000;")
         row_layout.addWidget(name_label)
         
         # Min value
@@ -883,8 +1124,16 @@ class PyQtGraphCurvePlotter(QWidget):
         row_layout.addWidget(max_label)
         
         # Axis indicator
-        axis_label = QLabel("(Top)" if curve_type == 'gamma' else "(Bottom)")
-        axis_label.setFixedWidth(50)
+        if curve_type == 'gamma':
+            axis_text = "(Top)"
+        elif curve_type == 'caliper':
+            axis_text = "(Bottom2)"
+        elif curve_type == 'resistivity':
+            axis_text = "(Bottom3)"
+        else:
+            axis_text = "(Bottom)"
+        axis_label = QLabel(axis_text)
+        axis_label.setFixedWidth(60)
         axis_label.setStyleSheet("color: #666; font-size: 10px;")
         row_layout.addWidget(axis_label)
         
@@ -1511,7 +1760,7 @@ class PyQtGraphCurvePlotter(QWidget):
                     self._update_curve_visibility(curve_item, visible, stored_name)
                     curves_updated.append(stored_name)
         
-        # Also check gamma_curves and density_curves lists
+        # Also check gamma_curves, density_curves, caliper_curves, and resistivity_curves lists
         if not curves_updated:
             # Check gamma curves
             if hasattr(self, 'gamma_curves'):
@@ -1523,6 +1772,20 @@ class PyQtGraphCurvePlotter(QWidget):
             # Check density curves
             if hasattr(self, 'density_curves'):
                 for curve in self.density_curves:
+                    if hasattr(curve, 'name') and curve.name.lower() == curve_name.lower():
+                        self._update_curve_visibility(curve, visible, curve.name)
+                        curves_updated.append(curve.name)
+            
+            # Check caliper curves
+            if hasattr(self, 'caliper_curves'):
+                for curve in self.caliper_curves:
+                    if hasattr(curve, 'name') and curve.name.lower() == curve_name.lower():
+                        self._update_curve_visibility(curve, visible, curve.name)
+                        curves_updated.append(curve.name)
+            
+            # Check resistivity curves
+            if hasattr(self, 'resistivity_curves'):
+                for curve in self.resistivity_curves:
                     if hasattr(curve, 'name') and curve.name.lower() == curve_name.lower():
                         self._update_curve_visibility(curve, visible, curve.name)
                         curves_updated.append(curve.name)
@@ -1587,7 +1850,7 @@ class PyQtGraphCurvePlotter(QWidget):
                     self._update_curve_visibility(curve_item, visible, curve_name)
                     curves_updated.append(curve_name)
         
-        # Also check gamma_curves and density_curves lists for gamma/density groups
+        # Also check gamma_curves, density_curves, caliper_curves, resistivity_curves lists for respective groups
         if group_name_lower == 'gamma' and hasattr(self, 'gamma_curves'):
             for curve in self.gamma_curves:
                 if hasattr(curve, 'name'):
@@ -1596,6 +1859,18 @@ class PyQtGraphCurvePlotter(QWidget):
         
         if group_name_lower == 'density' and hasattr(self, 'density_curves'):
             for curve in self.density_curves:
+                if hasattr(curve, 'name'):
+                    self._update_curve_visibility(curve, visible, curve.name)
+                    curves_updated.append(curve.name)
+        
+        if group_name_lower == 'caliper' and hasattr(self, 'caliper_curves'):
+            for curve in self.caliper_curves:
+                if hasattr(curve, 'name'):
+                    self._update_curve_visibility(curve, visible, curve.name)
+                    curves_updated.append(curve.name)
+        
+        if group_name_lower == 'resistivity' and hasattr(self, 'resistivity_curves'):
+            for curve in self.resistivity_curves:
                 if hasattr(curve, 'name'):
                     self._update_curve_visibility(curve, visible, curve.name)
                     curves_updated.append(curve.name)

@@ -279,7 +279,7 @@ class CrossSectionWindow(QWidget):
             # Load and process the file based on type
             if file_path.lower().endswith('.las'):
                 # Load LAS file
-                dataframe, _ = data_processor.load_las_file(file_path)
+                dataframe, _, _ = data_processor.load_las_file(file_path)
                 
                 # Use default mnemonic map for processing
                 mnemonic_map = {
@@ -290,7 +290,7 @@ class CrossSectionWindow(QWidget):
                 }
                 
                 # Preprocess data
-                processed_dataframe = data_processor.preprocess_data(dataframe, mnemonic_map)
+                processed_dataframe = data_processor.preprocess_data(dataframe, mnemonic_map, None)
                 
                 # Classify lithology
                 # Get use_researched_defaults from parent if available, otherwise default to True for backward compatibility

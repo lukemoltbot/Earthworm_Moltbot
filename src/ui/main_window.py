@@ -769,7 +769,7 @@ class Worker(QObject):
             print(f"DEBUG (Worker): lithology_rules count={len(self.lithology_rules)}")
             data_processor = DataProcessor()
             analyzer = Analyzer()
-            dataframe, _ = data_processor.load_las_file(self.file_path)
+            dataframe, _, units = data_processor.load_las_file(self.file_path)
 
             # Ensure all required curve mnemonics are in the map for preprocessing
             # Add default mappings if not already present in mnemonic_map
@@ -779,7 +779,7 @@ class Worker(QObject):
             if 'long_space_density' not in full_mnemonic_map:
                 full_mnemonic_map['long_space_density'] = 'LSD' # Common mnemonic for long space density
 
-            processed_dataframe = data_processor.preprocess_data(dataframe, full_mnemonic_map)
+            processed_dataframe = data_processor.preprocess_data(dataframe, full_mnemonic_map, units)
             # Use appropriate classification method based on settings
             if self.analysis_method == "simple":
                 classified_dataframe = analyzer.classify_rows_simple(processed_dataframe, self.lithology_rules, full_mnemonic_map, self.casing_depth_enabled, self.casing_depth_m)
@@ -956,6 +956,14 @@ class MainWindow(QMainWindow):
         self.control_panel_layout.addWidget(QLabel("Long Space Density:"))
         self.longSpaceDensityComboBox = QComboBox()
         self.control_panel_layout.addWidget(self.longSpaceDensityComboBox)
+
+        self.control_panel_layout.addWidget(QLabel("Caliper Curve:"))
+        self.caliperComboBox = QComboBox()
+        self.control_panel_layout.addWidget(self.caliperComboBox)
+
+        self.control_panel_layout.addWidget(QLabel("Resistivity Curve:"))
+        self.resistivityComboBox = QComboBox()
+        self.control_panel_layout.addWidget(self.resistivityComboBox)
 
         self.runAnalysisButton = QPushButton("Run Analysis")
         self.control_panel_layout.addWidget(self.runAnalysisButton)
@@ -1906,11 +1914,15 @@ class MainWindow(QMainWindow):
         self.densityComboBox.clear()
         self.shortSpaceDensityComboBox.clear()
         self.longSpaceDensityComboBox.clear()
+        self.caliperComboBox.clear()
+        self.resistivityComboBox.clear()
 
         self.gammaRayComboBox.addItems(mnemonics)
         self.densityComboBox.addItems(mnemonics)
         self.shortSpaceDensityComboBox.addItems(mnemonics)
         self.longSpaceDensityComboBox.addItems(mnemonics)
+        self.caliperComboBox.addItems(mnemonics)
+        self.resistivityComboBox.addItems(mnemonics)
 
         # Set default selections
         if 'GR' in mnemonics:
@@ -1924,6 +1936,16 @@ class MainWindow(QMainWindow):
             self.shortSpaceDensityComboBox.setCurrentText('DENS')
         if 'LSD' in mnemonics: # Assuming 'LSD' for long space density
             self.longSpaceDensityComboBox.setCurrentText('LSD')
+        # Caliper default selection
+        for cal_name in ['CAL', 'cal', 'caliper', 'CD', 'cd']:
+            if cal_name in mnemonics:
+                self.caliperComboBox.setCurrentText(cal_name)
+                break
+        # Resistivity default selection
+        for res_name in ['RES', 'resistivity', 'RT', 'ILD', 'ild']:
+            if res_name in mnemonics:
+                self.resistivityComboBox.setCurrentText(res_name)
+                break
 
         # Store metadata for potential use
         self.las_metadata = metadata
@@ -1987,7 +2009,7 @@ class MainWindow(QMainWindow):
             # Reset curve thickness default
             self.initial_curve_thickness = DEFAULT_CURVE_THICKNESS
             # Reset curve inversion defaults
-            self.initial_curve_inversion_settings = {'gamma': False, 'short_space_density': False, 'long_space_density': False}
+            self.initial_curve_inversion_settings = {'gamma': False, 'short_space_density': False, 'long_space_density': False, 'caliper': False, 'resistivity': False}
             # Reset researched defaults
             self.use_researched_defaults = False
             # Reset analysis method
@@ -2184,6 +2206,8 @@ class MainWindow(QMainWindow):
             'invert_gamma': current_curve_inversion_settings['gamma'],
             'invert_short_space_density': current_curve_inversion_settings['short_space_density'],
             'invert_long_space_density': current_curve_inversion_settings['long_space_density'],
+            'invert_caliper': current_curve_inversion_settings['caliper'],
+            'invert_resistivity': current_curve_inversion_settings['resistivity'],
             'use_researched_defaults': current_use_researched_defaults,
             'analysis_method': current_analysis_method,
             'merge_thin_units': current_merge_thin_units,
@@ -2211,7 +2235,9 @@ class MainWindow(QMainWindow):
         self.initial_curve_inversion_settings = {
             'gamma': settings.get('invert_gamma', False),
             'short_space_density': settings.get('invert_short_space_density', False),
-            'long_space_density': settings.get('invert_long_space_density', False)
+            'long_space_density': settings.get('invert_long_space_density', False),
+            'caliper': settings.get('invert_caliper', False),
+            'resistivity': settings.get('invert_resistivity', False)
         }
         self.use_researched_defaults = settings.get('use_researched_defaults', self.use_researched_defaults)
         self.analysis_method = settings.get('analysis_method', self.analysis_method)
@@ -2881,7 +2907,9 @@ class MainWindow(QMainWindow):
             'gamma': self.gammaRayComboBox.currentText(),
             'density': density_selection,  # Use Short Space Density selection
             'short_space_density': density_selection,  # Same as density
-            'long_space_density': self.longSpaceDensityComboBox.currentText()
+            'long_space_density': self.longSpaceDensityComboBox.currentText(),
+            'caliper': self.caliperComboBox.currentText(),
+            'resistivity': self.resistivityComboBox.currentText()
         }
         if not mnemonic_map['gamma'] or not mnemonic_map['density']:
             QMessageBox.warning(self, "Missing Curve Mapping", "Please select both Gamma Ray and Density curves.")
@@ -3718,6 +3746,24 @@ class MainWindow(QMainWindow):
                 'max': CURVE_RANGES['long_space_density']['max'],
                 'color': CURVE_RANGES['long_space_density']['color'],
                 'inverted': curve_inversion_settings.get('long_space_density', False),
+                'thickness': current_curve_thickness
+            })
+        if 'caliper' in classified_dataframe.columns:
+            curve_configs.append({
+                'name': 'caliper',
+                'min': CURVE_RANGES['caliper']['min'],
+                'max': CURVE_RANGES['caliper']['max'],
+                'color': CURVE_RANGES['caliper']['color'],
+                'inverted': curve_inversion_settings.get('caliper', False),
+                'thickness': current_curve_thickness
+            })
+        if 'resistivity' in classified_dataframe.columns:
+            curve_configs.append({
+                'name': 'resistivity',
+                'min': CURVE_RANGES['resistivity']['min'],
+                'max': CURVE_RANGES['resistivity']['max'],
+                'color': CURVE_RANGES['resistivity']['color'],
+                'inverted': curve_inversion_settings.get('resistivity', False),
                 'thickness': current_curve_thickness
             })
 

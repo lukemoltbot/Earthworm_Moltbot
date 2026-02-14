@@ -278,9 +278,13 @@ class SettingsDialog(QDialog):
         self.invertGammaCheckBox = QCheckBox("Invert Gamma Curve")
         self.invertShortSpaceDensityCheckBox = QCheckBox("Invert Short Space Density")
         self.invertLongSpaceDensityCheckBox = QCheckBox("Invert Long Space Density")
+        self.invertCaliperCheckBox = QCheckBox("Invert Caliper Curve")
+        self.invertResistivityCheckBox = QCheckBox("Invert Resistivity Curve")
         curve_inv_layout.addWidget(self.invertGammaCheckBox)
         curve_inv_layout.addWidget(self.invertShortSpaceDensityCheckBox)
         curve_inv_layout.addWidget(self.invertLongSpaceDensityCheckBox)
+        curve_inv_layout.addWidget(self.invertCaliperCheckBox)
+        curve_inv_layout.addWidget(self.invertResistivityCheckBox)
         curve_layout.addRow("Curve Inversion:", curve_inv_widget)
 
         layout.addWidget(curve_group)
@@ -308,9 +312,8 @@ class SettingsDialog(QDialog):
             ("SS", "Short Space Density", "short_space_density"),
             ("LS", "Long Space Density", "long_space_density"),
             ("GR", "Gamma Ray", "gamma"),
-            ("CD", "Caliper", "cd"),
-            ("RES", "Resistivity", "res"),
-            ("CAL", "Caliper", "cal")
+            ("CAL", "Caliper", "caliper"),
+            ("RES", "Resistivity", "resistivity")
         ]
         
         for abbr, display_name, curve_name in curve_types:
@@ -795,6 +798,14 @@ class SettingsDialog(QDialog):
             self.invertShortSpaceDensityCheckBox.setChecked(self.current_settings['invert_short_space_density'])
         if 'invert_long_space_density' in self.current_settings:
             self.invertLongSpaceDensityCheckBox.setChecked(self.current_settings['invert_long_space_density'])
+        if 'invert_caliper' in self.current_settings:
+            self.invertCaliperCheckBox.setChecked(self.current_settings['invert_caliper'])
+        if 'invert_resistivity' in self.current_settings:
+            self.invertResistivityCheckBox.setChecked(self.current_settings['invert_resistivity'])
+        if 'invert_caliper' in self.current_settings:
+            self.invertCaliperCheckBox.setChecked(self.current_settings['invert_caliper'])
+        if 'invert_resistivity' in self.current_settings:
+            self.invertResistivityCheckBox.setChecked(self.current_settings['invert_resistivity'])
         
         # Load SVG disable setting
         if 'disable_svg' in self.current_settings:
@@ -936,6 +947,10 @@ class SettingsDialog(QDialog):
         settings['invert_gamma'] = self.invertGammaCheckBox.isChecked()
         settings['invert_short_space_density'] = self.invertShortSpaceDensityCheckBox.isChecked()
         settings['invert_long_space_density'] = self.invertLongSpaceDensityCheckBox.isChecked()
+        settings['invert_caliper'] = self.invertCaliperCheckBox.isChecked()
+        settings['invert_resistivity'] = self.invertResistivityCheckBox.isChecked()
+        settings['invert_caliper'] = self.invertCaliperCheckBox.isChecked()
+        settings['invert_resistivity'] = self.invertResistivityCheckBox.isChecked()
         settings['disable_svg'] = self.disableSvgCheckBox.isChecked()
 
         # Gather analysis settings

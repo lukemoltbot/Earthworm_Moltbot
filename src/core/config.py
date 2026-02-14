@@ -82,7 +82,14 @@ CURVE_RANGES = {
     'gamma': {'min': 0, 'max': 300, 'color': '#8b008b'}, # Purple for Gamma Ray (top axis)
     'density': {'min': 0.0, 'max': 4.0, 'color': '#006400'}, # Dark green for density (bottom axis)
     'short_space_density': {'min': 0.0, 'max': 4.0, 'color': '#006400'}, # Dark green
-    'long_space_density': {'min': 0.0, 'max': 4.0, 'color': '#00008b'} # Dark blue
+    'long_space_density': {'min': 0.0, 'max': 4.0, 'color': '#00008b'}, # Dark blue
+    'caliper': {'min': 0.0, 'max': 20.0, 'color': '#FFA500'}, # Orange for caliper (inches)
+    'cd': {'min': 0.0, 'max': 20.0, 'color': '#FFA500'}, # Orange for caliper diameter
+    'cal': {'min': 0.0, 'max': 20.0, 'color': '#FFA500'}, # Orange for caliper
+    'resistivity': {'min': 0.0, 'max': 200.0, 'color': '#FF0000'}, # Red for resistivity (ohm-m)
+    'res': {'min': 0.0, 'max': 200.0, 'color': '#FF0000'}, # Red for resistivity
+    'rt': {'min': 0.0, 'max': 200.0, 'color': '#FF0000'}, # Red for resistivity
+    'ild': {'min': 0.0, 'max': 200.0, 'color': '#FF0000'} # Red for induction log deep
 }
 
 # Value used to represent invalid or missing data in input files
@@ -117,7 +124,9 @@ DRAW_SEPARATOR_LINES = True # Whether to draw separator lines in the stratigraph
 CURVE_INVERSION_DEFAULTS = {
     'gamma': False,
     'short_space_density': False,
-    'long_space_density': False
+    'long_space_density': False,
+    'caliper': False,
+    'resistivity': False
 }
 
 # Default curve line thickness

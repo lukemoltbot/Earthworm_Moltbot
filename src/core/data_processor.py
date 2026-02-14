@@ -9,7 +9,7 @@ class DataProcessor:
 
     def load_las_file(self, file_path):
         """
-        Loads a .las file and extracts curve data and mnemonics.
+        Loads a .las file and extracts curve data, mnemonics, and units.
 
         Args:
             file_path (str): The path to the .las file.
@@ -18,12 +18,15 @@ class DataProcessor:
             tuple: A tuple containing:
                 - pandas.DataFrame: DataFrame with all curve data.
                 - list: List of string names of all curve mnemonics.
+                - dict: Dictionary mapping mnemonic to unit string.
         """
         las = lasio.read(file_path)
         
-        # Extract data and mnemonics to build DataFrame with correct column names
+        # Extract data, mnemonics, and units
         data = {curve.mnemonic: curve.data for curve in las.curves}
         df = pd.DataFrame(data)
+        mnemonics = [curve.mnemonic for curve in las.curves]
+        units = {curve.mnemonic: curve.unit for curve in las.curves}
 
         # Set the depth curve as the index. Try to find a common depth mnemonic.
         depth_mnemonic = None
@@ -44,17 +47,18 @@ class DataProcessor:
             print(f"Warning: Could not determine depth mnemonic. DataFrame index might not be depth.")
             df = df.reset_index() # Ensure index is reset even if depth not found
 
-        mnemonics = [curve.mnemonic for curve in las.curves]
-        return df, mnemonics
+        return df, mnemonics, units
 
-    def preprocess_data(self, dataframe, mnemonic_map): # Removed null_value parameter
+    def preprocess_data(self, dataframe, mnemonic_map, units_map=None): # Removed null_value parameter
         """
         Preprocesses the raw DataFrame by replacing null values and creating standardized columns.
+        Optionally converts caliper units from inches to cm.
 
         Args:
             dataframe (pandas.DataFrame): The raw DataFrame from load_las_file.
             mnemonic_map (dict): A dictionary mapping standardized names to original mnemonics
                                  (e.g., {'gamma': 'GR', 'density': 'RHOB'}).
+            units_map (dict, optional): Dictionary mapping original mnemonic to unit string.
 
         Returns:
             pandas.DataFrame: The processed DataFrame with standardized columns and np.nan for nulls.
@@ -67,6 +71,19 @@ class DataProcessor:
             if original_mnemonic in processed_df.columns:
                 # Use .loc assignment to avoid chained assignment warning
                 processed_df.loc[:, standard_name] = processed_df[original_mnemonic].values
+                # Unit conversion for caliper (inches -> cm)
+                if standard_name == 'caliper' and units_map is not None:
+                    unit = units_map.get(original_mnemonic, '').lower()
+                    # Check if unit indicates inches
+                    if unit in ('in', 'inch', 'inches', '"'):
+                        # Convert inches to cm (1 inch = 2.54 cm)
+                        processed_df.loc[:, standard_name] = processed_df[standard_name] * 2.54
+                        print(f"Converted caliper curve '{original_mnemonic}' from inches to cm (unit: {unit})")
+                    elif unit in ('cm', 'centimeter', 'centimetre'):
+                        print(f"Caliper curve '{original_mnemonic}' already in cm (unit: {unit})")
+                    else:
+                        print(f"Caliper curve '{original_mnemonic}' unit unknown: '{unit}', assuming inches and converting to cm")
+                        processed_df.loc[:, standard_name] = processed_df[standard_name] * 2.54
             else:
                 # If the original mnemonic is not found, create a column of NaNs
                 processed_df.loc[:, standard_name] = np.nan
