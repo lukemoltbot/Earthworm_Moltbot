@@ -681,8 +681,8 @@ class PyQtGraphCurvePlotter(QWidget):
             # Store in dictionary for visibility control
             self.curve_items[curve_name] = curve
         
-        # Add legend
-        self.plot_item.addLegend()
+        # Add legend (commented out per user request)
+        # self.plot_item.addLegend()
         
         # Set axis ranges and labels
         self.update_axis_ranges()
