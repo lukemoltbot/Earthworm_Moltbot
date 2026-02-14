@@ -1,0 +1,20 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+<qresource prefix="/icons">
+    <file>icons/add.svg</file>
+    <file>icons/chart.svg</file>
+    <file>icons/cog-outline.svg</file>
+    <file>icons/content-save-settings-outline.svg</file>
+    <file>icons/file-export-outline.svg</file>
+    <file>icons/folder.svg</file>
+    <file>icons/information-outline.svg</file>
+    <file>icons/layers.svg</file>
+    <file>icons/open.svg</file>
+    <file>icons/overview.svg</file>
+    <file>icons/save.svg</file>
+    <file>icons/settings.svg</file>
+    <file>icons/table.svg</file>
+    <file>icons/text-box-search-outline.svg</file>
+    <file>icons/tune.svg</file>
+</qresource>
+</RCC>

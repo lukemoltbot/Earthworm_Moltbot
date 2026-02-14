@@ -46,6 +46,13 @@ from .widgets.lithology_table import LithologyTableWidget
 from .widgets.map_window import MapWindow # Import MapWindow for Phase 5
 from .widgets.cross_section_window import CrossSectionWindow # Import CrossSectionWindow for Phase 5
 
+# Icon loader for unique, visible icons
+from .icon_loader import (
+    get_add_icon, get_save_icon, get_open_icon, get_settings_icon,
+    get_folder_icon, get_chart_icon, get_layers_icon, 
+    get_table_icon, get_overview_icon
+)
+
 class SvgPreviewWidget(QGraphicsView):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -88,17 +95,14 @@ class HoleEditorWindow(QWidget):
         
         # Create icon buttons for actions
         self.createInterbeddingIconButton = QToolButton()
-        self.createInterbeddingIconButton.setIcon(QIcon.fromTheme("list-add", QIcon(":/icons/add.svg")))
+        self.createInterbeddingIconButton.setIcon(get_add_icon())
         self.createInterbeddingIconButton.setToolTip("Create Interbedding")
         self.createInterbeddingIconButton.setStyleSheet("QToolButton { padding: 5px; border: none; }")
         
         self.exportCsvIconButton = QToolButton()
-        self.exportCsvIconButton.setIcon(QIcon.fromTheme("document-save", QIcon(":/icons/save.svg")))
+        self.exportCsvIconButton.setIcon(get_save_icon())
         self.exportCsvIconButton.setToolTip("Export to CSV")
         self.exportCsvIconButton.setStyleSheet("QToolButton { padding: 5px; border: none; }")
-        
-        # Keep backward compatibility with existing code
-        self.exportCsvButton = QPushButton("Export to CSV")
         
         # Create zoom state manager for synchronization
         from .widgets.zoom_state_manager import ZoomStateManager
@@ -210,6 +214,12 @@ class HoleEditorWindow(QWidget):
         overview_layout = QVBoxLayout(overview_container)
         overview_layout.setContentsMargins(0, 0, 0, 0)
         overview_layout.addWidget(self.stratigraphicColumnView)
+        
+        # Assign containers to self for pane toggling functionality
+        self.plot_container = plot_container
+        self.enhanced_column_container = enhanced_column_container
+        self.table_container = table_container
+        self.overview_container = overview_container
 
         # Create a splitter for the first 3 widgets (Plot | Enhanced Column | Table)
         # Overview will be a fixed-width sidebar (NO SPLITTER)
@@ -652,6 +662,7 @@ class HoleEditorWindow(QWidget):
                 # Also ensure the overview column's own resizeEvent is called
                 # This handles any internal logic that fitInView might not cover
                 from PyQt6.QtGui import QResizeEvent
+                from PyQt6.QtCore import QSize
                 current_size = self.stratigraphicColumnView.size()
                 # Use a slightly different size to ensure event is processed
                 dummy_event = QResizeEvent(current_size, QSize(current_size.width(), current_size.height() - 1))
@@ -1205,7 +1216,7 @@ class MainWindow(QMainWindow):
         self.addToolBar(toolbar)
 
         # Add common actions
-        load_action = QAction(QIcon.fromTheme("document-open", QIcon(":/icons/open.svg")), "Load LAS File", self)
+        load_action = QAction(get_open_icon(), "Load LAS File", self)
         load_action.setToolTip("Load LAS File")
         load_action.triggered.connect(self.load_las_file_dialog)
         toolbar.addAction(load_action)
@@ -1227,7 +1238,7 @@ class MainWindow(QMainWindow):
 
         # Settings icon button
         settings_icon_button = QToolButton()
-        settings_icon_button.setIcon(QIcon.fromTheme("preferences-system", QIcon(":/icons/settings.svg")))
+        settings_icon_button.setIcon(get_settings_icon())
         settings_icon_button.setToolTip("Settings")
         settings_icon_button.clicked.connect(self.open_advanced_settings_dialog)
         settings_icon_button.setStyleSheet("QToolButton { padding: 5px; border: none; }")
@@ -1242,7 +1253,7 @@ class MainWindow(QMainWindow):
 
         # Create Interbedding icon button
         create_interbedding_icon_button = QToolButton()
-        create_interbedding_icon_button.setIcon(QIcon.fromTheme("list-add", QIcon(":/icons/add.svg")))
+        create_interbedding_icon_button.setIcon(get_add_icon())
         create_interbedding_icon_button.setToolTip("Create Interbedding")
         create_interbedding_icon_button.clicked.connect(self.create_manual_interbedding)
         create_interbedding_icon_button.setStyleSheet("QToolButton { padding: 5px; border: none; }")
@@ -1250,7 +1261,7 @@ class MainWindow(QMainWindow):
 
         # Export CSV icon button
         export_csv_icon_button = QToolButton()
-        export_csv_icon_button.setIcon(QIcon.fromTheme("document-save", QIcon(":/icons/save.svg")))
+        export_csv_icon_button.setIcon(get_save_icon())
         export_csv_icon_button.setToolTip("Export to CSV")
         export_csv_icon_button.clicked.connect(self.export_editor_data_to_csv)
         export_csv_icon_button.setStyleSheet("QToolButton { padding: 5px; border: none; }")
@@ -1277,7 +1288,7 @@ class MainWindow(QMainWindow):
         
         # File Explorer Pane Toggle
         file_explorer_button = QToolButton()
-        file_explorer_button.setIcon(QIcon.fromTheme("folder", QIcon(":/icons/folder.svg")))
+        file_explorer_button.setIcon(get_folder_icon())
         file_explorer_button.setToolTip("Toggle File Explorer Pane")
         file_explorer_button.setCheckable(True)
         file_explorer_button.setChecked(self.pane_visibility.get("file_explorer", True))
@@ -1288,7 +1299,7 @@ class MainWindow(QMainWindow):
 
         # LAS Curves Pane Toggle
         las_curves_button = QToolButton()
-        las_curves_button.setIcon(QIcon.fromTheme("chart-line", QIcon(":/icons/chart.svg")))
+        las_curves_button.setIcon(get_chart_icon())
         las_curves_button.setToolTip("Toggle LAS Curves Pane")
         las_curves_button.setCheckable(True)
         las_curves_button.setChecked(self.pane_visibility.get("las_curves", True))
@@ -1299,7 +1310,7 @@ class MainWindow(QMainWindow):
 
         # Enhanced Stratigraphic Pane Toggle
         enhanced_strat_button = QToolButton()
-        enhanced_strat_button.setIcon(QIcon.fromTheme("layers", QIcon(":/icons/layers.svg")))
+        enhanced_strat_button.setIcon(get_layers_icon())
         enhanced_strat_button.setToolTip("Toggle Enhanced Stratigraphic Pane")
         enhanced_strat_button.setCheckable(True)
         enhanced_strat_button.setChecked(self.pane_visibility.get("enhanced_stratigraphic", True))
@@ -1310,7 +1321,7 @@ class MainWindow(QMainWindow):
 
         # Data Editor Pane Toggle
         data_editor_button = QToolButton()
-        data_editor_button.setIcon(QIcon.fromTheme("table", QIcon(":/icons/table.svg")))
+        data_editor_button.setIcon(get_table_icon())
         data_editor_button.setToolTip("Toggle Data Editor Pane")
         data_editor_button.setCheckable(True)
         data_editor_button.setChecked(self.pane_visibility.get("data_editor", True))
@@ -1321,7 +1332,7 @@ class MainWindow(QMainWindow):
 
         # Overview Stratigraphic Pane Toggle
         overview_strat_button = QToolButton()
-        overview_strat_button.setIcon(QIcon.fromTheme("overview", QIcon(":/icons/overview.svg")))
+        overview_strat_button.setIcon(get_overview_icon())
         overview_strat_button.setToolTip("Toggle Overview Stratigraphic Pane")
         overview_strat_button.setCheckable(True)
         overview_strat_button.setChecked(self.pane_visibility.get("overview_stratigraphic", True))
@@ -2764,20 +2775,11 @@ class MainWindow(QMainWindow):
         strat_layout.setContentsMargins(0, 0, 0, 0)
         strat_layout.addWidget(self.stratigraphicColumnView)
 
-        # 4. Right Container (Editor Table + Export)
+        # 4. Right Container (Editor Table)
         table_container = QWidget()
         table_layout = QVBoxLayout(table_container)
         table_layout.setContentsMargins(0, 0, 0, 0)
-        # Add Create Interbedding button
-        button_layout = QHBoxLayout()
-        self.createInterbeddingButton = QPushButton("Create Interbedding")
-        self.createInterbeddingButton.clicked.connect(self.create_manual_interbedding)
-        button_layout.addWidget(self.createInterbeddingButton)
-        button_layout.addWidget(self.exportCsvButton)
-        button_layout.addStretch()
-
         table_layout.addWidget(self.editorTable)
-        table_layout.addLayout(button_layout)
 
         # 5. Add to Splitter & Set defaults (3 adjacent panels)
         self.main_splitter.addWidget(curves_container)
