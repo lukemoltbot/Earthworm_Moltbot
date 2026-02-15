@@ -29,6 +29,7 @@ class CurveDisplayModeSwitcher(QToolBar):
     # Signals for curve settings export/import
     exportCurveSettingsRequested = pyqtSignal()
     importCurveSettingsRequested = pyqtSignal()
+    syncSettingsRequested = pyqtSignal()
     
     def __init__(self, parent=None, display_modes_manager=None):
         super().__init__("Display Mode", parent)
@@ -77,6 +78,12 @@ class CurveDisplayModeSwitcher(QToolBar):
         
         # Add curve settings export/import buttons
         self.add_curve_settings_buttons()
+        
+        # Add separator
+        self.addSeparator()
+        
+        # Add cross-hole sync status indicator
+        self.add_sync_status_indicator()
     
     def create_mode_actions(self):
         """Create toolbar actions for each display mode."""
@@ -344,6 +351,32 @@ class CurveDisplayModeMenu(QMenu):
         """Import curve settings from a file."""
         print("DEBUG: Import curve settings requested")
         self.importCurveSettingsRequested.emit()
+    
+    def add_sync_status_indicator(self):
+        """Add cross-hole sync status indicator to toolbar."""
+        # Sync status label
+        self.sync_status_label = QLabel("Sync: OFF")
+        self.sync_status_label.setStyleSheet("color: #999; font-style: italic;")
+        self.sync_status_label.setToolTip("Cross-hole synchronization status\nClick to configure sync settings")
+        
+        # Make it clickable
+        self.sync_status_label.mousePressEvent = self.on_sync_status_clicked
+        
+        self.addWidget(self.sync_status_label)
+    
+    def on_sync_status_clicked(self, event):
+        """Handle click on sync status indicator."""
+        print("DEBUG: Sync status clicked - opening sync settings")
+        self.syncSettingsRequested.emit()
+    
+    def update_sync_status(self, enabled: bool, hole_count: int = 0):
+        """Update sync status indicator."""
+        if enabled:
+            self.sync_status_label.setText(f"Sync: ON ({hole_count} holes)")
+            self.sync_status_label.setStyleSheet("color: #0a0; font-weight: bold;")
+        else:
+            self.sync_status_label.setText("Sync: OFF")
+            self.sync_status_label.setStyleSheet("color: #999; font-style: italic;")
 
 
 # Factory function for easy integration

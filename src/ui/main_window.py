@@ -33,6 +33,7 @@ from .widgets.curve_visibility_manager import CurveVisibilityManager # Import cu
 from .widgets.curve_visibility_toolbar import CurveVisibilityToolbar # Import curve visibility toolbar
 from .widgets.curve_display_modes import CurveDisplayModes, create_curve_display_modes # Import curve display modes
 from .widgets.curve_display_mode_switcher import create_display_mode_switcher, create_display_mode_menu # Import display mode switcher
+from .widgets.cross_hole_sync_manager import create_cross_hole_sync_manager, CrossHoleSyncSettings # Import cross-hole sync manager
 from ..core.settings_manager import load_settings, save_settings
 from .dialogs.researched_defaults_dialog import ResearchedDefaultsDialog # Import new dialog
 from .dialogs.column_configurator_dialog import ColumnConfiguratorDialog # Import column configurator dialog
@@ -152,6 +153,19 @@ class HoleEditorWindow(QWidget):
         # Connect display mode changes to update curve plotter
         self.display_mode_switcher.displayModeChanged.connect(self._on_display_mode_changed)
         self.curve_display_modes_manager.displayModeChanged.connect(self._on_display_mode_changed)
+        
+        # Create cross-hole synchronization manager
+        self.cross_hole_sync_manager = create_cross_hole_sync_manager(self)
+        
+        # Connect cross-hole sync signals
+        self.cross_hole_sync_manager.curveSelectionSynced.connect(self._on_cross_hole_curve_selection_synced)
+        self.cross_hole_sync_manager.curveSettingsSynced.connect(self._on_cross_hole_curve_settings_synced)
+        self.cross_hole_sync_manager.syncEnabledChanged.connect(self._on_cross_hole_sync_enabled_changed)
+        self.cross_hole_sync_manager.holeRegistered.connect(self._on_hole_registered)
+        self.cross_hole_sync_manager.holeUnregistered.connect(self._on_hole_unregistered)
+        
+        # Initial sync status update
+        self.update_sync_status_indicator()
 
         # Set bit size for anomaly detection if main_window is available
         if main_window and hasattr(main_window, 'bit_size_mm') and hasattr(self.curvePlotter, 'set_bit_size'):
@@ -513,6 +527,96 @@ class HoleEditorWindow(QWidget):
         print("DEBUG (main_window): Import curve settings requested")
         # TODO: Implement import functionality
         # This would load curve configurations from a JSON file
+    
+    def _on_cross_hole_curve_selection_synced(self, curve_names):
+        """Handle cross-hole curve selection synchronization."""
+        print(f"DEBUG (main_window): Cross-hole curve selection synced: {len(curve_names)} curves")
+        # Update current hole with synced curve selection
+        if hasattr(self, 'curvePlotter') and self.curvePlotter:
+            # TODO: Implement curve selection update
+            pass
+    
+    def _on_cross_hole_curve_settings_synced(self, curve_settings):
+        """Handle cross-hole curve settings synchronization."""
+        print(f"DEBUG (main_window): Cross-hole curve settings synced: {len(curve_settings)} curves")
+        # Update current hole with synced curve settings
+        if hasattr(self, 'curvePlotter') and self.curvePlotter:
+            # Update each curve configuration
+            for curve_name, settings in curve_settings.items():
+                for key, value in settings.items():
+                    self._update_curve_config(curve_name, key, value)
+    
+    def _on_cross_hole_sync_enabled_changed(self, enabled):
+        """Handle cross-hole sync enabled/disabled changes."""
+        print(f"DEBUG (main_window): Cross-hole sync enabled: {enabled}")
+        # Update UI to reflect sync status
+        if hasattr(self, 'statusBar'):
+            status = "ON" if enabled else "OFF"
+            self.statusBar().showMessage(f"Cross-hole sync: {status}", 2000)
+        
+        # Update sync status indicator
+        self.update_sync_status_indicator()
+    
+    def update_sync_status_indicator(self):
+        """Update the sync status indicator in toolbar."""
+        if hasattr(self, 'display_mode_switcher') and hasattr(self, 'cross_hole_sync_manager'):
+            hole_count = self.cross_hole_sync_manager.get_open_hole_count()
+            sync_active = self.cross_hole_sync_manager.is_sync_active()
+            self.display_mode_switcher.update_sync_status(sync_active, hole_count)
+    
+    def _on_sync_settings_requested(self):
+        """Handle sync settings request from toolbar."""
+        print("DEBUG (main_window): Sync settings requested")
+        self.open_sync_settings_dialog()
+    
+    def open_sync_settings_dialog(self):
+        """Open cross-hole sync settings dialog."""
+        from .dialogs.sync_settings_dialog import create_sync_settings_dialog
+        
+        # Get current settings from sync manager
+        current_settings = {}
+        if hasattr(self, 'cross_hole_sync_manager'):
+            current_settings = self.cross_hole_sync_manager.get_settings()
+        
+        # Create dialog
+        dialog = create_sync_settings_dialog(self, current_settings)
+        
+        # Update dialog status
+        hole_count = 0
+        sync_active = False
+        if hasattr(self, 'cross_hole_sync_manager'):
+            hole_count = self.cross_hole_sync_manager.get_open_hole_count()
+            sync_active = self.cross_hole_sync_manager.is_sync_active()
+        
+        dialog.update_status(hole_count, sync_active)
+        
+        # Connect settings changed signal
+        dialog.settingsChanged.connect(self._on_sync_settings_changed)
+        
+        # Show dialog
+        dialog.exec()
+    
+    def _on_sync_settings_changed(self, settings):
+        """Handle sync settings changes from dialog."""
+        print("DEBUG (main_window): Sync settings changed")
+        
+        # Update sync manager
+        if hasattr(self, 'cross_hole_sync_manager'):
+            self.cross_hole_sync_manager.set_settings(settings)
+            self.cross_hole_sync_manager.save_settings()
+            
+            # Update sync status
+            self.cross_hole_sync_manager.set_sync_enabled(settings.get('sync_enabled', True))
+    
+    def _on_hole_registered(self, hole_window):
+        """Handle hole registration with sync manager."""
+        print(f"DEBUG (main_window): Hole registered: {hole_window}")
+        self.update_sync_status_indicator()
+    
+    def _on_hole_unregistered(self, hole_window):
+        """Handle hole unregistration from sync manager."""
+        print(f"DEBUG (main_window): Hole unregistered: {hole_window}")
+        self.update_sync_status_indicator()
     
     def _on_scale_adjusted(self, pixels_per_metre, scale_label):
         """Handle scale adjustment from keyboard controls."""
@@ -1086,6 +1190,7 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'display_mode_switcher'):
             self.display_mode_switcher.exportCurveSettingsRequested.connect(self._on_export_curve_settings)
             self.display_mode_switcher.importCurveSettingsRequested.connect(self._on_import_curve_settings)
+            self.display_mode_switcher.syncSettingsRequested.connect(self._on_sync_settings_requested)
         
         # Initialize enhanced status bar
         self.status_bar_enhancer = StatusBarEnhancer(self.statusBar(), self)
@@ -2042,12 +2147,30 @@ class MainWindow(QMainWindow):
         self.mdi_area.addSubWindow(subwindow)
         subwindow.showMaximized()
 
+        # Register hole with cross-hole sync manager
+        if hasattr(self, 'cross_hole_sync_manager'):
+            self.cross_hole_sync_manager.register_hole(hole_editor)
+        
+        # Connect hole signals for sync updates
+        self._connect_hole_to_sync_manager(hole_editor)
+
         # Optionally tile windows
         # self.mdi_area.tileSubWindows()
 
         # For backward compatibility, still set global las_file_path?
         # self.las_file_path = file_path
         # But we should not call load_las_data() because it would affect the main window's widgets
+    
+    def _connect_hole_to_sync_manager(self, hole_editor):
+        """Connect a hole editor to the cross-hole sync manager."""
+        if not hasattr(self, 'cross_hole_sync_manager'):
+            return
+        
+        # TODO: Connect hole editor signals to sync manager
+        # When hole editor curve selection changes, update sync manager
+        # When hole editor curve settings change, update sync manager
+        
+        print(f"DEBUG (main_window): Connected hole to sync manager: {hole_editor.current_file_path}")
 
     def open_map_window(self):
         """Open a new map window (Phase 5, Task 8)."""
