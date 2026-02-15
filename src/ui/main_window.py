@@ -618,6 +618,19 @@ class HoleEditorWindow(QWidget):
         print(f"DEBUG (main_window): Hole unregistered: {hole_window}")
         self.update_sync_status_indicator()
     
+    def open_curve_templates_dialog(self):
+        """Open curve settings templates dialog."""
+        print("DEBUG (main_window): Opening curve templates dialog")
+        # TODO: Implement curve templates dialog
+        # For now, show a message
+        from PyQt6.QtWidgets import QMessageBox
+        QMessageBox.information(
+            self,
+            "Curve Settings Templates",
+            "Curve settings templates feature is available via the Export/Import buttons in the display mode toolbar.\n\n"
+            "Full template management dialog will be implemented in a future update."
+        )
+    
     def _on_scale_adjusted(self, pixels_per_metre, scale_label):
         """Handle scale adjustment from keyboard controls."""
         print(f"DEBUG (main_window): Scale adjusted via keyboard: {scale_label} ({pixels_per_metre:.1f} px/m)")
@@ -1335,6 +1348,7 @@ class MainWindow(QMainWindow):
         # self.tab_widget.currentChanged.connect(self.on_tab_changed)  # MDI removes tabs
         self._synchronize_views()
         self.create_file_menu()
+        self.create_tools_menu()
         self.create_window_menu()
         self.create_view_menu()
         self.create_help_menu()
@@ -1373,6 +1387,31 @@ class MainWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
         exit_action.setShortcut("Ctrl+Q")
         file_menu.addAction(exit_action)
+
+    def create_tools_menu(self):
+        """Create Tools menu with settings and utilities."""
+        tools_menu = self.menuBar().addMenu("&Tools")
+        
+        # Settings submenu
+        settings_menu = tools_menu.addMenu("Settings")
+        
+        # LAS Settings submenu
+        las_settings_menu = settings_menu.addMenu("LAS")
+        
+        # Sync LAS Curves action
+        sync_las_curves_action = QAction("Sync LAS Curves...", self)
+        sync_las_curves_action.triggered.connect(self.open_sync_settings_dialog)
+        sync_las_curves_action.setToolTip("Configure cross-hole curve synchronization settings")
+        las_settings_menu.addAction(sync_las_curves_action)
+        
+        # Add separator
+        tools_menu.addSeparator()
+        
+        # Curve Settings Templates action
+        curve_templates_action = QAction("Curve Settings Templates...", self)
+        curve_templates_action.triggered.connect(self.open_curve_templates_dialog)
+        curve_templates_action.setToolTip("Manage curve settings templates")
+        tools_menu.addAction(curve_templates_action)
 
     def create_window_menu(self):
         """Create Window menu with tile, cascade, close actions."""
