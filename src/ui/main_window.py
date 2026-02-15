@@ -34,6 +34,7 @@ from .widgets.curve_visibility_toolbar import CurveVisibilityToolbar # Import cu
 from .widgets.curve_display_modes import CurveDisplayModes, create_curve_display_modes # Import curve display modes
 from .widgets.curve_display_mode_switcher import create_display_mode_switcher, create_display_mode_menu # Import display mode switcher
 from .widgets.cross_hole_sync_manager import create_cross_hole_sync_manager, CrossHoleSyncSettings # Import cross-hole sync manager
+from .widgets.curve_export_manager import create_curve_export_manager # Import curve export manager
 from ..core.settings_manager import load_settings, save_settings
 from .dialogs.researched_defaults_dialog import ResearchedDefaultsDialog # Import new dialog
 from .dialogs.column_configurator_dialog import ColumnConfiguratorDialog # Import column configurator dialog
@@ -166,6 +167,11 @@ class HoleEditorWindow(QWidget):
         
         # Initial sync status update
         self.update_sync_status_indicator()
+        
+        # Create curve export manager
+        self.curve_export_manager = create_curve_export_manager(self)
+        self.curve_export_manager.exportProgress.connect(self._on_export_progress)
+        self.curve_export_manager.exportFinished.connect(self._on_export_finished)
 
         # Set bit size for anomaly detection if main_window is available
         if main_window and hasattr(main_window, 'bit_size_mm') and hasattr(self.curvePlotter, 'set_bit_size'):
@@ -630,6 +636,124 @@ class HoleEditorWindow(QWidget):
             "Curve settings templates feature is available via the Export/Import buttons in the display mode toolbar.\n\n"
             "Full template management dialog will be implemented in a future update."
         )
+    
+    def _on_export_progress(self, percent, message):
+        """Handle export progress updates."""
+        print(f"DEBUG (main_window): Export progress: {percent}% - {message}")
+        # TODO: Update UI with progress (progress bar, status message)
+        if hasattr(self, 'statusBar'):
+            self.statusBar().showMessage(f"Export: {message}", 1000)
+    
+    def _on_export_finished(self, success, message):
+        """Handle export completion."""
+        print(f"DEBUG (main_window): Export finished: success={success}, message={message}")
+        
+        from PyQt6.QtWidgets import QMessageBox
+        
+        if success:
+            QMessageBox.information(self, "Export Complete", message)
+        else:
+            QMessageBox.warning(self, "Export Failed", message)
+        
+        # Clear status message
+        if hasattr(self, 'statusBar'):
+            self.statusBar().clearMessage()
+    
+    def export_curves_dialog(self):
+        """Open dialog to export curves to various formats."""
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton, QFileDialog
+        
+        # Check if we have curve data
+        if not hasattr(self, 'curvePlotter') or not self.curvePlotter:
+            QMessageBox.warning(self, "No Data", "No curve data available to export")
+            return
+        
+        # Get curve data and configurations
+        curve_data = self.curvePlotter.data if hasattr(self.curvePlotter, 'data') else None
+        curve_configs = self.curvePlotter.curve_configs if hasattr(self.curvePlotter, 'curve_configs') else []
+        
+        if curve_data is None or curve_data.empty:
+            QMessageBox.warning(self, "No Data", "No curve data available to export")
+            return
+        
+        if not curve_configs:
+            QMessageBox.warning(self, "No Curves", "No curve configurations available")
+            return
+        
+        # Create export dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Export Curves")
+        dialog.setMinimumWidth(400)
+        
+        layout = QVBoxLayout()
+        
+        # Format selection
+        format_layout = QHBoxLayout()
+        format_layout.addWidget(QLabel("Export Format:"))
+        
+        format_combo = QComboBox()
+        supported_formats = self.curve_export_manager.get_supported_formats()
+        for fmt in supported_formats:
+            format_combo.addItem(fmt['name'], fmt['id'])
+        format_layout.addWidget(format_combo)
+        layout.addLayout(format_layout)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        export_button = QPushButton("Export...")
+        cancel_button = QPushButton("Cancel")
+        
+        export_button.clicked.connect(lambda: self._perform_export(
+            dialog, curve_data, curve_configs, format_combo.currentData()
+        ))
+        cancel_button.clicked.connect(dialog.reject)
+        
+        button_layout.addWidget(export_button)
+        button_layout.addWidget(cancel_button)
+        layout.addLayout(button_layout)
+        
+        dialog.setLayout(layout)
+        dialog.exec()
+    
+    def _perform_export(self, dialog, curve_data, curve_configs, format_type):
+        """Perform the export operation."""
+        from PyQt6.QtWidgets import QFileDialog
+        
+        # Get file filter for selected format
+        supported_formats = self.curve_export_manager.get_supported_formats()
+        format_info = next((f for f in supported_formats if f['id'] == format_type), None)
+        
+        if not format_info:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "Error", f"Unsupported format: {format_type}")
+            return
+        
+        # Get save file path
+        file_filter = f"{format_info['name']} ({format_info['extension']})"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, 
+            f"Export Curves as {format_info['name']}",
+            "",
+            file_filter
+        )
+        
+        if not file_path:
+            return  # User cancelled
+        
+        # Ensure correct file extension
+        if not file_path.lower().endswith(format_info['extension'].replace('*.', '')):
+            file_path += format_info['extension'].replace('*', '')
+        
+        # Get default options
+        options = self.curve_export_manager.get_default_options(format_type)
+        options['version'] = '1.0'  # TODO: Get actual version
+        
+        # Perform export
+        self.curve_export_manager.export_curves(
+            curve_data, curve_configs, file_path, format_type, options
+        )
+        
+        dialog.accept()
     
     def _on_scale_adjusted(self, pixels_per_metre, scale_label):
         """Handle scale adjustment from keyboard controls."""
@@ -1412,6 +1536,16 @@ class MainWindow(QMainWindow):
         curve_templates_action.triggered.connect(self.open_curve_templates_dialog)
         curve_templates_action.setToolTip("Manage curve settings templates")
         tools_menu.addAction(curve_templates_action)
+        
+        # Add separator
+        tools_menu.addSeparator()
+        
+        # Export Curves action
+        export_curves_action = QAction("Export Curves...", self)
+        export_curves_action.triggered.connect(self.export_curves_dialog)
+        export_curves_action.setToolTip("Export curves to various formats (CSV, Excel, etc.)")
+        export_curves_action.setShortcut("Ctrl+E")
+        tools_menu.addAction(export_curves_action)
 
     def create_window_menu(self):
         """Create Window menu with tile, cascade, close actions."""
