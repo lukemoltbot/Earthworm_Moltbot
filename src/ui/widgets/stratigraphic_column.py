@@ -53,6 +53,15 @@ class StratigraphicColumn(QGraphicsView):
         
         # Private depth scale storage
         self._depth_scale = 10.0  # Default depth scale
+        
+        # Engineering scale display
+        self.current_scale_label = "1:50"  # Default engineering scale
+        self.show_scale_display = True  # Whether to show scale display
+        
+        # Engineering scale converter
+        from .scale_converter import EngineeringScaleConverter
+        self.scale_converter = EngineeringScaleConverter(self)
+        self.scale_converter.scaleChanged.connect(self._on_scale_changed)
 
     @property
     def depth_scale(self):
@@ -361,7 +370,11 @@ class StratigraphicColumn(QGraphicsView):
                   f"(pixels_between_minor_ticks={pixels_between_minor_ticks:.1f}px <= 5px)")
         
         print(f"DEBUG (StratigraphicColumn._draw_y_axis): Drew {end_whole_metre - start_whole_metre + 1:.0f} whole metre marks")
-
+        
+        # Draw engineering scale display (top-left corner)
+        if self.show_scale_display and not self.overview_mode:
+            self._draw_scale_display(y_top)
+        
         # Remove the old depth labels from the units
         # The previous code for from_depth_text and to_depth_text is removed as it's replaced by the Y-axis.
 
@@ -369,6 +382,54 @@ class StratigraphicColumn(QGraphicsView):
         if self.selected_unit_index is not None:
             self._update_highlight()
 
+    def _draw_scale_display(self, y_top):
+        """Draw engineering scale display in top-left corner."""
+        # Create scale text
+        scale_text = f"Scale: {self.current_scale_label}"
+        
+        # Create text item
+        scale_font = QFont("Arial", 9, QFont.Weight.Bold)
+        scale_text_item = QGraphicsTextItem(scale_text)
+        scale_text_item.setFont(scale_font)
+        scale_text_item.setDefaultTextColor(QColor(0, 0, 0))  # Black
+        
+        # Position in top-left corner with padding
+        padding = 5
+        scale_text_item.setPos(padding, y_top + padding)
+        
+        # Add to scene
+        self.scene.addItem(scale_text_item)
+        
+        print(f"DEBUG (StratigraphicColumn._draw_scale_display): Added scale display: {scale_text}")
+    
+    def _on_scale_changed(self, pixels_per_metre, scale_label):
+        """Handle scale changes from converter."""
+        # Update depth scale if not in overview mode with locked scale
+        if not (self.overview_mode and self.overview_scale_locked):
+            self.depth_scale = pixels_per_metre
+            self.current_scale_label = scale_label
+            print(f"DEBUG (StratigraphicColumn._on_scale_changed): Scale changed: {scale_label} ({pixels_per_metre:.1f} px/m)")
+            
+            # Redraw if we have data
+            if self.units_dataframe is not None and not self.units_dataframe.empty:
+                self.draw_column(self.units_dataframe, self.min_depth, self.max_depth)
+    
+    def set_engineering_scale(self, scale_label):
+        """
+        Set engineering scale.
+        
+        Args:
+            scale_label: Engineering scale label (e.g., '1:50', '1:200')
+        
+        Returns:
+            bool: True if scale was changed, False otherwise
+        """
+        return self.scale_converter.set_scale(scale_label)
+    
+    def get_engineering_scale(self):
+        """Get current engineering scale information."""
+        return self.scale_converter.get_scale_info()
+    
     def highlight_unit(self, unit_index):
         """Highlight the specified unit by index. Pass None to clear highlighting."""
         self.selected_unit_index = unit_index
@@ -450,57 +511,55 @@ class StratigraphicColumn(QGraphicsView):
     def fitInView(self, rect, mode=Qt.AspectRatioMode.IgnoreAspectRatio):
         """Override fitInView to handle overview mode with padding."""
         if self.overview_mode:
-            # In overview mode: Width is fixed and perfect, optimize for height filling
+            # In overview mode: Use KeepAspectRatio to maintain proper scaling
+            # This ensures consistent behavior during resize events
             
             # Validate rectangle
             if rect.width() <= 0 or rect.height() <= 0:
                 print(f"WARNING (StratigraphicColumn.fitInView): Invalid rectangle for overview mode: {rect.width():.1f}x{rect.height():.1f}")
                 return
             
-            print(f"DEBUG (StratigraphicColumn.fitInView): Overview mode - optimizing for height filling")
+            print(f"DEBUG (StratigraphicColumn.fitInView): Overview mode - using KeepAspectRatio with padding")
             print(f"DEBUG (StratigraphicColumn.fitInView): Viewport: {self.viewport().size().width()}x{self.viewport().size().height()}")
             print(f"DEBUG (StratigraphicColumn.fitInView): Scene rect: {rect.width():.1f}x{rect.height():.1f}")
             
             # Use percentage-based padding that adapts to viewport size
-            # 5% padding on all sides, but with minimum of 2px
+            # 5% padding on sides, 10% padding top/bottom for better vertical fit
             viewport_width = self.viewport().size().width()
             viewport_height = self.viewport().size().height()
             
             # Calculate padding as percentage of viewport size
-            width_padding_pct = 0.05  # 5% padding
-            height_padding_pct = 0.05  # 5% padding
+            width_padding_pct = 0.05  # 5% padding on sides
+            height_padding_pct = 0.10  # 10% padding top/bottom
             
             width_padding = max(viewport_width * width_padding_pct, 2.0)
             height_padding = max(viewport_height * height_padding_pct, 2.0)
             
             padded_rect = rect.adjusted(-width_padding, -height_padding, width_padding, height_padding)
             
-            # For overview mode: Calculate scale to fill viewport with adaptive padding
-            # Account for padding on both top and bottom
+            # For overview mode with KeepAspectRatio: Calculate scale to fit within padded area
+            target_width = viewport_width - (2 * width_padding)
             target_height = viewport_height - (2 * height_padding)
-            target_height = max(target_height, 1.0)  # Ensure positive
+            target_width = max(target_width, 1.0)
+            target_height = max(target_height, 1.0)
             
-            if padded_rect.height() > 0:
-                # Calculate scale based on height target
+            if padded_rect.width() > 0 and padded_rect.height() > 0:
+                # Calculate scale factors for width and height
+                width_scale = target_width / padded_rect.width()
                 height_scale = target_height / padded_rect.height()
                 
-                # Also calculate width scale to ensure content fits horizontally
-                target_width = viewport_width - (2 * width_padding)
-                target_width = max(target_width, 1.0)
-                width_scale = target_width / padded_rect.width() if padded_rect.width() > 0 else height_scale
-                
-                # Use the smaller scale to ensure everything fits
-                scale = min(height_scale, width_scale)
+                # For KeepAspectRatio, use the smaller scale to ensure everything fits
+                scale = min(width_scale, height_scale)
                 
                 scaled_width = padded_rect.width() * scale
                 scaled_height = padded_rect.height() * scale
                 
-                print(f"DEBUG (StratigraphicColumn.fitInView): Adaptive padding optimization:")
+                print(f"DEBUG (StratigraphicColumn.fitInView): KeepAspectRatio optimization:")
                 print(f"DEBUG (StratigraphicColumn.fitInView):   Viewport: {viewport_width}x{viewport_height}px")
                 print(f"DEBUG (StratigraphicColumn.fitInView):   Padding: {width_padding:.1f}px L/R, {height_padding:.1f}px T/B")
                 print(f"DEBUG (StratigraphicColumn.fitInView):   Target area: {target_width:.1f}x{target_height:.1f}px")
                 print(f"DEBUG (StratigraphicColumn.fitInView):   Padded rect: {padded_rect.width():.1f}x{padded_rect.height():.1f}px")
-                print(f"DEBUG (StratigraphicColumn.fitInView):   Calculated scale: {scale:.4f} (height_scale={height_scale:.4f}, width_scale={width_scale:.4f})")
+                print(f"DEBUG (StratigraphicColumn.fitInView):   Calculated scale: {scale:.4f} (width_scale={width_scale:.4f}, height_scale={height_scale:.4f})")
                 print(f"DEBUG (StratigraphicColumn.fitInView):   Scaled size: {scaled_width:.1f}x{scaled_height:.1f}px")
                 
                 # Apply the calculated scale
@@ -515,7 +574,7 @@ class StratigraphicColumn(QGraphicsView):
                 # Force immediate update
                 self.viewport().update()
             else:
-                # Fallback to normal fitInView
+                # Fallback to normal fitInView with KeepAspectRatio
                 super().fitInView(padded_rect, Qt.AspectRatioMode.KeepAspectRatio)
         else:
             # Allow normal fitInView behavior for non-overview mode
@@ -617,6 +676,10 @@ class StratigraphicColumn(QGraphicsView):
             
             # Don't calculate fixed scale - we'll use fitInView instead
             self.overview_scale_locked = False  # Not using manual scale anymore
+            
+            # Set overview engineering scale to 1:200
+            self.set_engineering_scale('1:200')
+            print(f"DEBUG (StratigraphicColumn.set_overview_mode): Set overview engineering scale to 1:200")
             
             print(f"DEBUG (StratigraphicColumn.set_overview_mode): Using fitInView with padding (5% L/R, 10% T/B)")
             

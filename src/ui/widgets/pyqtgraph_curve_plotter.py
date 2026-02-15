@@ -19,6 +19,9 @@ from .data_stream_manager import DataStreamManager, LoadingStrategy
 from .viewport_cache_manager import ViewportCacheManager
 from .scroll_optimizer import ScrollOptimizer
 
+# Import 1Point-style curve display modes
+from .curve_display_modes import CurveDisplayModes, create_curve_display_modes
+
 class PyQtGraphCurvePlotter(QWidget):
     """A PyQtGraph-based curve plotter widget with improved performance and dual-axis support."""
     
@@ -111,6 +114,10 @@ class PyQtGraphCurvePlotter(QWidget):
         self.viewport_cache_manager = None
         self.scroll_optimizer = None
         self.performance_monitor_enabled = False
+        
+        # 1Point-style Curve Display Modes
+        self.curve_display_modes = create_curve_display_modes()
+        self.current_display_mode = 'overlaid'  # Default to overlaid mode
         
         # Setup UI
         self.setup_ui()
@@ -570,6 +577,53 @@ class PyQtGraphCurvePlotter(QWidget):
         if self.data is not None and not self.data.empty:
             self.update_y_axis_ticks()
         
+    def set_display_mode(self, mode_name: str) -> bool:
+        """
+        Set the curve display mode.
+        
+        Args:
+            mode_name: One of 'overlaid', 'stacked', 'side_by_side', 'histogram'
+        
+        Returns:
+            bool: True if mode was changed, False otherwise
+        """
+        if mode_name not in self.curve_display_modes.get_available_modes():
+            print(f"Warning: Unknown display mode: {mode_name}")
+            return False
+            
+        if self.curve_display_modes.set_mode(mode_name):
+            self.current_display_mode = mode_name
+            print(f"Display mode changed to: {mode_name}")
+            
+            # Redraw curves with new mode
+            if self.data is not None and not self.data.empty:
+                self.draw_curves()
+            return True
+            
+        return False
+    
+    def get_display_mode(self) -> str:
+        """Get current display mode name."""
+        return self.current_display_mode
+    
+    def get_available_display_modes(self) -> list:
+        """Get list of available display mode names."""
+        return self.curve_display_modes.get_available_modes()
+    
+    def get_display_mode_info(self, mode_name: str = None) -> dict:
+        """
+        Get information about a display mode.
+        
+        Args:
+            mode_name: Mode name (defaults to current mode)
+        
+        Returns:
+            dict: Mode information
+        """
+        if mode_name is None:
+            mode_name = self.current_display_mode
+        return self.curve_display_modes.get_mode_info(mode_name) or {}
+    
     def draw_curves(self):
         """Draw all configured curves using PyQtGraph with dual-axis support."""
         # Phase 3.2: Try to use viewport cache first
@@ -619,6 +673,12 @@ class PyQtGraphCurvePlotter(QWidget):
             
         depth_data = self.data[self.depth_column].values
         
+        # Configure plot for current display mode
+        if self.current_display_mode == 'histogram':
+            # For histogram mode, configure the plot
+            self.curve_display_modes.configure_plot(self.plot_widget, self.curve_configs)
+        # Note: Other modes will use existing dual-axis configuration
+        
         # Get sorted curve configs using legacy ordering
         sorted_configs = self.get_sorted_curve_configs()
         
@@ -653,46 +713,65 @@ class PyQtGraphCurvePlotter(QWidget):
         self.resistivity_curves = []
         self.curve_items = {}  # Dictionary mapping curve_name -> curve item(s)
         
-        # Plot density curves on main plot (bottom axis)
-        for config in density_configs:
-            curve_name = config['name']
-            color = config['color']
-            thickness = config.get('thickness', 1.5)
-            
-            if curve_name not in self.data.columns:
-                continue
+        # Use 1Point-style display modes for density curves
+        if self.current_display_mode == 'histogram':
+            # For histogram mode, use the display modes system
+            self.curve_display_modes.draw_curves(
+                self.plot_widget, 
+                self.data, 
+                self.depth_column, 
+                density_configs
+            )
+        else:
+            # For other modes, use existing dual-axis logic (for now)
+            # Plot density curves on main plot (bottom axis)
+            for config in density_configs:
+                curve_name = config['name']
+                color = config['color']
+                thickness = config.get('thickness', 1.5)
                 
-            # Extract curve data
-            curve_data = self.data[curve_name].values
-            
-            # Filter out NaN values
-            mask = ~np.isnan(curve_data)
-            if not np.any(mask):
-                continue
+                if curve_name not in self.data.columns:
+                    continue
+                    
+                # Extract curve data
+                curve_data = self.data[curve_name].values
                 
-            valid_depths = depth_data[mask]
-            valid_values = curve_data[mask]
-            
-            # Create pen for the curve
-            pen = pg.mkPen(color=color, width=thickness)
-            
-            # Apply inversion if specified
-            # Note: In legacy plotter:
-            # - inverted=False: axis IS inverted (for well logs) - low values on right, high on left
-            # - inverted=True: axis is NOT inverted - low values on left, high on right
-            inverted = config.get('inverted', False)
-            
-            # Plot the curve - we'll handle inversion at axis level
-            curve = self.plot_widget.plot(valid_values, valid_depths, pen=pen, name=curve_name)
-            
-            # Store inversion state
-            curve.inverted = inverted
-            
-            # Store reference
-            curve.config = config
-            self.density_curves.append(curve)
-            # Store in dictionary for visibility control
-            self.curve_items[curve_name] = curve
+                # Filter out NaN values
+                mask = ~np.isnan(curve_data)
+                if not np.any(mask):
+                    continue
+                    
+                valid_depths = depth_data[mask]
+                valid_values = curve_data[mask]
+                
+                # Create pen for the curve with line style
+                line_style = config.get('line_style', 'solid')
+                if line_style == 'dotted':
+                    pen = pg.mkPen(color=color, width=thickness, style=Qt.PenStyle.DotLine)
+                elif line_style == 'dashed':
+                    pen = pg.mkPen(color=color, width=thickness, style=Qt.PenStyle.DashLine)
+                elif line_style == 'dash_dot':
+                    pen = pg.mkPen(color=color, width=thickness, style=Qt.PenStyle.DashDotLine)
+                else:  # solid
+                    pen = pg.mkPen(color=color, width=thickness)
+                
+                # Apply inversion if specified
+                # Note: In legacy plotter:
+                # - inverted=False: axis IS inverted (for well logs) - low values on right, high on left
+                # - inverted=True: axis is NOT inverted - low values on left, high on right
+                inverted = config.get('inverted', False)
+                
+                # Plot the curve - we'll handle inversion at axis level
+                curve = self.plot_widget.plot(valid_values, valid_depths, pen=pen, name=curve_name)
+                
+                # Store inversion state
+                curve.inverted = inverted
+                
+                # Store reference
+                curve.config = config
+                self.density_curves.append(curve)
+                # Store in dictionary for visibility control
+                self.curve_items[curve_name] = curve
         
         # Plot caliper curves on caliper viewbox (bottom2 axis)
         for config in caliper_configs:
@@ -714,8 +793,16 @@ class PyQtGraphCurvePlotter(QWidget):
             valid_depths = depth_data[mask]
             valid_values = curve_data[mask]
             
-            # Create pen for the curve
-            pen = pg.mkPen(color=color, width=thickness)
+            # Create pen for the curve with line style
+            line_style = config.get('line_style', 'solid')
+            if line_style == 'dotted':
+                pen = pg.mkPen(color=color, width=thickness, style=Qt.PenStyle.DotLine)
+            elif line_style == 'dashed':
+                pen = pg.mkPen(color=color, width=thickness, style=Qt.PenStyle.DashLine)
+            elif line_style == 'dash_dot':
+                pen = pg.mkPen(color=color, width=thickness, style=Qt.PenStyle.DashDotLine)
+            else:  # solid
+                pen = pg.mkPen(color=color, width=thickness)
             
             # Apply inversion if specified
             inverted = config.get('inverted', False)
@@ -756,8 +843,16 @@ class PyQtGraphCurvePlotter(QWidget):
             valid_depths = depth_data[mask]
             valid_values = curve_data[mask]
             
-            # Create pen for the curve
-            pen = pg.mkPen(color=color, width=thickness)
+            # Create pen for the curve with line style
+            line_style = config.get('line_style', 'solid')
+            if line_style == 'dotted':
+                pen = pg.mkPen(color=color, width=thickness, style=Qt.PenStyle.DotLine)
+            elif line_style == 'dashed':
+                pen = pg.mkPen(color=color, width=thickness, style=Qt.PenStyle.DashLine)
+            elif line_style == 'dash_dot':
+                pen = pg.mkPen(color=color, width=thickness, style=Qt.PenStyle.DashDotLine)
+            else:  # solid
+                pen = pg.mkPen(color=color, width=thickness)
             
             # Apply inversion if specified
             inverted = config.get('inverted', False)
@@ -798,8 +893,16 @@ class PyQtGraphCurvePlotter(QWidget):
             valid_depths = depth_data[mask]
             valid_values = curve_data[mask]
             
-            # Create pen for the curve
-            pen = pg.mkPen(color=color, width=thickness)
+            # Create pen for the curve with line style
+            line_style = config.get('line_style', 'solid')
+            if line_style == 'dotted':
+                pen = pg.mkPen(color=color, width=thickness, style=Qt.PenStyle.DotLine)
+            elif line_style == 'dashed':
+                pen = pg.mkPen(color=color, width=thickness, style=Qt.PenStyle.DashLine)
+            elif line_style == 'dash_dot':
+                pen = pg.mkPen(color=color, width=thickness, style=Qt.PenStyle.DashDotLine)
+            else:  # solid
+                pen = pg.mkPen(color=color, width=thickness)
             
             # Apply inversion if specified
             inverted = config.get('inverted', False)
@@ -2025,7 +2128,22 @@ class PyQtGraphCurvePlotter(QWidget):
             self.zoom_state_manager.zoomStateChanged.connect(self._on_zoom_state_changed)
             self.zoom_state_manager.zoomLevelChanged.connect(self._on_zoom_level_changed)
             self.zoom_state_manager.depthScaleChanged.connect(self._on_depth_scale_changed)
+            
+            # Connect engineering scale signal if available
+            if hasattr(self.zoom_state_manager, 'engineeringScaleChanged'):
+                self.zoom_state_manager.engineeringScaleChanged.connect(self._on_engineering_scale_changed)
+            
             print(f"DEBUG (PyQtGraphCurvePlotter): Zoom state manager set")
+    
+    def _on_engineering_scale_changed(self, scale_label, pixels_per_metre):
+        """Handle engineering scale changes."""
+        self.depth_scale = pixels_per_metre
+        self.current_scale_label = scale_label
+        
+        # Update scale display
+        self.update_scale_display()
+        
+        print(f"DEBUG (PyQtGraphCurvePlotter): Engineering scale changed: {scale_label} ({pixels_per_metre:.1f} px/m)")
             
     def _on_zoom_state_changed(self, center_depth, min_depth, max_depth):
         """Handle zoom state changes from zoom manager."""
@@ -2045,11 +2163,41 @@ class PyQtGraphCurvePlotter(QWidget):
         self.zoomLevelChanged.emit(zoom_factor)
         print(f"DEBUG (PyQtGraphCurvePlotter): Zoom level changed: {zoom_factor:.2f}")
         
-    def _on_depth_scale_changed(self, depth_scale):
+    def _on_depth_scale_changed(self, depth_scale, scale_label=None):
         """Handle depth scale changes from zoom manager."""
         if depth_scale > 0:
             self.depth_scale = depth_scale
-            print(f"DEBUG (PyQtGraphCurvePlotter): Depth scale changed: {depth_scale}")
+            self.current_scale_label = scale_label or f"{depth_scale:.1f} px/m"
+            
+            # Update scale display if available
+            self.update_scale_display()
+            
+            print(f"DEBUG (PyQtGraphCurvePlotter): Depth scale changed: {depth_scale} ({self.current_scale_label})")
+    
+    def update_scale_display(self):
+        """Update the scale display in the plot."""
+        # Create or update scale text item
+        if not hasattr(self, 'scale_text_item'):
+            # Create scale text item
+            self.scale_text_item = pg.TextItem(
+                text="",
+                color=(0, 0, 0),  # Black
+                anchor=(1, 1)  # Bottom-right corner
+            )
+            self.plot_widget.addItem(self.scale_text_item)
+        
+        # Set scale text
+        scale_text = f"Scale: {self.current_scale_label}"
+        self.scale_text_item.setText(scale_text)
+        
+        # Position in bottom-right corner
+        view_range = self.plot_widget.viewRange()
+        if view_range and len(view_range) > 1:
+            x_min, x_max = view_range[0]
+            y_min, y_max = view_range[1]
+            
+            # Position at bottom-right with padding
+            self.scale_text_item.setPos(x_max - 10, y_min + 10)
             
     def get_zoom_factor(self):
         """Get current zoom factor."""

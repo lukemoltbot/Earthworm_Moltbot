@@ -31,6 +31,8 @@ from .widgets.pyqtgraph_curve_plotter import PyQtGraphCurvePlotter # Import PyQt
 from .widgets.enhanced_range_gap_visualizer import EnhancedRangeGapVisualizer # Import enhanced widget
 from .widgets.curve_visibility_manager import CurveVisibilityManager # Import curve visibility manager
 from .widgets.curve_visibility_toolbar import CurveVisibilityToolbar # Import curve visibility toolbar
+from .widgets.curve_display_modes import CurveDisplayModes, create_curve_display_modes # Import curve display modes
+from .widgets.curve_display_mode_switcher import create_display_mode_switcher, create_display_mode_menu # Import display mode switcher
 from ..core.settings_manager import load_settings, save_settings
 from .dialogs.researched_defaults_dialog import ResearchedDefaultsDialog # Import new dialog
 from .dialogs.column_configurator_dialog import ColumnConfiguratorDialog # Import column configurator dialog
@@ -44,7 +46,15 @@ from .widgets.multi_attribute_widget import MultiAttributeWidget
 from .widgets.enhanced_pattern_preview import EnhancedPatternPreview
 from .widgets.lithology_table import LithologyTableWidget
 from .widgets.map_window import MapWindow # Import MapWindow for Phase 5
+from .context_menus import OnePointContextMenus # Import 1Point-style context menus
+from .status_bar_enhancer import StatusBarEnhancer # Import enhanced status bar
 from .widgets.cross_section_window import CrossSectionWindow # Import CrossSectionWindow for Phase 5
+
+# Layout presets system
+from .layout_presets import OnePointLayoutPresets, LayoutManager
+from .widgets.layout_toolbar import LayoutToolbar
+from .dialogs.layout_manager_dialog import LayoutManagerDialog
+from .dialogs.save_layout_dialog import SaveLayoutDialog
 
 # Icon loader for unique, visible icons
 from .icon_loader import (
@@ -106,14 +116,42 @@ class HoleEditorWindow(QWidget):
         
         # Create zoom state manager for synchronization
         from .widgets.zoom_state_manager import ZoomStateManager
+        from .widgets.scale_keyboard_controls import ScaleKeyboardControls
+        
         self.zoom_state_manager = ZoomStateManager(self)
         self.zoom_state_manager.set_widgets(self.enhancedStratColumnView, self.curvePlotter)
+        
+        # Connect engineering scale signal
+        self.zoom_state_manager.engineeringScaleChanged.connect(self._on_engineering_scale_changed)
+        
+        # Create scale keyboard controls
+        self.scale_keyboard_controls = ScaleKeyboardControls(self, self.zoom_state_manager.scale_converter)
+        self.scale_keyboard_controls.scaleAdjusted.connect(self._on_scale_adjusted)
+        
+        # Set default engineering scales
+        # Detailed view: 1:50, Overview: 1:200
+        self.zoom_state_manager.set_engineering_scale('1:50')  # Default detailed view
+        print(f"DEBUG (MainWindow): Set default engineering scale: 1:50 for detailed view")
+        
+        # Set overview scale to 1:200
+        # Note: Overview scale is handled separately in stratigraphic_column.py
+        # We'll update the stratigraphic column to use engineering scales
 
         # Create curve visibility manager
         self.curve_visibility_manager = CurveVisibilityManager(self.curvePlotter)
         
         # Create curve visibility toolbar
         self.curve_visibility_toolbar = CurveVisibilityToolbar(self, self.curve_visibility_manager)
+        
+        # Create curve display modes manager
+        self.curve_display_modes_manager = create_curve_display_modes()
+        
+        # Create display mode switcher toolbar
+        self.display_mode_switcher = create_display_mode_switcher(self, self.curve_display_modes_manager)
+        
+        # Connect display mode changes to update curve plotter
+        self.display_mode_switcher.displayModeChanged.connect(self._on_display_mode_changed)
+        self.curve_display_modes_manager.displayModeChanged.connect(self._on_display_mode_changed)
 
         # Set bit size for anomaly detection if main_window is available
         if main_window and hasattr(main_window, 'bit_size_mm') and hasattr(self.curvePlotter, 'set_bit_size'):
@@ -156,6 +194,7 @@ class HoleEditorWindow(QWidget):
         self._setup_enhanced_column_sync()
 
         self.setup_ui()
+        self.setup_ui_enhancements()
 
         if file_path:
             # Load data in background
@@ -168,6 +207,9 @@ class HoleEditorWindow(QWidget):
 
         # Add curve visibility toolbar at the top
         main_layout.addWidget(self.curve_visibility_toolbar)
+        
+        # Add display mode switcher toolbar
+        main_layout.addWidget(self.display_mode_switcher)
         
         # Add loading indicator at the top (hidden by default)
         loading_layout = QHBoxLayout()
@@ -358,7 +400,127 @@ class HoleEditorWindow(QWidget):
         print(f"DEBUG (main_window): Zoom level changed: {zoom_factor:.2f}")
         # Update any UI elements that show zoom level
         if hasattr(self, 'statusBar'):
-            self.statusBar().showMessage(f"Zoom: {zoom_factor:.1f}x", 2000)
+            # Get engineering scale info if available
+            scale_text = f"Zoom: {zoom_factor:.1f}x"
+            if hasattr(self, 'zoom_state_manager'):
+                scale_info = self.zoom_state_manager.get_engineering_scale()
+                if scale_info:
+                    scale_text = f"Scale: {scale_info.get('display_name', '1:50')} | Zoom: {zoom_factor:.1f}x"
+            
+            self.statusBar().showMessage(scale_text, 2000)
+    
+    def _on_engineering_scale_changed(self, scale_label, pixels_per_metre):
+        """Handle engineering scale changes."""
+        print(f"DEBUG (main_window): Engineering scale changed: {scale_label} ({pixels_per_metre:.1f} px/m)")
+        
+        # Update status bar
+        if hasattr(self, 'statusBar'):
+            # Get current zoom factor if available
+            zoom_text = ""
+            if hasattr(self, 'zoom_state_manager'):
+                zoom_state = self.zoom_state_manager.get_zoom_state()
+                zoom_factor = zoom_state.get('zoom_factor', 1.0)
+                zoom_text = f" | Zoom: {zoom_factor:.1f}x"
+            
+            self.statusBar().showMessage(f"Scale: {scale_label}{zoom_text}", 2000)
+    
+    def _on_display_mode_changed(self, mode_name, mode_info):
+        """Handle curve display mode changes."""
+        print(f"DEBUG (main_window): Display mode changed: {mode_name}")
+        
+        # Update curve plotter with new display mode
+        if hasattr(self, 'curvePlotter') and self.curvePlotter:
+            # Use the curve plotter's built-in display mode support
+            if hasattr(self.curvePlotter, 'set_display_mode'):
+                success = self.curvePlotter.set_display_mode(mode_name)
+                if success:
+                    print(f"DEBUG (main_window): Curve plotter display mode updated to: {mode_name}")
+                else:
+                    print(f"DEBUG (main_window): Failed to update curve plotter display mode")
+        
+        # Update status bar
+        if hasattr(self, 'statusBar'):
+            display_name = mode_info.get('name', mode_name)
+            self.statusBar().showMessage(f"Display mode: {display_name}", 2000)
+    
+    def _update_curve_config(self, curve_name, key, value):
+        """Update a curve configuration and redraw."""
+        if not hasattr(self, 'curvePlotter') or not self.curvePlotter:
+            print(f"DEBUG (main_window): No curve plotter available")
+            return False
+            
+        # Get current curve configurations
+        if not hasattr(self.curvePlotter, 'curve_configs'):
+            print(f"DEBUG (main_window): Curve plotter has no curve_configs")
+            return False
+            
+        # Find and update the curve configuration
+        updated = False
+        for config in self.curvePlotter.curve_configs:
+            if config.get('name') == curve_name:
+                config[key] = value
+                updated = True
+                break
+        
+        if updated:
+            # Redraw curves with updated configuration
+            self.curvePlotter.draw_curves()
+            print(f"DEBUG (main_window): Updated curve '{curve_name}' {key} = {value}")
+            return True
+        else:
+            print(f"DEBUG (main_window): Curve '{curve_name}' not found in configurations")
+            return False
+    
+    def _on_curve_color_changed(self, curve_name, color):
+        """Handle curve color changes from context menu."""
+        print(f"DEBUG (main_window): Curve color changed: {curve_name} = {color.name()}")
+        # Convert QColor to hex string
+        hex_color = color.name()
+        self._update_curve_config(curve_name, 'color', hex_color)
+        
+    def _on_curve_thickness_changed(self, curve_name, thickness):
+        """Handle curve thickness changes from context menu."""
+        print(f"DEBUG (main_window): Curve thickness changed: {curve_name} = {thickness}")
+        self._update_curve_config(curve_name, 'thickness', thickness)
+        
+    def _on_curve_line_style_changed(self, curve_name, line_style):
+        """Handle curve line style changes from context menu."""
+        print(f"DEBUG (main_window): Curve line style changed: {curve_name} = {line_style}")
+        self._update_curve_config(curve_name, 'line_style', line_style)
+        
+    def _on_curve_inverted_changed(self, curve_name, inverted):
+        """Handle curve inversion changes from context menu."""
+        print(f"DEBUG (main_window): Curve inverted changed: {curve_name} = {inverted}")
+        self._update_curve_config(curve_name, 'inverted', inverted)
+        
+    def _on_curve_visibility_changed(self, curve_name, visible):
+        """Handle curve visibility changes from context menu."""
+        print(f"DEBUG (main_window): Curve visibility changed: {curve_name} = {visible}")
+        # Update curve visibility manager if available
+        if hasattr(self, 'curve_visibility_manager'):
+            self.curve_visibility_manager.set_curve_visibility(curve_name, visible)
+        # Also update curve configuration
+        self._update_curve_config(curve_name, 'visible', visible)
+    
+    def _on_export_curve_settings(self):
+        """Handle export curve settings request."""
+        print("DEBUG (main_window): Export curve settings requested")
+        # TODO: Implement export functionality
+        # This would save current curve configurations to a JSON file
+        
+    def _on_import_curve_settings(self):
+        """Handle import curve settings request."""
+        print("DEBUG (main_window): Import curve settings requested")
+        # TODO: Implement import functionality
+        # This would load curve configurations from a JSON file
+    
+    def _on_scale_adjusted(self, pixels_per_metre, scale_label):
+        """Handle scale adjustment from keyboard controls."""
+        print(f"DEBUG (main_window): Scale adjusted via keyboard: {scale_label} ({pixels_per_metre:.1f} px/m)")
+        
+        # Update zoom state manager
+        if hasattr(self, 'zoom_state_manager'):
+            self.zoom_state_manager.set_engineering_scale(scale_label)
 
     def _on_splitter_moved(self, pos, index):
         """Handle splitter movement to maintain proportional overview width."""
@@ -908,6 +1070,35 @@ class MainWindow(QMainWindow):
             "data_editor": True,
             "overview_stratigraphic": True
         })
+        
+        # Phase 4: UI Enhancements
+        # Initialize 1Point-style context menus
+        self.context_menus = OnePointContextMenus(self)
+        
+        # Connect context menu signals for curve customization
+        self.context_menus.curveColorChanged.connect(self._on_curve_color_changed)
+        self.context_menus.curveThicknessChanged.connect(self._on_curve_thickness_changed)
+        self.context_menus.curveLineStyleChanged.connect(self._on_curve_line_style_changed)
+        self.context_menus.curveInvertedChanged.connect(self._on_curve_inverted_changed)
+        self.context_menus.curveVisibilityChanged.connect(self._on_curve_visibility_changed)
+        
+        # Connect display mode switcher signals
+        if hasattr(self, 'display_mode_switcher'):
+            self.display_mode_switcher.exportCurveSettingsRequested.connect(self._on_export_curve_settings)
+            self.display_mode_switcher.importCurveSettingsRequested.connect(self._on_import_curve_settings)
+        
+        # Initialize enhanced status bar
+        self.status_bar_enhancer = StatusBarEnhancer(self.statusBar(), self)
+        
+        # Load UI enhancement settings
+        self.ui_enhancement_settings = app_settings.get("ui_enhancements", {
+            'context_menus_enabled': True,
+            'engineering_scale_enabled': True,
+            'mouse_coordinates_enabled': True,
+            'distance_display_enabled': True,
+            'keyboard_shortcuts_enabled': True,
+            'workspace_management_enabled': True
+        })
 
         self.lithology_qualifier_map = self.load_lithology_qualifier_map()
         self.coallog_data = self.load_coallog_data()
@@ -930,6 +1121,10 @@ class MainWindow(QMainWindow):
 
         # Settings dirty flag for safety workflow (Phase 5 Task 5.2)
         self.settings_dirty = False
+
+        # Layout presets system
+        self.layout_manager = LayoutManager()
+        self.layout_toolbar = None  # Will be created in create_toolbar()
 
         # MDI area will replace tab widget (1PD UI/UX Phase 1)
         # Create central widget with vertical layout: control panel at top, MDI area below
@@ -1108,6 +1303,52 @@ class MainWindow(QMainWindow):
         """Create View menu with view options."""
         view_menu = self.menuBar().addMenu("&View")
 
+        # Layout presets submenu
+        layout_menu = view_menu.addMenu("&Layout Presets")
+        
+        # Add built-in presets
+        presets = OnePointLayoutPresets.get_all_presets()
+        for key, preset in presets.items():
+            action = QAction(preset.name, self)
+            action.setToolTip(preset.description)
+            shortcut = preset.metadata.get('keyboard_shortcut', '')
+            if shortcut:
+                action.setShortcut(shortcut)
+            action.triggered.connect(
+                lambda checked, p=preset.name: self._on_layout_preset_selected(p)
+            )
+            layout_menu.addAction(action)
+        
+        # Add separator
+        layout_menu.addSeparator()
+        
+        # Add custom layouts if any
+        custom_layouts = self.layout_manager.custom_layouts
+        if custom_layouts:
+            custom_menu = layout_menu.addMenu("Custom Layouts")
+            for name in sorted(custom_layouts.keys()):
+                action = QAction(name, self)
+                action.triggered.connect(
+                    lambda checked, n=name: self._on_layout_preset_selected(n)
+                )
+                custom_menu.addAction(action)
+        
+        # Add separator
+        layout_menu.addSeparator()
+        
+        # Save current layout
+        save_layout_action = QAction("Save Current Layout...", self)
+        save_layout_action.triggered.connect(self._on_save_custom_layout)
+        layout_menu.addAction(save_layout_action)
+        
+        # Manage layouts
+        manage_layouts_action = QAction("Manage Custom Layouts...", self)
+        manage_layouts_action.triggered.connect(self._on_manage_layouts)
+        layout_menu.addAction(manage_layouts_action)
+
+        # Add separator
+        view_menu.addSeparator()
+
         # Show/Hide docks
         show_settings_action = QAction("Advanced Settings", self)
         show_settings_action.triggered.connect(self.open_advanced_settings_dialog)
@@ -1227,6 +1468,7 @@ class MainWindow(QMainWindow):
 
     def create_toolbar(self):
         """Create main toolbar with common actions and dedicated icon area."""
+        # Create main toolbar
         toolbar = QToolBar("Main Toolbar", self)
         toolbar.setMovable(True)
         self.addToolBar(toolbar)
@@ -1236,6 +1478,12 @@ class MainWindow(QMainWindow):
         load_action.setToolTip("Load LAS File")
         load_action.triggered.connect(self.load_las_file_dialog)
         toolbar.addAction(load_action)
+
+        # Add separator
+        toolbar.addSeparator()
+
+        # Create layout toolbar
+        self._create_layout_toolbar()
 
         # Add separator
         toolbar.addSeparator()
@@ -1290,6 +1538,16 @@ class MainWindow(QMainWindow):
         self.settings_icon_button = settings_icon_button
         self.create_interbedding_icon_button = create_interbedding_icon_button
         self.export_csv_icon_button = export_csv_icon_button
+    
+    def _create_layout_toolbar(self):
+        """Create and add layout toolbar."""
+        self.layout_toolbar = LayoutToolbar(self, self.layout_manager)
+        self.layout_toolbar.presetSelected.connect(self._on_layout_preset_selected)
+        self.layout_toolbar.saveCustomLayout.connect(self._on_save_custom_layout)
+        self.layout_toolbar.manageLayouts.connect(self._on_manage_layouts)
+        
+        # Add layout toolbar to main window
+        self.addToolBar(self.layout_toolbar)
 
     def create_pane_toggle_toolbar(self, parent_toolbar):
         """Create pane toggle buttons in the toolbar."""
@@ -1380,6 +1638,109 @@ class MainWindow(QMainWindow):
         
         # Save settings
         self.update_settings(auto_save=True)
+    
+    def _on_layout_preset_selected(self, preset_name: str):
+        """Handle layout preset selection from toolbar."""
+        print(f"Layout preset selected: {preset_name}")
+        
+        # Get the active hole editor window
+        active_window = self._get_active_hole_editor()
+        if not active_window:
+            QMessageBox.warning(self, "No Active Window", "Please open a hole editor window first.")
+            return
+        
+        # Get the preset
+        preset = OnePointLayoutPresets.get_preset_by_name(preset_name)
+        if not preset:
+            # Check if it's a custom layout
+            preset = self.layout_manager.get_custom_layout(preset_name)
+        
+        if preset:
+            # Apply the preset
+            success = self.layout_manager.apply_preset(preset, active_window)
+            if success:
+                print(f"Applied layout preset: {preset_name}")
+            else:
+                QMessageBox.warning(self, "Apply Failed", f"Failed to apply layout preset: {preset_name}")
+        else:
+            QMessageBox.warning(self, "Preset Not Found", f"Layout preset not found: {preset_name}")
+    
+    def _on_save_custom_layout(self):
+        """Handle save custom layout request."""
+        print("Save custom layout requested")
+        
+        # Get the active hole editor window
+        active_window = self._get_active_hole_editor()
+        if not active_window:
+            QMessageBox.warning(self, "No Active Window", "Please open a hole editor window first.")
+            return
+        
+        # Get existing layout names
+        existing_layouts = list(self.layout_manager.custom_layouts.keys())
+        
+        # Show save dialog
+        dialog = SaveLayoutDialog(self, existing_layouts)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            layout_name = dialog.get_layout_name()
+            layout_description = dialog.get_layout_description()
+            options = dialog.get_options()
+            
+            # Save the layout
+            success = self.layout_manager.save_custom_layout(
+                layout_name, layout_description, active_window
+            )
+            
+            if success:
+                # Update toolbar menu
+                if self.layout_toolbar:
+                    self.layout_toolbar.update_custom_layouts_menu()
+                
+                QMessageBox.information(
+                    self, "Layout Saved", 
+                    f"Custom layout '{layout_name}' saved successfully."
+                )
+            else:
+                QMessageBox.warning(
+                    self, "Save Failed", 
+                    f"Failed to save custom layout '{layout_name}'."
+                )
+    
+    def _on_manage_layouts(self):
+        """Handle manage layouts request."""
+        print("Manage layouts requested")
+        
+        # Show layout manager dialog
+        dialog = LayoutManagerDialog(self, self.layout_manager)
+        dialog.layoutRenamed.connect(self._on_layout_renamed)
+        dialog.layoutDeleted.connect(self._on_layout_deleted)
+        dialog.layoutApplied.connect(self._on_layout_preset_selected)
+        
+        dialog.exec()
+    
+    def _on_layout_renamed(self, old_name: str, new_name: str):
+        """Handle layout renamed event."""
+        print(f"Layout renamed: {old_name} -> {new_name}")
+        
+        # Update toolbar menu
+        if self.layout_toolbar:
+            self.layout_toolbar.update_custom_layouts_menu()
+    
+    def _on_layout_deleted(self, layout_name: str):
+        """Handle layout deleted event."""
+        print(f"Layout deleted: {layout_name}")
+        
+        # Update toolbar menu
+        if self.layout_toolbar:
+            self.layout_toolbar.update_custom_layouts_menu()
+    
+    def _get_active_hole_editor(self):
+        """Get the currently active hole editor window."""
+        active_subwindow = self.mdi_area.activeSubWindow()
+        if active_subwindow:
+            widget = active_subwindow.widget()
+            if isinstance(widget, HoleEditorWindow):
+                return widget
+        return None
 
     def _synchronize_views(self):
         """Connects the two views to scroll in sync with perfect 1:1 depth alignment."""
