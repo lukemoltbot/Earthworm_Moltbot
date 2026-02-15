@@ -744,6 +744,12 @@ class PyQtGraphCurvePlotter(QWidget):
                 valid_depths = depth_data[mask]
                 valid_values = curve_data[mask]
                 
+                # Phase 5: Apply downsampling for performance optimization
+                if self.performance_monitor_enabled and len(valid_values) > 1000:
+                    valid_values, valid_depths = self._get_downsampled_data(
+                        valid_values, valid_depths, self.get_view_range()
+                    )
+                
                 # Create pen for the curve with line style
                 line_style = config.get('line_style', 'solid')
                 if line_style == 'dotted':
@@ -792,6 +798,12 @@ class PyQtGraphCurvePlotter(QWidget):
                 
             valid_depths = depth_data[mask]
             valid_values = curve_data[mask]
+            
+            # Phase 5: Apply downsampling for performance optimization
+            if self.performance_monitor_enabled and len(valid_values) > 1000:
+                valid_values, valid_depths = self._get_downsampled_data(
+                    valid_values, valid_depths, self.get_view_range()
+                )
             
             # Create pen for the curve with line style
             line_style = config.get('line_style', 'solid')
@@ -843,6 +855,12 @@ class PyQtGraphCurvePlotter(QWidget):
             valid_depths = depth_data[mask]
             valid_values = curve_data[mask]
             
+            # Phase 5: Apply downsampling for performance optimization
+            if self.performance_monitor_enabled and len(valid_values) > 1000:
+                valid_values, valid_depths = self._get_downsampled_data(
+                    valid_values, valid_depths, self.get_view_range()
+                )
+            
             # Create pen for the curve with line style
             line_style = config.get('line_style', 'solid')
             if line_style == 'dotted':
@@ -892,6 +910,12 @@ class PyQtGraphCurvePlotter(QWidget):
                 
             valid_depths = depth_data[mask]
             valid_values = curve_data[mask]
+            
+            # Phase 5: Apply downsampling for performance optimization
+            if self.performance_monitor_enabled and len(valid_values) > 1000:
+                valid_values, valid_depths = self._get_downsampled_data(
+                    valid_values, valid_depths, self.get_view_range()
+                )
             
             # Create pen for the curve with line style
             line_style = config.get('line_style', 'solid')
@@ -1399,6 +1423,89 @@ class PyQtGraphCurvePlotter(QWidget):
         """Get the current visible depth range."""
         view_range = self.plot_widget.viewRange()
         return view_range[1][0], view_range[1][1]  # y_min, y_max
+    
+    def _get_downsampled_data(self, values, depths, view_range=None, max_points=1000):
+        """
+        Downsample data for performance optimization.
+        
+        Args:
+            values: Curve values array
+            depths: Depth values array
+            view_range: (min_depth, max_depth) tuple or None for current view
+            max_points: Maximum number of points to keep
+            
+        Returns:
+            Tuple of (downsampled_values, downsampled_depths)
+        """
+        if len(values) <= max_points:
+            return values, depths
+            
+        # If view_range is provided, prioritize points in visible range
+        if view_range and len(view_range) == 2:
+            min_depth, max_depth = view_range
+            # Find indices in visible range
+            in_view_mask = (depths >= min_depth) & (depths <= max_depth)
+            in_view_count = np.sum(in_view_mask)
+            
+            if in_view_count > 0:
+                # Keep more points in visible range
+                visible_ratio = min(0.7, in_view_count / len(values))
+                visible_points = int(max_points * visible_ratio)
+                outside_points = max_points - visible_points
+                
+                # Sample visible range more densely
+                if in_view_count > visible_points:
+                    visible_indices = np.where(in_view_mask)[0]
+                    step = max(1, in_view_count // visible_points)
+                    visible_sample = visible_indices[::step][:visible_points]
+                else:
+                    visible_sample = np.where(in_view_mask)[0]
+                
+                # Sample outside range less densely
+                outside_indices = np.where(~in_view_mask)[0]
+                if len(outside_indices) > outside_points:
+                    step = max(1, len(outside_indices) // outside_points)
+                    outside_sample = outside_indices[::step][:outside_points]
+                else:
+                    outside_sample = outside_indices
+                
+                # Combine samples
+                sample_indices = np.sort(np.concatenate([visible_sample, outside_sample]))
+                return values[sample_indices], depths[sample_indices]
+        
+        # Simple uniform sampling if no view range or all points outside
+        step = max(1, len(values) // max_points)
+        return values[::step], depths[::step]
+    
+    def _get_viewport_cache_key(self):
+        """Generate a cache key for the current viewport state."""
+        if not hasattr(self, 'data') or self.data is None or self.data.empty:
+            return None
+            
+        # Get current view range
+        view_range = self.get_view_range()
+        if not view_range:
+            return None
+            
+        # Get curve configuration signature
+        config_signature = self._get_curve_config_signature()
+        
+        # Combine into cache key
+        cache_key = f"{view_range[0]:.2f}-{view_range[1]:.2f}-{config_signature}"
+        return cache_key
+    
+    def _get_curve_config_signature(self):
+        """Generate a signature for current curve configurations."""
+        if not self.curve_configs:
+            return "no-curves"
+        
+        # Create a simple hash of curve configurations
+        config_strings = []
+        for config in sorted(self.curve_configs, key=lambda x: x.get('name', '')):
+            config_str = f"{config.get('name', '')}:{config.get('visible', True)}:{config.get('color', '')}:{config.get('line_style', 'solid')}:{config.get('thickness', 1.0)}"
+            config_strings.append(config_str)
+        
+        return hash(tuple(config_strings)) % 1000000
         
     def view_range_changed(self):
         """Signal handler for view range changes (for synchronization with overview)."""
