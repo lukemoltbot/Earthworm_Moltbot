@@ -1,5 +1,12 @@
 # Earthworm Borehole Logger - Quick Reference Guide
 
+## 🧠 MEMORY SYSTEM PREFERENCES (V9.1)
+**Database:** `~/.openclaw/memory_db/`
+**Active Pruning:** Max 10 messages in context
+**Phase Compression:** 5-sentence summaries upon completion
+**Retrieval API:** `search_memory()` for historical information
+**Reference:** `SYSTEM_PREFERENCES_REFERENCE.md` (complete documentation)
+
 ## Application Startup
 ```
 python main.py

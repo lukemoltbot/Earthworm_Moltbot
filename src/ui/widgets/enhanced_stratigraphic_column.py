@@ -599,6 +599,10 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             self.zoom_state_manager.zoomLevelChanged.connect(self._on_zoom_level_changed)
             self.zoom_state_manager.depthScaleChanged.connect(self._on_depth_scale_changed)
             
+            # Connect engineering scale signal if available
+            if hasattr(self.zoom_state_manager, 'engineeringScaleChanged'):
+                self.zoom_state_manager.engineeringScaleChanged.connect(self._on_engineering_scale_changed)
+            
     def _on_zoom_state_changed(self, center_depth, min_depth, max_depth):
         """Handle zoom state changes from zoom manager."""
         if not self.sync_enabled or self.is_zooming:
@@ -624,11 +628,18 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         self.zoomLevelChanged.emit(zoom_factor)
         print(f"DEBUG (EnhancedStratigraphicColumn): Zoom level changed: {zoom_factor:.2f}")
         
-    def _on_depth_scale_changed(self, depth_scale):
+    def _on_depth_scale_changed(self, depth_scale, scale_label=None):
         """Handle depth scale changes from zoom manager."""
         if depth_scale > 0:
             self.depth_scale = depth_scale
-            print(f"DEBUG (EnhancedStratigraphicColumn): Depth scale changed: {depth_scale}")
+            self.current_scale_label = scale_label or f"{depth_scale:.1f} px/m"
+            print(f"DEBUG (EnhancedStratigraphicColumn): Depth scale changed: {depth_scale} ({self.current_scale_label})")
+    
+    def _on_engineering_scale_changed(self, scale_label, pixels_per_metre):
+        """Handle engineering scale changes."""
+        self.depth_scale = pixels_per_metre
+        self.current_scale_label = scale_label
+        print(f"DEBUG (EnhancedStratigraphicColumn): Engineering scale changed: {scale_label} ({pixels_per_metre:.1f} px/m)")
             
     def get_zoom_factor(self):
         """Get current zoom factor."""

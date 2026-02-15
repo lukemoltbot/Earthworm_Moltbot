@@ -5,13 +5,14 @@ This class provides:
 1. Centralized zoom state storage
 2. Depth bounds enforcement
 3. Zoom center alignment
-4. Consistent depth scale management
+4. Consistent depth scale management with engineering scales
 5. Debug logging for zoom operations
 """
 
 import time
 import logging
 from PyQt6.QtCore import QObject, pyqtSignal
+from .scale_converter import EngineeringScaleConverter
 
 
 class ZoomStateManager(QObject):
@@ -22,14 +23,15 @@ class ZoomStateManager(QObject):
     - Centralized zoom state storage
     - Depth bounds enforcement (1m above top, 5m below bottom)
     - Zoom center alignment
-    - Consistent depth scale (10 pixels per metre)
+    - Consistent depth scale with engineering scales (1:50, 1:200, etc.)
     - Debug logging
     """
     
     # Signals
     zoomStateChanged = pyqtSignal(float, float, float)  # center_depth, min_depth, max_depth
     zoomLevelChanged = pyqtSignal(float)  # zoom_factor
-    depthScaleChanged = pyqtSignal(float)  # depth_scale
+    depthScaleChanged = pyqtSignal(float, str)  # depth_scale (pixels_per_metre), scale_label
+    engineeringScaleChanged = pyqtSignal(str, float)  # scale_label, pixels_per_metre
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -46,8 +48,14 @@ class ZoomStateManager(QObject):
         self.min_zoom_above_top = 1.0  # 1m above top of hole
         self.max_zoom_below_bottom = 5.0  # 5m below bottom
         
+        # Engineering scale converter
+        self.scale_converter = EngineeringScaleConverter(self)
+        self.scale_converter.scaleChanged.connect(self._on_scale_converter_changed)
+        
         # Depth scale (must be consistent between widgets)
-        self.depth_scale = 10.0  # 10 pixels per metre
+        # Initialize from scale converter
+        self.depth_scale = self.scale_converter.get_pixels_per_metre()
+        self.current_scale_label = self.scale_converter.get_scale_label()
         
         # Widget references
         self.enhanced_column = None
@@ -82,31 +90,114 @@ class ZoomStateManager(QObject):
         self._log_debug(f"Hole depth range set: top={top_depth:.2f}, bottom={bottom_depth:.2f}")
         
     def set_depth_scale(self, depth_scale):
-        """Set the depth scale (pixels per metre)."""
+        """Set the depth scale (pixels per metre) - backward compatibility."""
         if depth_scale <= 0:
             self._log_error(f"Invalid depth scale: {depth_scale}")
             return
             
-        self.depth_scale = depth_scale
+        # Use scale converter to find closest engineering scale
+        scale_changed = self.scale_converter.set_pixels_per_metre(depth_scale)
+        
+        if scale_changed:
+            # Update internal state from converter
+            self.depth_scale = self.scale_converter.get_pixels_per_metre()
+            self.current_scale_label = self.scale_converter.get_scale_label()
+            
+            # Update widgets
+            if self.enhanced_column:
+                self.enhanced_column.depth_scale = self.depth_scale
+            if self.curve_plotter:
+                self.curve_plotter.depth_scale = self.depth_scale
+                
+            # Emit signals
+            self.depthScaleChanged.emit(self.depth_scale, self.current_scale_label)
+            self.engineeringScaleChanged.emit(self.current_scale_label, self.depth_scale)
+            
+            self._log_debug(f"Depth scale set: {self.depth_scale} pixels per metre (scale: {self.current_scale_label})")
+    
+    def set_engineering_scale(self, scale_label):
+        """
+        Set the engineering scale (e.g., '1:50', '1:200').
+        
+        Args:
+            scale_label: Engineering scale label (e.g., '1:50')
+        
+        Returns:
+            bool: True if scale was changed, False otherwise
+        """
+        scale_changed = self.scale_converter.set_scale(scale_label)
+        
+        if scale_changed:
+            # Update internal state from converter
+            self.depth_scale = self.scale_converter.get_pixels_per_metre()
+            self.current_scale_label = self.scale_converter.get_scale_label()
+            
+            # Update widgets
+            if self.enhanced_column:
+                self.enhanced_column.depth_scale = self.depth_scale
+            if self.curve_plotter:
+                self.curve_plotter.depth_scale = self.depth_scale
+                
+            # Emit signals
+            self.depthScaleChanged.emit(self.depth_scale, self.current_scale_label)
+            self.engineeringScaleChanged.emit(self.current_scale_label, self.depth_scale)
+            
+            self._log_debug(f"Engineering scale set: {self.current_scale_label} ({self.depth_scale:.1f} px/m)")
+            
+        return scale_changed
+    
+    def get_engineering_scale(self):
+        """Get current engineering scale information."""
+        return self.scale_converter.get_scale_info()
+    
+    def adjust_scale_with_wheel(self, delta, ctrl_pressed=True):
+        """
+        Adjust scale using mouse wheel with CTRL modifier.
+        
+        Args:
+            delta: Mouse wheel delta (positive = zoom in, negative = zoom out)
+            ctrl_pressed: Whether CTRL key is pressed
+        
+        Returns:
+            bool: True if scale was adjusted, False otherwise
+        """
+        return self.scale_converter.adjust_scale(delta, ctrl_pressed)
+    
+    def _on_scale_converter_changed(self, pixels_per_metre, scale_label):
+        """Handle scale change from converter."""
+        # Update internal state
+        self.depth_scale = pixels_per_metre
+        self.current_scale_label = scale_label
         
         # Update widgets
         if self.enhanced_column:
-            self.enhanced_column.depth_scale = depth_scale
+            self.enhanced_column.depth_scale = self.depth_scale
         if self.curve_plotter:
-            self.curve_plotter.depth_scale = depth_scale
+            self.curve_plotter.depth_scale = self.depth_scale
             
-        self.depthScaleChanged.emit(depth_scale)
-        self._log_debug(f"Depth scale set: {depth_scale} pixels per metre")
+        # Emit signals
+        self.depthScaleChanged.emit(self.depth_scale, self.current_scale_label)
+        self.engineeringScaleChanged.emit(self.current_scale_label, self.depth_scale)
+        
+        self._log_debug(f"Scale converter changed: {scale_label} ({pixels_per_metre:.1f} px/m)")
         
     def get_zoom_state(self):
         """Get current zoom state."""
+        scale_info = self.scale_converter.get_scale_info()
+        
         return {
             'center_depth': self.center_depth,
             'visible_min_depth': self.visible_min_depth,
             'visible_max_depth': self.visible_max_depth,
             'zoom_factor': self.zoom_factor,
             'depth_scale': self.depth_scale,
-            'visible_range': self.visible_max_depth - self.visible_min_depth
+            'visible_range': self.visible_max_depth - self.visible_min_depth,
+            'engineering_scale': {
+                'label': scale_info['scale_label'],
+                'value': scale_info['scale_value'],
+                'display_name': scale_info['display_name'],
+                'pixels_per_metre': scale_info['pixels_per_metre']
+            }
         }
         
     def zoom_to_depth(self, center_depth, zoom_factor=None):
@@ -354,12 +445,16 @@ class ZoomStateManager(QObject):
         
     def get_status(self):
         """Get current status for debugging."""
+        scale_info = self.scale_converter.get_scale_info()
+        
         return {
             'center_depth': self.center_depth,
             'visible_min_depth': self.visible_min_depth,
             'visible_max_depth': self.visible_max_depth,
             'zoom_factor': self.zoom_factor,
             'depth_scale': self.depth_scale,
+            'engineering_scale': self.current_scale_label,
+            'engineering_scale_info': scale_info,
             'hole_top_depth': self.hole_top_depth,
             'hole_bottom_depth': self.hole_bottom_depth,
             'sync_in_progress': self.sync_in_progress,
