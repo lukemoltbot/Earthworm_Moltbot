@@ -35,6 +35,7 @@ from .widgets.curve_display_modes import CurveDisplayModes, create_curve_display
 from .widgets.curve_display_mode_switcher import create_display_mode_switcher, create_display_mode_menu # Import display mode switcher
 from .widgets.cross_hole_sync_manager import create_cross_hole_sync_manager, CrossHoleSyncSettings # Import cross-hole sync manager
 from .widgets.curve_export_manager import create_curve_export_manager # Import curve export manager
+from .widgets.curve_analysis_manager import create_curve_analysis_manager # Import curve analysis manager
 from ..core.settings_manager import load_settings, save_settings
 from .dialogs.researched_defaults_dialog import ResearchedDefaultsDialog # Import new dialog
 from .dialogs.column_configurator_dialog import ColumnConfiguratorDialog # Import column configurator dialog
@@ -172,6 +173,11 @@ class HoleEditorWindow(QWidget):
         self.curve_export_manager = create_curve_export_manager(self)
         self.curve_export_manager.exportProgress.connect(self._on_export_progress)
         self.curve_export_manager.exportFinished.connect(self._on_export_finished)
+        
+        # Create curve analysis manager
+        self.curve_analysis_manager = create_curve_analysis_manager(self)
+        self.curve_analysis_manager.analysisComplete.connect(self._on_analysis_complete)
+        self.curve_analysis_manager.analysisError.connect(self._on_analysis_error)
 
         # Set bit size for anomaly detection if main_window is available
         if main_window and hasattr(main_window, 'bit_size_mm') and hasattr(self.curvePlotter, 'set_bit_size'):
@@ -654,6 +660,46 @@ class HoleEditorWindow(QWidget):
             QMessageBox.information(self, "Export Complete", message)
         else:
             QMessageBox.warning(self, "Export Failed", message)
+        
+        # Clear status message
+        if hasattr(self, 'statusBar'):
+            self.statusBar().clearMessage()
+    
+    def _on_analysis_complete(self, analysis_type, results):
+        """Handle analysis completion."""
+        print(f"DEBUG (main_window): Analysis complete: {analysis_type}")
+        print(f"DEBUG (main_window): Results: {results}")
+        
+        # TODO: Display analysis results in UI
+        # For now, just show a message
+        from PyQt6.QtWidgets import QMessageBox
+        
+        if analysis_type == 'statistics':
+            curve_count = len(results)
+            QMessageBox.information(
+                self, 
+                "Analysis Complete", 
+                f"Statistical analysis complete for {curve_count} curves.\n\n"
+                "Results available in console output."
+            )
+        elif analysis_type == 'correlation':
+            QMessageBox.information(
+                self,
+                "Correlation Analysis",
+                "Correlation matrix calculated.\n\n"
+                "Results available in console output."
+            )
+        
+        # Clear status message
+        if hasattr(self, 'statusBar'):
+            self.statusBar().clearMessage()
+    
+    def _on_analysis_error(self, error_message):
+        """Handle analysis errors."""
+        print(f"DEBUG (main_window): Analysis error: {error_message}")
+        
+        from PyQt6.QtWidgets import QMessageBox
+        QMessageBox.warning(self, "Analysis Error", error_message)
         
         # Clear status message
         if hasattr(self, 'statusBar'):
@@ -1546,6 +1592,16 @@ class MainWindow(QMainWindow):
         export_curves_action.setToolTip("Export curves to various formats (CSV, Excel, etc.)")
         export_curves_action.setShortcut("Ctrl+E")
         tools_menu.addAction(export_curves_action)
+        
+        # Add separator
+        tools_menu.addSeparator()
+        
+        # Curve Analysis action
+        curve_analysis_action = QAction("Curve Analysis...", self)
+        curve_analysis_action.triggered.connect(self.curve_analysis_dialog)
+        curve_analysis_action.setToolTip("Advanced curve analysis tools (statistics, filtering, etc.)")
+        curve_analysis_action.setShortcut("Ctrl+A")
+        tools_menu.addAction(curve_analysis_action)
 
     def create_window_menu(self):
         """Create Window menu with tile, cascade, close actions."""
