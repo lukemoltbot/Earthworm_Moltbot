@@ -186,6 +186,10 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         # Update visible depth range and redraw Y-axis
         self._update_visible_depth_range()
         
+        # Set initial view to show default_view_range (20m) at the top
+        if units_dataframe is not None and not units_dataframe.empty:
+            self.set_initial_view()
+        
     def _store_unit_data(self, units_dataframe):
         """Store unit data for tooltips and hover events."""
 #         print(f"DEBUG (EnhancedStratigraphicColumn._store_unit_data): Storing data for {len(units_dataframe)} units")
@@ -445,6 +449,27 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         
         print(f"DEBUG (EnhancedStratigraphicColumn._update_visible_depth_range): "
               f"Visible range: {self.visible_min_depth:.2f}-{self.visible_max_depth:.2f}")
+    
+    def set_initial_view(self):
+        """Set initial view to show default_view_range (20m) at the top of the hole."""
+        if not hasattr(self, 'min_depth') or not hasattr(self, 'max_depth'):
+            return
+            
+        # Calculate the visible depth range for 20m view
+        view_min_depth = self.min_depth
+        view_max_depth = min(self.min_depth + self.default_view_range, self.max_depth)
+        
+        # Convert depths to scene coordinates
+        view_min_y = (view_min_depth - self.min_depth) * self.depth_scale
+        view_max_y = (view_max_depth - self.min_depth) * self.depth_scale
+        
+        # Set the view to show the top 20m
+        self.setSceneRect(self.scene.sceneRect())  # Ensure scene rect is set
+        self.ensureVisible(0, view_min_y, self.width(), view_max_y - view_min_y)
+        
+        print(f"DEBUG (EnhancedStratigraphicColumn.set_initial_view): "
+              f"Setting view to {view_min_depth:.2f}-{view_max_depth:.2f}m "
+              f"(top {self.default_view_range}m of hole)")
     
     # REMOVED _redraw_y_axis_for_visible_range method
     # Y-axis is drawn once and stays static - no need to redraw dynamically

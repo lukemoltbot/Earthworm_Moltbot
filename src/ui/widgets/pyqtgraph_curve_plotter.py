@@ -958,24 +958,39 @@ class PyQtGraphCurvePlotter(QWidget):
         # Add legend (commented out per user request)
         # self.plot_item.addLegend()
         
-        # Ensure no legend exists
-        if hasattr(self.plot_item, 'legend') and self.plot_item.legend is not None:
-            print(f"DEBUG: Legend found, removing")
-            self.plot_item.legend.hide()
-            self.plot_item.legend.setParent(None)
-            self.plot_item.legend = None
+        # Ensure no legend exists - more aggressive removal
+        if hasattr(self.plot_item, 'legend'):
+            if self.plot_item.legend is not None:
+                print(f"DEBUG: Legend found, removing")
+                try:
+                    self.plot_item.legend.hide()
+                    self.plot_item.legend.setParent(None)
+                    self.plot_item.legend.close()
+                    self.plot_item.legend = None
+                except:
+                    pass
+            # Also disable auto-legend
+            self.plot_item.autoLegend = False
         
         # Set axis ranges and labels
         self.update_axis_ranges()
         
         # Setup X-axis labels (legacy feature migration)
         self.setup_x_axis_labels()
-        # Final legend check
+        
+        # Final legend check and disable
         if hasattr(self.plot_item, 'legend') and self.plot_item.legend is not None:
-            print(f"ERROR: Legend still exists after drawing curves")
-            self.plot_item.legend.hide()
-            self.plot_item.legend.setParent(None)
-            self.plot_item.legend = None
+            print(f"ERROR: Legend still exists after drawing curves, forcing removal")
+            try:
+                self.plot_item.legend.hide()
+                self.plot_item.legend.setParent(None)
+                self.plot_item.legend.close()
+                self.plot_item.legend = None
+            except:
+                pass
+        
+        # Disable legend at the pyqtgraph level
+        self.plot_item.showLegend(False)
         
     def update_axis_ranges(self):
         """Update plot axis ranges based on curve configurations for dual-axis system."""
