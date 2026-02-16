@@ -290,14 +290,6 @@ class SettingsDialog(QDialog):
         layout.addWidget(curve_group)
 
         # SVG Patterns group
-        svg_group = QGroupBox("SVG Patterns")
-        svg_layout = QVBoxLayout(svg_group)
-        svg_layout.setSpacing(8)
-        
-        self.disableSvgCheckBox = QCheckBox("Disable SVG patterns (use solid colors only)")
-        svg_layout.addWidget(self.disableSvgCheckBox)
-        
-        layout.addWidget(svg_group)
 
         # Curve Visibility group
         curve_visibility_group = QGroupBox("Curve Visibility")
@@ -606,60 +598,6 @@ class SettingsDialog(QDialog):
 
         layout.addWidget(file_group)
 
-        # AVG Executable group
-        avg_group = QGroupBox("AVG Executable")
-        avg_layout = QVBoxLayout(avg_group)
-        avg_layout.setSpacing(8)
-
-        avg_layout.addWidget(QLabel("Path to AVG executable:"))
-
-        # Horizontal layout for path input and buttons
-        path_layout = QHBoxLayout()
-        self.avgExecutablePathEdit = QLineEdit()
-        self.avgExecutablePathEdit.setPlaceholderText("Select AVG executable path...")
-        path_layout.addWidget(self.avgExecutablePathEdit)
-
-        self.browseAvgButton = QPushButton("Browse...")
-        path_layout.addWidget(self.browseAvgButton)
-
-        self.clearAvgButton = QPushButton("Clear")
-        path_layout.addWidget(self.clearAvgButton)
-
-        avg_layout.addLayout(path_layout)
-        layout.addWidget(avg_group)
-
-        # SVG Patterns Directory group
-        svg_group = QGroupBox("SVG Patterns Directory")
-        svg_layout = QVBoxLayout(svg_group)
-        svg_layout.setSpacing(8)
-
-        svg_layout.addWidget(QLabel("Path to SVG patterns directory:"))
-
-        # Horizontal layout for path input and buttons
-        svg_path_layout = QHBoxLayout()
-        self.svgDirectoryPathEdit = QLineEdit()
-        self.svgDirectoryPathEdit.setPlaceholderText("Select SVG patterns directory...")
-        svg_path_layout.addWidget(self.svgDirectoryPathEdit)
-
-        self.browseSvgButton = QPushButton("Browse...")
-        svg_path_layout.addWidget(self.browseSvgButton)
-
-        self.clearSvgButton = QPushButton("Clear")
-        svg_path_layout.addWidget(self.clearSvgButton)
-
-        svg_layout.addLayout(svg_path_layout)
-        layout.addWidget(svg_group)
-
-        # Connect signals (will be connected to parent methods)
-        self.saveAsSettingsButton.clicked.connect(self.save_settings_as_file)
-        self.loadSettingsButton.clicked.connect(self.load_settings_from_file)
-        self.researchedDefaultsButton.clicked.connect(self.open_researched_defaults_dialog)
-        self.exportLithologyReportButton.clicked.connect(self.export_lithology_report)
-        self.browseAvgButton.clicked.connect(self.browse_avg_executable)
-        self.clearAvgButton.clicked.connect(self.clear_avg_executable_path)
-        self.browseSvgButton.clicked.connect(self.browse_svg_directory)
-        self.clearSvgButton.clicked.connect(self.clear_svg_directory_path)
-
         layout.addStretch()
 
         # Set container as scroll widget
@@ -831,12 +769,9 @@ class SettingsDialog(QDialog):
                 self.analysisMethodComboBox.setCurrentIndex(index)
 
         # Load AVG executable path
-        if 'avg_executable_path' in self.current_settings:
-            self.avgExecutablePathEdit.setText(self.current_settings['avg_executable_path'])
         
         # Load SVG directory path
         if 'svg_directory_path' in self.current_settings:
-            self.svgDirectoryPathEdit.setText(self.current_settings['svg_directory_path'])
 
         # Load curve visibility settings
         if 'curve_visibility' in self.current_settings:
@@ -963,10 +898,8 @@ class SettingsDialog(QDialog):
         settings['analysis_method'] = self.analysisMethodComboBox.currentText().lower()
 
         # Gather AVG executable path
-        settings['avg_executable_path'] = self.avgExecutablePathEdit.text()
         
         # Gather SVG directory path
-        settings['svg_directory_path'] = self.svgDirectoryPathEdit.text()
         
         # Gather curve visibility settings
         curve_visibility = {}
@@ -1302,27 +1235,6 @@ class SettingsDialog(QDialog):
         if self.parent():
             self.parent().export_lithology_report()
 
-    def browse_avg_executable(self):
-        """Open file dialog to browse for AVG executable."""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select AVG Executable",
-            "",
-            "Executable files (*.exe *.bat *.sh);;All files (*.*)"
-        )
-        if file_path:
-            self.avgExecutablePathEdit.setText(file_path)
-            # Update settings immediately (optional)
-            # self.on_apply()
-
-    def clear_avg_executable_path(self):
-        """Clear the AVG executable path."""
-        self.avgExecutablePathEdit.setText("")
-        # Update settings immediately (optional)
-        # self.on_apply()
-
-    def browse_svg_directory(self):
-        """Open directory dialog to browse for SVG patterns directory."""
         dir_path = QFileDialog.getExistingDirectory(
             self,
             "Select SVG Patterns Directory",
@@ -1330,30 +1242,8 @@ class SettingsDialog(QDialog):
             QFileDialog.Option.ShowDirsOnly
         )
         if dir_path:
-            self.svgDirectoryPathEdit.setText(dir_path)
             # Update settings immediately (optional)
             # self.on_apply()
-
-    def clear_svg_directory_path(self):
-        """Clear the SVG directory path."""
-        self.svgDirectoryPathEdit.setText("")
-        # Update settings immediately (optional)
-        # self.on_apply()
-
-    def on_ok(self):
-        """Handle OK button - apply settings and close dialog."""
-        self.on_apply()
-        self.accept()
-
-    def on_apply(self):
-        """Handle Apply button - apply settings without closing dialog."""
-        settings = self.gather_settings()
-        self.settings_updated.emit(settings)
-        # Also notify parent if it has an update_settings method
-        # Note: This call passes a dict to update_settings which expects auto_save parameter
-        # Disabled because settings_updated signal already triggers update_settings_from_dialog
-        # if self.parent() and hasattr(self.parent(), 'update_settings'):
-        #     self.parent().update_settings(settings)
 
     def accept(self):
         """Override accept to ensure settings are saved."""

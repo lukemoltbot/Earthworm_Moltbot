@@ -106,5 +106,11 @@
     },
     "curve_thickness": 0.4,
     "use_researched_defaults": false,
-    "analysis_method": "standard"
+    "analysis_method": "standard",
+    "curve_mappings": {
+        "Gamma": "GRDE",
+        "ShortSpaceDensity": "DENB",
+        "LongSpaceDensity": "DENL",
+        "Caliper": "CADE"
+    }
 }

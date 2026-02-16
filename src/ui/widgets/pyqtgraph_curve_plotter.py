@@ -44,7 +44,7 @@ class PyQtGraphCurvePlotter(QWidget):
         self.data = None
         self.depth_column = 'DEPT'  # Assuming 'DEPT' is the standardized depth column name
         self.curve_configs = []  # List of dictionaries for curve configurations
-        self.depth_scale = 10  # Pixels per depth unit (should match StratigraphicColumn)
+        self.depth_scale = 50  # Pixels per depth unit (matches EnhancedStratigraphicColumn for 20m view)
         self.plot_width = 110  # Width of the plot area
         
         # Legacy feature migration: X-axis label area
@@ -184,7 +184,7 @@ class PyQtGraphCurvePlotter(QWidget):
                 chunk_size_points=10000,  # 10,000 points per chunk
                 loading_strategy=LoadingStrategy.PROGRESSIVE
             )
-            print("✓ DataStreamManager initialized for LAS file loading")
+#             print("✓ DataStreamManager initialized for LAS file loading")
             
             # Initialize ViewportCacheManager for hardware-accelerated rendering
             self.viewport_cache_manager = ViewportCacheManager(
@@ -198,7 +198,7 @@ class PyQtGraphCurvePlotter(QWidget):
                 enable_inertia=True,
                 enable_prediction=True
             )
-            print("✓ ScrollOptimizer initialized for smooth scrolling")
+#             print("✓ ScrollOptimizer initialized for smooth scrolling")
             
             # Note: Full integration requires:
             # 1. Connecting ScrollOptimizer to mouse events
@@ -210,7 +210,8 @@ class PyQtGraphCurvePlotter(QWidget):
             print("Phase 3 performance components initialized successfully")
             
         except Exception as e:
-            print(f"Warning: Could not initialize Phase 3 performance components: {e}")
+            pass
+#             print(f"Warning: Could not initialize Phase 3 performance components: {e}")
             print("Falling back to standard rendering mode")
             self.performance_monitor_enabled = False
         
@@ -320,6 +321,7 @@ class PyQtGraphCurvePlotter(QWidget):
                 
                 # For inverted curves (well log style), min value is on right, max on left
                 if inverted:
+                    pass
                     # Not inverted: min on left, max on right
                     min_text.setPos(x_min, current_y_offset)
                     max_text.setPos(x_max, current_y_offset)
@@ -505,7 +507,7 @@ class PyQtGraphCurvePlotter(QWidget):
             # We'll handle tick configuration in update_y_axis_ticks instead
             self.y_axis = y_axis
             
-            print(f"DEBUG (PyQtGraphCurvePlotter.configure_y_axis_ticks): Y-axis reference stored for tick configuration")
+#             print(f"DEBUG (PyQtGraphCurvePlotter.configure_y_axis_ticks): Y-axis reference stored for tick configuration")
             
         except Exception as e:
             print(f"ERROR (PyQtGraphCurvePlotter.configure_y_axis_ticks): Failed to configure Y-axis: {e}")
@@ -514,13 +516,15 @@ class PyQtGraphCurvePlotter(QWidget):
         """Update Y-axis ticks based on current view range."""
         try:
             if not hasattr(self, 'y_axis') or self.y_axis is None:
-                print("DEBUG (PyQtGraphCurvePlotter.update_y_axis_ticks): Y-axis not initialized")
+                pass
+#                 print("DEBUG (PyQtGraphCurvePlotter.update_y_axis_ticks): Y-axis not initialized")
                 return
                 
             # Get current view range
             view_range = self.get_view_range()
             if view_range is None:
-                print("DEBUG (PyQtGraphCurvePlotter.update_y_axis_ticks): No view range available")
+                pass
+#                 print("DEBUG (PyQtGraphCurvePlotter.update_y_axis_ticks): No view range available")
                 return
                 
             y_min, y_max = view_range
@@ -540,10 +544,11 @@ class PyQtGraphCurvePlotter(QWidget):
             tick_count = int(end_tick - start_tick) + 1
             
             if tick_count > max_ticks:
+                pass
                 # Show ticks at coarser intervals if there are too many
                 interval = max(1, int(np.ceil(tick_count / max_ticks)))
                 major_ticks = np.arange(start_tick, end_tick + 1, interval)
-                print(f"DEBUG (PyQtGraphCurvePlotter.update_y_axis_ticks): Too many ticks ({tick_count}), using interval {interval}")
+#                 print(f"DEBUG (PyQtGraphCurvePlotter.update_y_axis_ticks): Too many ticks ({tick_count}), using interval {interval}")
             else:
                 # Generate ticks at every whole metre
                 major_ticks = np.arange(start_tick, end_tick + 1, 1.0)
@@ -588,12 +593,13 @@ class PyQtGraphCurvePlotter(QWidget):
             bool: True if mode was changed, False otherwise
         """
         if mode_name not in self.curve_display_modes.get_available_modes():
-            print(f"Warning: Unknown display mode: {mode_name}")
+            pass
+#             print(f"Warning: Unknown display mode: {mode_name}")
             return False
             
         if self.curve_display_modes.set_mode(mode_name):
             self.current_display_mode = mode_name
-            print(f"Display mode changed to: {mode_name}")
+#             print(f"Display mode changed to: {mode_name}")
             
             # Redraw curves with new mode
             if self.data is not None and not self.data.empty:
@@ -675,6 +681,7 @@ class PyQtGraphCurvePlotter(QWidget):
         
         # Configure plot for current display mode
         if self.current_display_mode == 'histogram':
+            pass
             # For histogram mode, configure the plot
             self.curve_display_modes.configure_plot(self.plot_widget, self.curve_configs)
         # Note: Other modes will use existing dual-axis configuration
@@ -715,6 +722,7 @@ class PyQtGraphCurvePlotter(QWidget):
         
         # Use 1Point-style display modes for density curves
         if self.current_display_mode == 'histogram':
+            pass
             # For histogram mode, use the display modes system
             self.curve_display_modes.draw_curves(
                 self.plot_widget, 
@@ -1017,6 +1025,7 @@ class PyQtGraphCurvePlotter(QWidget):
             # Default is inverted=False (well log style, axis inverted)
             # If first density curve has inverted=True, don't invert axis
             if density_configs and density_configs[0].get('inverted', False):
+                pass
                 # Not inverted: low values on left, high on right
                 self.plot_widget.setXRange(density_x_min - x_padding, density_x_max + x_padding)
             else:
@@ -1045,6 +1054,7 @@ class PyQtGraphCurvePlotter(QWidget):
             # Default is inverted=False (well log style, axis inverted)
             # If first gamma curve has inverted=True, don't invert axis
             if gamma_configs and gamma_configs[0].get('inverted', False):
+                pass
                 # Not inverted: low values on left, high on right
                 self.gamma_viewbox.setXRange(gamma_x_min, gamma_x_max)
             else:
@@ -1072,6 +1082,7 @@ class PyQtGraphCurvePlotter(QWidget):
                 
             # Check inversion for caliper curves
             if caliper_configs and caliper_configs[0].get('inverted', False):
+                pass
                 # Not inverted: low values on left, high on right
                 self.caliper_viewbox.setXRange(caliper_x_min, caliper_x_max)
             else:
@@ -1100,6 +1111,7 @@ class PyQtGraphCurvePlotter(QWidget):
                 
             # Check inversion for resistivity curves
             if resistivity_configs and resistivity_configs[0].get('inverted', False):
+                pass
                 # Not inverted: low values on left, high on right
                 self.resistivity_viewbox.setXRange(resistivity_x_min, resistivity_x_max)
             else:
@@ -1284,6 +1296,7 @@ class PyQtGraphCurvePlotter(QWidget):
         data_y_range = data_y_max - data_y_min
         
         if zoom_factor > 1.0:
+            pass
             # Zoom in: show smaller range
             new_y_range = data_y_range / zoom_factor
             # Keep center at current view center
@@ -1307,12 +1320,14 @@ class PyQtGraphCurvePlotter(QWidget):
     def scroll_to_depth(self, depth):
         """Scroll the view to make the given depth visible with center alignment."""
         if self.data is None or self.data.empty:
-            print("WARNING: No data available for scrolling")
+            pass
+#             print("WARNING: No data available for scrolling")
             return
             
         # Check if synchronization should proceed (prevent infinite loops)
         if self.sync_enabled and not self.sync_tracker.should_sync():
-            print(f"DEBUG (PyQtGraphCurvePlotter.scroll_to_depth): Sync blocked by tracker")
+            pass
+#             print(f"DEBUG (PyQtGraphCurvePlotter.scroll_to_depth): Sync blocked by tracker")
             return
             
         self.sync_tracker.begin_sync()
@@ -1326,10 +1341,11 @@ class PyQtGraphCurvePlotter(QWidget):
             current_y_max = view_range[1][1]
             current_height = current_y_max - current_y_min
             
-            print(f"DEBUG (PyQtGraphCurvePlotter.scroll_to_depth): Current range: {current_y_min:.2f}-{current_y_max:.2f}, Height: {current_height:.2f}")
+#             print(f"DEBUG (PyQtGraphCurvePlotter.scroll_to_depth): Current range: {current_y_min:.2f}-{current_y_max:.2f}, Height: {current_height:.2f}")
             
             # Validate current_height to prevent division by zero or invalid ranges
             if current_height <= 0:
+                pass
                 # Use default height based on data range
                 data_y_min = self.data[self.depth_column].min()
                 data_y_max = self.data[self.depth_column].max()
@@ -1351,7 +1367,7 @@ class PyQtGraphCurvePlotter(QWidget):
                 offset = data_y_min - new_y_min
                 new_y_min = data_y_min
                 new_y_max = min(new_y_max + offset, data_y_max)
-                print(f"DEBUG (PyQtGraphCurvePlotter.scroll_to_depth): Adjusted for min bound, new range: {new_y_min:.2f}-{new_y_max:.2f}")
+#                 print(f"DEBUG (PyQtGraphCurvePlotter.scroll_to_depth): Adjusted for min bound, new range: {new_y_min:.2f}-{new_y_max:.2f}")
             elif new_y_max > data_y_max:
                 offset = new_y_max - data_y_max
                 new_y_max = data_y_max
@@ -1360,13 +1376,14 @@ class PyQtGraphCurvePlotter(QWidget):
             
             # Ensure valid range (new_y_min must be less than new_y_max)
             if new_y_min >= new_y_max:
+                pass
                 # Fallback to centered view with reasonable height
                 range_height = data_y_max - data_y_min
                 if range_height <= 0:
                     range_height = 10.0
                 new_y_min = depth - range_height / 2
                 new_y_max = depth + range_height / 2
-                print(f"DEBUG (PyQtGraphCurvePlotter.scroll_to_depth): Using fallback centered view")
+#                 print(f"DEBUG (PyQtGraphCurvePlotter.scroll_to_depth): Using fallback centered view")
             
             print(f"DEBUG (PyQtGraphCurvePlotter.scroll_to_depth): Setting range: {new_y_min:.2f}-{new_y_max:.2f}")
             
@@ -1385,6 +1402,7 @@ class PyQtGraphCurvePlotter(QWidget):
     def on_plot_clicked(self, event):
         """Handle mouse clicks on the plot."""
         if event.button() == Qt.MouseButton.LeftButton:
+            pass
             # Get mouse position in plot coordinates
             pos = event.scenePos()
             if self.plot_widget.plotItem.vb.mapSceneToView(pos):
@@ -1402,7 +1420,8 @@ class PyQtGraphCurvePlotter(QWidget):
         
         # Check if synchronization should proceed (prevent infinite loops)
         if self.sync_enabled and not self.sync_tracker.should_sync():
-            print(f"DEBUG (PyQtGraphCurvePlotter.on_view_range_changed): Sync blocked by tracker")
+            pass
+#             print(f"DEBUG (PyQtGraphCurvePlotter.on_view_range_changed): Sync blocked by tracker")
             return
             
         self.sync_tracker.begin_sync()
@@ -1448,6 +1467,7 @@ class PyQtGraphCurvePlotter(QWidget):
             in_view_count = np.sum(in_view_mask)
             
             if in_view_count > 0:
+                pass
                 # Keep more points in visible range
                 visible_ratio = min(0.7, in_view_count / len(values))
                 visible_points = int(max_points * visible_ratio)
@@ -1515,12 +1535,13 @@ class PyQtGraphCurvePlotter(QWidget):
     def set_sync_enabled(self, enabled):
         """Enable or disable synchronization with stratigraphic column."""
         self.sync_enabled = enabled
-        print(f"DEBUG (PyQtGraphCurvePlotter.set_sync_enabled): Sync enabled = {enabled}")
+#         print(f"DEBUG (PyQtGraphCurvePlotter.set_sync_enabled): Sync enabled = {enabled}")
     
     def wheelEvent(self, event):
         """Handle wheel events for vertical scrolling (or zoom with Ctrl)."""
         # Check for Ctrl modifier for zoom
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            pass
             # Let PyQtGraph handle zoom (default behavior)
             super().wheelEvent(event)
             return
@@ -1528,6 +1549,7 @@ class PyQtGraphCurvePlotter(QWidget):
         # Normal wheel scroll: move view vertically
         delta = event.angleDelta().y()
         if delta == 0:
+            pass
             # Horizontal wheel, ignore
             return
         
@@ -1588,6 +1610,7 @@ class PyQtGraphCurvePlotter(QWidget):
             
         # Create boundary lines for each row
         for idx, row in self.lithology_data.iterrows():
+            pass
             # Create top boundary (From_Depth)
             top_depth = row['From_Depth']
             top_line = self.create_boundary_line(
@@ -1730,6 +1753,7 @@ class PyQtGraphCurvePlotter(QWidget):
         adjusted_data = self.lithology_data.copy()
         
         if boundary_type == 'top':
+            pass
             # Moving a top boundary (From_Depth)
             # This affects the current unit and the unit above
             
@@ -1806,6 +1830,7 @@ class PyQtGraphCurvePlotter(QWidget):
         
         # Get neighboring boundaries for constraints
         if boundary_type == 'top':
+            pass
             # Top boundary (From_Depth) constraints:
             # 1. Must be above the bottom boundary of the same unit
             # 2. Should not go below the top boundary of the unit below (if exists)
@@ -1898,6 +1923,7 @@ class PyQtGraphCurvePlotter(QWidget):
             return
             
         for idx, row in self.lithology_data.iterrows():
+            pass
             # Update top boundary
             top_key = (idx, 'top')
             if top_key in self.boundary_lines:
@@ -1972,6 +1998,7 @@ class PyQtGraphCurvePlotter(QWidget):
         
         # Also check gamma_curves, density_curves, caliper_curves, and resistivity_curves lists
         if not curves_updated:
+            pass
             # Check gamma curves
             if hasattr(self, 'gamma_curves'):
                 for curve in self.gamma_curves:
@@ -2015,6 +2042,7 @@ class PyQtGraphCurvePlotter(QWidget):
         if hasattr(self.plot_item, 'legend'):
             legend = self.plot_item.legend
             if legend:
+                pass
                 # Find the legend item for this curve and update its visibility
                 for item in legend.items:
                     if hasattr(item, 'item') and item.item == curve_item:
@@ -2039,7 +2067,8 @@ class PyQtGraphCurvePlotter(QWidget):
         
         # Get patterns for the requested group
         if group_name_lower not in curve_groups:
-            print(f"Warning: Unknown curve group '{group_name}'")
+            pass
+#             print(f"Warning: Unknown curve group '{group_name}'")
             return
         
         patterns = curve_groups[group_name_lower]
@@ -2085,7 +2114,7 @@ class PyQtGraphCurvePlotter(QWidget):
                     self._update_curve_visibility(curve, visible, curve.name)
                     curves_updated.append(curve.name)
         
-        print(f"Group '{group_name}' visibility set to {visible}. Updated {len(curves_updated)} curves.")
+#         print(f"Group '{group_name}' visibility set to {visible}. Updated {len(curves_updated)} curves.")
     
     # =========================================================================
     # Anomaly Detection Methods (Phase 3: Advanced LAS Comparative Plotting)
@@ -2163,10 +2192,12 @@ class PyQtGraphCurvePlotter(QWidget):
         
         for i, is_anomaly in enumerate(anomaly_mask):
             if is_anomaly and not in_anomaly:
+                pass
                 # Start of anomaly interval
                 in_anomaly = True
                 start_idx = i
             elif not is_anomaly and in_anomaly:
+                pass
                 # End of anomaly interval
                 in_anomaly = False
                 # Add interval (start_depth, end_depth)
@@ -2190,6 +2221,7 @@ class PyQtGraphCurvePlotter(QWidget):
         
         # Create new regions for each anomaly interval
         for start_depth, end_depth in anomaly_intervals:
+            pass
             # Create linear region item for anomaly interval
             region = pg.LinearRegionItem(
                 values=[start_depth, end_depth],
@@ -2231,6 +2263,7 @@ class PyQtGraphCurvePlotter(QWidget):
         """Set the zoom state manager for synchronization."""
         self.zoom_state_manager = zoom_manager
         if self.zoom_state_manager:
+            pass
             # Connect signals
             self.zoom_state_manager.zoomStateChanged.connect(self._on_zoom_state_changed)
             self.zoom_state_manager.zoomLevelChanged.connect(self._on_zoom_level_changed)
@@ -2240,7 +2273,7 @@ class PyQtGraphCurvePlotter(QWidget):
             if hasattr(self.zoom_state_manager, 'engineeringScaleChanged'):
                 self.zoom_state_manager.engineeringScaleChanged.connect(self._on_engineering_scale_changed)
             
-            print(f"DEBUG (PyQtGraphCurvePlotter): Zoom state manager set")
+#             print(f"DEBUG (PyQtGraphCurvePlotter): Zoom state manager set")
     
     def _on_engineering_scale_changed(self, scale_label, pixels_per_metre):
         """Handle engineering scale changes."""
@@ -2259,8 +2292,8 @@ class PyQtGraphCurvePlotter(QWidget):
             try:
                 # Update view range
                 self.setYRange(min_depth, max_depth)
-                print(f"DEBUG (PyQtGraphCurvePlotter): Zoom state applied: "
-                      f"range=[{min_depth:.2f}, {max_depth:.2f}], center={center_depth:.2f}")
+                # print(f"DEBUG (PyQtGraphCurvePlotter): Zoom state applied: "
+                #       f"range=[{min_depth:.2f}, {max_depth:.2f}], center={center_depth:.2f}")
             finally:
                 self.is_zooming = False
                 
@@ -2279,12 +2312,13 @@ class PyQtGraphCurvePlotter(QWidget):
             # Update scale display if available
             self.update_scale_display()
             
-            print(f"DEBUG (PyQtGraphCurvePlotter): Depth scale changed: {depth_scale} ({self.current_scale_label})")
+#             print(f"DEBUG (PyQtGraphCurvePlotter): Depth scale changed: {depth_scale} ({self.current_scale_label})")
     
     def update_scale_display(self):
         """Update the scale display in the plot."""
         # Create or update scale text item
         if not hasattr(self, 'scale_text_item'):
+            pass
             # Create scale text item
             self.scale_text_item = pg.TextItem(
                 text="",
@@ -2358,48 +2392,49 @@ class PyQtGraphCurvePlotter(QWidget):
     def print_performance_report(self):
         """Print a performance report to console."""
         if not self.performance_monitor_enabled:
-            print("Performance monitoring is disabled")
+            pass
+#             print("Performance monitoring is disabled")
             return
             
         metrics = self.get_performance_metrics()
         
         print("\n" + "="*60)
-        print("PHASE 3 PERFORMANCE REPORT")
+#         print("PHASE 3 PERFORMANCE REPORT")
         print("="*60)
         
-        print(f"\nPerformance Monitoring: {'ENABLED' if metrics['performance_monitor_enabled'] else 'DISABLED'}")
+#         print(f"\nPerformance Monitoring: {'ENABLED' if metrics['performance_monitor_enabled'] else 'DISABLED'}")
         
         if metrics['data_stream_manager']:
             ds_metrics = metrics['data_stream_manager']
             print(f"\nDataStreamManager:")
-            print(f"  • Cache Hit Rate: {ds_metrics['cache_hit_rate']:.1%}")
+#             print(f"  • Cache Hit Rate: {ds_metrics['cache_hit_rate']:.1%}")
             print(f"  • Memory Usage: {ds_metrics['memory_usage_mb']:.1f} MB")
-            print(f"  • Active Chunks: {ds_metrics['active_chunks']}")
+#             print(f"  • Active Chunks: {ds_metrics['active_chunks']}")
             print(f"  • Loading Strategy: {ds_metrics['loading_strategy']}")
             
         if metrics['viewport_cache_manager']:
             vc_metrics = metrics['viewport_cache_manager']
-            print(f"\nViewportCacheManager:")
+#             print(f"\nViewportCacheManager:")
             print(f"  • Cache Hit Rate: {vc_metrics['cache_hit_rate']:.1%}")
-            print(f"  • Cache Size: {vc_metrics['cache_size']}")
+#             print(f"  • Cache Size: {vc_metrics['cache_size']}")
             print(f"  • GPU Acceleration: {'ENABLED' if vc_metrics['gpu_acceleration'] else 'DISABLED'}")
-            print(f"  • Items Cached: {vc_metrics['items_cached']}")
+#             print(f"  • Items Cached: {vc_metrics['items_cached']}")
             
         if metrics['scroll_optimizer']:
             so_metrics = metrics['scroll_optimizer']
             print(f"\nScrollOptimizer:")
-            print(f"  • Current FPS: {so_metrics['current_fps']:.1f}")
+#             print(f"  • Current FPS: {so_metrics['current_fps']:.1f}")
             print(f"  • Target FPS: {so_metrics['target_fps']}")
-            print(f"  • Event Batching: {'ENABLED' if so_metrics['event_batching'] else 'DISABLED'}")
+#             print(f"  • Event Batching: {'ENABLED' if so_metrics['event_batching'] else 'DISABLED'}")
             print(f"  • Predictive Rendering: {'ENABLED' if so_metrics['predictive_rendering'] else 'DISABLED'}")
-            print(f"  • Smooth Scrolling: {'ENABLED' if so_metrics['smooth_scrolling'] else 'DISABLED'}")
+#             print(f"  • Smooth Scrolling: {'ENABLED' if so_metrics['smooth_scrolling'] else 'DISABLED'}")
             
         print("\n" + "="*60)
         
     def enable_performance_monitoring(self, enable=True):
         """Enable or disable performance monitoring."""
         self.performance_monitor_enabled = enable
-        print(f"Performance monitoring {'enabled' if enable else 'disabled'}")
+#         print(f"Performance monitoring {'enabled' if enable else 'disabled'}")
         
     def cleanup_performance_components(self):
         """Clean up Phase 3 performance components."""
@@ -2434,13 +2469,15 @@ class PyQtGraphCurvePlotter(QWidget):
             
         # Apply fixed scale if enabled
         if self.fixed_scale_enabled and hasattr(self, 'depth_scale'):
+            pass
             # Calculate expected pixel height based on depth scale
             expected_pixel_height = (max_depth - min_depth) * self.depth_scale
             actual_pixel_height = self.plot_widget.height()
             
             # Adjust range to maintain fixed scale if needed
             if abs(expected_pixel_height - actual_pixel_height) > 10:  # 10 pixel tolerance
-                print(f"DEBUG (PyQtGraphCurvePlotter): Adjusting range to maintain fixed scale")
+                pass
+#                 print(f"DEBUG (PyQtGraphCurvePlotter): Adjusting range to maintain fixed scale")
                 # Recalculate range based on actual pixel height and depth scale
                 adjusted_range = actual_pixel_height / self.depth_scale
                 center = (min_depth + max_depth) / 2

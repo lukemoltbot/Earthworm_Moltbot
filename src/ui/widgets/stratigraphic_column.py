@@ -21,7 +21,7 @@ class StratigraphicColumn(QGraphicsView):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         self.column_width = 40  # Reduced from 140px to 40px (1/3 of original)
-        print(f"DEBUG (StratigraphicColumn.__init__): column_width set to {self.column_width}px (1/3 of original 140px)")
+#         print(f"DEBUG (StratigraphicColumn.__init__): column_width set to {self.column_width}px (1/3 of original 140px)")
         self.min_display_height_pixels = 2 # Minimum height for very thin units
         self.litho_svg_path = "../../assets/svg/"
         self.svg_renderer = SvgRenderer()
@@ -75,7 +75,7 @@ class StratigraphicColumn(QGraphicsView):
         # Check if overview_mode exists (it might not during __init__)
         if hasattr(self, 'overview_mode') and self.overview_mode and self.overview_scale_locked:
             print(f"DEBUG (StratigraphicColumn.depth_scale.setter): Attempt to change depth_scale in overview mode blocked (value={value})")
-            print(f"DEBUG (StratigraphicColumn.depth_scale.setter): Keeping fixed overview scale: {self._depth_scale}")
+#             print(f"DEBUG (StratigraphicColumn.depth_scale.setter): Keeping fixed overview scale: {self._depth_scale}")
             return
             
         # Validate value
@@ -84,12 +84,13 @@ class StratigraphicColumn(QGraphicsView):
             return
             
         self._depth_scale = value
-        print(f"DEBUG (StratigraphicColumn.depth_scale.setter): Set depth_scale to {value}")
+#         print(f"DEBUG (StratigraphicColumn.depth_scale.setter): Set depth_scale to {value}")
 
     def draw_column(self, units_dataframe, min_overall_depth, max_overall_depth, separator_thickness=0.5, draw_separators=True, disable_svg=False):
         print(f"DEBUG (StratigraphicColumn): draw_column called with {len(units_dataframe)} units, min_depth={min_overall_depth}, max_depth={max_overall_depth}, depth_scale={self.depth_scale}, overview_mode={self.overview_mode}")
         if units_dataframe is not None and not units_dataframe.empty:
-            print(f"DEBUG (StratigraphicColumn): columns present: {list(units_dataframe.columns)}")
+            pass
+#             print(f"DEBUG (StratigraphicColumn): columns present: {list(units_dataframe.columns)}")
         self.disable_svg = disable_svg
         self.scene.clear()
         # Clear references to deleted items
@@ -104,15 +105,17 @@ class StratigraphicColumn(QGraphicsView):
         # In overview mode, ALWAYS show entire hole from hole_min_depth to hole_max_depth
         # Ignore the min_overall_depth/max_overall_depth parameters for depth range
         if self.overview_mode and self.overview_scale_locked:
+            pass
             # Use fixed hole depth range and scale
             self.min_depth = self.hole_min_depth
             self.max_depth = self.hole_max_depth
             
             # Use the fixed overview scale
             if hasattr(self, 'overview_fixed_scale') and self.overview_fixed_scale > 0:
+                pass
                 # Bypass setter protection by setting _depth_scale directly
                 self._depth_scale = self.overview_fixed_scale
-                print(f"DEBUG (StratigraphicColumn.draw_column): Using fixed overview scale: {self._depth_scale:.4f} px/m")
+#                 print(f"DEBUG (StratigraphicColumn.draw_column): Using fixed overview scale: {self._depth_scale:.4f} px/m")
             else:
                 # Fallback: calculate scale to fit hole in viewport
                 available_height = max(1, self.viewport().height() - self.x_axis_height)
@@ -125,7 +128,7 @@ class StratigraphicColumn(QGraphicsView):
             # Normal mode: use provided depth range
             self.min_depth = min_overall_depth
             self.max_depth = max_overall_depth
-            print(f"DEBUG (StratigraphicColumn.draw_column): Using normal mode with depth_scale={self.depth_scale}")
+#             print(f"DEBUG (StratigraphicColumn.draw_column): Using normal mode with depth_scale={self.depth_scale}")
 
         # Use the min/max depths for scene scaling
         min_depth_for_scene = self.min_depth
@@ -134,6 +137,7 @@ class StratigraphicColumn(QGraphicsView):
         # Adjust scene rect to include space for the Y-axis
         # In overview mode, we use fitInView with padding, so scene rect should be exact content size
         if self.overview_mode:
+            pass
             # For overview mode: Use a reasonable scene height (fitInView will scale it)
             # We're using 10px per metre as a base - fitInView will scale to fill height
             scene_height = (max_depth_for_scene - min_depth_for_scene) * 10.0
@@ -141,7 +145,7 @@ class StratigraphicColumn(QGraphicsView):
         else:
             # In detailed mode, include X-axis height to match curve plotter
             scene_height = (max_depth_for_scene - min_depth_for_scene) * self.depth_scale + self.x_axis_height
-            print(f"DEBUG (StratigraphicColumn.draw_column): Detailed mode - scene height with X-axis: {scene_height:.1f}px")
+#             print(f"DEBUG (StratigraphicColumn.draw_column): Detailed mode - scene height with X-axis: {scene_height:.1f}px")
             
         self.scene.setSceneRect(0, 0, self.y_axis_width + self.column_width, scene_height)
         
@@ -151,7 +155,7 @@ class StratigraphicColumn(QGraphicsView):
         self._draw_y_axis(min_depth_for_scene, max_depth_for_scene)
 
         # Draw stratigraphic units
-        print(f"DEBUG (StratigraphicColumn): Drawing {len(units_dataframe)} units, min_depth={self.min_depth}, max_depth={self.max_depth}")
+#         print(f"DEBUG (StratigraphicColumn): Drawing {len(units_dataframe)} units, min_depth={self.min_depth}, max_depth={self.max_depth}")
         for index, unit in units_dataframe.iterrows():
             from_depth = unit['from_depth']
             to_depth = unit['to_depth']
@@ -170,7 +174,7 @@ class StratigraphicColumn(QGraphicsView):
                 bg_color = QColor('#FFFFFF')
 
             print(f"DEBUG (StratigraphicColumn): Drawing unit {index}: from={from_depth}, to={to_depth}, thickness={thickness}, code={lithology_code}, background_color_raw={unit.get('background_color', 'MISSING')}, color={bg_color.name()}, svg={svg_file}")
-            print(f"DEBUG (StratigraphicColumn): Unit columns: {list(unit.keys()) if hasattr(unit, 'keys') else 'not a dict'}")
+#             print(f"DEBUG (StratigraphicColumn): Unit columns: {list(unit.keys()) if hasattr(unit, 'keys') else 'not a dict'}")
 
             y_start = (from_depth - self.min_depth) * self.depth_scale
             rect_height = thickness * self.depth_scale
@@ -183,7 +187,7 @@ class StratigraphicColumn(QGraphicsView):
             if rect_height <= 0:
                 continue
 
-            print(f"DEBUG (StratigraphicColumn): Unit {index} rect_height={rect_height:.2f}px, border={'gray 0.5px' if rect_height >= 5 else 'transparent'}")
+#             print(f"DEBUG (StratigraphicColumn): Unit {index} rect_height={rect_height:.2f}px, border={'gray 0.5px' if rect_height >= 5 else 'transparent'}")
 
             # Position the column to the right of the Y-axis
             rect_item = QGraphicsRectItem(self.y_axis_width, y_start, self.column_width, rect_height)
@@ -202,12 +206,12 @@ class StratigraphicColumn(QGraphicsView):
                 pixmap = None
             else:
                 pixmap = self.svg_renderer.render_svg(svg_file, self.column_width, int(rect_height), bg_color)
-            print(f"DEBUG (StratigraphicColumn): pixmap created: {pixmap is not None}")
+#             print(f"DEBUG (StratigraphicColumn): pixmap created: {pixmap is not None}")
             if pixmap:
                 print(f"DEBUG (StratigraphicColumn): Setting pixmap brush for unit {index}")
                 rect_item.setBrush(QBrush(pixmap))
             else:
-                print(f"DEBUG (StratigraphicColumn): Setting solid color brush for unit {index}: {bg_color.name()}")
+#                 print(f"DEBUG (StratigraphicColumn): Setting solid color brush for unit {index}: {bg_color.name()}")
                 rect_item.setBrush(QBrush(bg_color))
             
             self.scene.addItem(rect_item)
@@ -244,6 +248,7 @@ class StratigraphicColumn(QGraphicsView):
         # For zoom_factor < 1.0, we want to zoom out (show larger area)
         zoom_rect = original_rect
         if zoom_factor > 1.0:
+            pass
             # Zoom in: make the rectangle smaller
             new_width = original_rect.width() / zoom_factor
             new_height = original_rect.height() / zoom_factor
@@ -251,6 +256,7 @@ class StratigraphicColumn(QGraphicsView):
             center_y = original_rect.center().y()
             zoom_rect.setRect(center_x - new_width/2, center_y - new_height/2, new_width, new_height)
         elif zoom_factor < 1.0:
+            pass
             # Zoom out: make the rectangle larger (but still fit in view)
             scale_factor = 1.0 / zoom_factor
             new_width = original_rect.width() * scale_factor
@@ -264,6 +270,7 @@ class StratigraphicColumn(QGraphicsView):
 
 
     def _draw_y_axis(self, min_depth, max_depth):
+        pass
         # Debug: Track how many times this method is called
         if not hasattr(self, '_y_axis_draw_count'):
             self._y_axis_draw_count = 0
@@ -283,10 +290,11 @@ class StratigraphicColumn(QGraphicsView):
         # For overview mode, we need to calculate Y positions differently
         # since fitInView will scale everything
         if self.overview_mode:
+            pass
             # In overview mode, positions are proportional to scene height
             y_top = 0
             y_bottom = scene_height
-            print(f"DEBUG (StratigraphicColumn._draw_y_axis): Overview mode - using scene height: {scene_height:.1f}px")
+#             print(f"DEBUG (StratigraphicColumn._draw_y_axis): Overview mode - using scene height: {scene_height:.1f}px")
         else:
             # In detailed mode, calculate Y positions relative to self.min_depth
             # This ensures axis line aligns with lithology units
@@ -298,7 +306,7 @@ class StratigraphicColumn(QGraphicsView):
         # Draw the main axis line with thin pen
         self.scene.addLine(self.y_axis_width, y_top, 
                            self.y_axis_width, y_bottom, axis_pen)
-        print(f"DEBUG (StratigraphicColumn._draw_y_axis): Drew axis line from y={y_top:.1f} to y={y_bottom:.1f}")
+#         print(f"DEBUG (StratigraphicColumn._draw_y_axis): Drew axis line from y={y_top:.1f} to y={y_bottom:.1f}")
 
         # For overview mode: Skip tick marks and labels (not needed for visual reference)
         if self.overview_mode:
@@ -313,8 +321,8 @@ class StratigraphicColumn(QGraphicsView):
 
         # Remove adaptive interval logic for this view
         # Always show whole metre increments regardless of depth range
-        print(f"DEBUG (StratigraphicColumn._draw_y_axis): Detailed mode - drawing Y-axis with major_tick_interval={major_tick_interval}, "
-              f"minor_tick_interval={minor_tick_interval}, depth_range={depth_range:.1f}m")
+#         print(f"DEBUG (StratigraphicColumn._draw_y_axis): Detailed mode - drawing Y-axis with major_tick_interval={major_tick_interval}, "
+#               f"minor_tick_interval={minor_tick_interval}, depth_range={depth_range:.1f}m")
 
         # Draw tick marks and labels - ensure EVERY whole metre gets a mark
         # Start from the first whole metre at or below min_depth
@@ -326,6 +334,7 @@ class StratigraphicColumn(QGraphicsView):
         # Draw major ticks at every whole metre
         current_whole_metre = start_whole_metre
         while current_whole_metre <= end_whole_metre:
+            pass
             # Calculate Y position relative to self.min_depth (data reference point)
             y_pos = (current_whole_metre - self.min_depth) * self.depth_scale
             
@@ -339,7 +348,7 @@ class StratigraphicColumn(QGraphicsView):
             text_item.setPos(self.y_axis_width - 30, y_pos - text_item.boundingRect().height() / 2)
             self.scene.addItem(text_item)
             
-            print(f"DEBUG (StratigraphicColumn._draw_y_axis): Drew metre mark at {current_whole_metre:.0f}m, y_pos={y_pos:.1f}px")
+#             print(f"DEBUG (StratigraphicColumn._draw_y_axis): Drew metre mark at {current_whole_metre:.0f}m, y_pos={y_pos:.1f}px")
             
             current_whole_metre += 1.0
         
@@ -354,6 +363,7 @@ class StratigraphicColumn(QGraphicsView):
             current_minor = start_minor
             minor_tick_count = 0
             while current_minor <= end_minor and minor_tick_count < 500:  # Safety limit
+                pass
                 # Skip whole metres (already drawn as major ticks)
                 if abs(current_minor % 1.0) >= 0.001:
                     y_pos = (current_minor - self.min_depth) * self.depth_scale
@@ -366,8 +376,9 @@ class StratigraphicColumn(QGraphicsView):
             print(f"DEBUG (StratigraphicColumn._draw_y_axis): Drew {minor_tick_count} minor ticks "
                   f"(pixels_between_minor_ticks={pixels_between_minor_ticks:.1f}px > 5px)")
         else:
-            print(f"DEBUG (StratigraphicColumn._draw_y_axis): Skipping minor ticks - too dense "
-                  f"(pixels_between_minor_ticks={pixels_between_minor_ticks:.1f}px <= 5px)")
+            pass  # Skipping minor ticks - too dense
+#             print(f"DEBUG (StratigraphicColumn._draw_y_axis): Skipping minor ticks - too dense "
+#                   f"(pixels_between_minor_ticks={pixels_between_minor_ticks:.1f}px <= 5px)")
         
         print(f"DEBUG (StratigraphicColumn._draw_y_axis): Drew {end_whole_metre - start_whole_metre + 1:.0f} whole metre marks")
         
@@ -400,7 +411,7 @@ class StratigraphicColumn(QGraphicsView):
         # Add to scene
         self.scene.addItem(scale_text_item)
         
-        print(f"DEBUG (StratigraphicColumn._draw_scale_display): Added scale display: {scale_text}")
+#         print(f"DEBUG (StratigraphicColumn._draw_scale_display): Added scale display: {scale_text}")
     
     def _on_scale_changed(self, pixels_per_metre, scale_label):
         """Handle scale changes from converter."""
@@ -501,7 +512,8 @@ class StratigraphicColumn(QGraphicsView):
         """Handle wheel events for zooming."""
         # In overview mode, ignore wheel events - overview should not zoom or scroll
         if self.overview_mode:
-            print(f"DEBUG (StratigraphicColumn.wheelEvent): Ignoring wheel event in overview mode")
+            pass
+#             print(f"DEBUG (StratigraphicColumn.wheelEvent): Ignoring wheel event in overview mode")
             event.ignore()
             return
             
@@ -511,6 +523,7 @@ class StratigraphicColumn(QGraphicsView):
     def fitInView(self, rect, mode=Qt.AspectRatioMode.IgnoreAspectRatio):
         """Override fitInView to handle overview mode with padding."""
         if self.overview_mode:
+            pass
             # In overview mode: Use KeepAspectRatio to maintain proper scaling
             # This ensures consistent behavior during resize events
             
@@ -519,9 +532,9 @@ class StratigraphicColumn(QGraphicsView):
                 print(f"WARNING (StratigraphicColumn.fitInView): Invalid rectangle for overview mode: {rect.width():.1f}x{rect.height():.1f}")
                 return
             
-            print(f"DEBUG (StratigraphicColumn.fitInView): Overview mode - using KeepAspectRatio with padding")
+#             print(f"DEBUG (StratigraphicColumn.fitInView): Overview mode - using KeepAspectRatio with padding")
             print(f"DEBUG (StratigraphicColumn.fitInView): Viewport: {self.viewport().size().width()}x{self.viewport().size().height()}")
-            print(f"DEBUG (StratigraphicColumn.fitInView): Scene rect: {rect.width():.1f}x{rect.height():.1f}")
+#             print(f"DEBUG (StratigraphicColumn.fitInView): Scene rect: {rect.width():.1f}x{rect.height():.1f}")
             
             # Use percentage-based padding that adapts to viewport size
             # 5% padding on sides, 10% padding top/bottom for better vertical fit
@@ -544,6 +557,7 @@ class StratigraphicColumn(QGraphicsView):
             target_height = max(target_height, 1.0)
             
             if padded_rect.width() > 0 and padded_rect.height() > 0:
+                pass
                 # Calculate scale factors for width and height
                 width_scale = target_width / padded_rect.width()
                 height_scale = target_height / padded_rect.height()
@@ -555,11 +569,11 @@ class StratigraphicColumn(QGraphicsView):
                 scaled_height = padded_rect.height() * scale
                 
                 print(f"DEBUG (StratigraphicColumn.fitInView): KeepAspectRatio optimization:")
-                print(f"DEBUG (StratigraphicColumn.fitInView):   Viewport: {viewport_width}x{viewport_height}px")
+#                 print(f"DEBUG (StratigraphicColumn.fitInView):   Viewport: {viewport_width}x{viewport_height}px")
                 print(f"DEBUG (StratigraphicColumn.fitInView):   Padding: {width_padding:.1f}px L/R, {height_padding:.1f}px T/B")
-                print(f"DEBUG (StratigraphicColumn.fitInView):   Target area: {target_width:.1f}x{target_height:.1f}px")
+#                 print(f"DEBUG (StratigraphicColumn.fitInView):   Target area: {target_width:.1f}x{target_height:.1f}px")
                 print(f"DEBUG (StratigraphicColumn.fitInView):   Padded rect: {padded_rect.width():.1f}x{padded_rect.height():.1f}px")
-                print(f"DEBUG (StratigraphicColumn.fitInView):   Calculated scale: {scale:.4f} (width_scale={width_scale:.4f}, height_scale={height_scale:.4f})")
+#                 print(f"DEBUG (StratigraphicColumn.fitInView):   Calculated scale: {scale:.4f} (width_scale={width_scale:.4f}, height_scale={height_scale:.4f})")
                 print(f"DEBUG (StratigraphicColumn.fitInView):   Scaled size: {scaled_width:.1f}x{scaled_height:.1f}px")
                 
                 # Apply the calculated scale
@@ -568,7 +582,7 @@ class StratigraphicColumn(QGraphicsView):
                 # Center the view on the padded rectangle
                 self.centerOn(padded_rect.center())
                 
-                print(f"DEBUG (StratigraphicColumn.fitInView): Applied transform with scale: {scale:.4f}")
+#                 print(f"DEBUG (StratigraphicColumn.fitInView): Applied transform with scale: {scale:.4f}")
                 print(f"DEBUG (StratigraphicColumn.fitInView): Expected fill: {scaled_height/viewport_height*100:.1f}% vertical, {scaled_width/viewport_width*100:.1f}% horizontal")
                 
                 # Force immediate update
@@ -587,11 +601,12 @@ class StratigraphicColumn(QGraphicsView):
         
         # If in overview mode, immediately reapply fitInView with new viewport size
         if self.overview_mode:
-            print(f"DEBUG (StratigraphicColumn.resizeEvent): === RESIZE EVENT TRIGGERED ===")
+            pass
+#             print(f"DEBUG (StratigraphicColumn.resizeEvent): === RESIZE EVENT TRIGGERED ===")
             print(f"DEBUG (StratigraphicColumn.resizeEvent): Old size: {event.oldSize().width()}x{event.oldSize().height()}")
-            print(f"DEBUG (StratigraphicColumn.resizeEvent): New size: {event.size().width()}x{event.size().height()}")
+#             print(f"DEBUG (StratigraphicColumn.resizeEvent): New size: {event.size().width()}x{event.size().height()}")
             print(f"DEBUG (StratigraphicColumn.resizeEvent): Viewport: {self.viewport().size().width()}x{self.viewport().size().height()}")
-            print(f"DEBUG (StratigraphicColumn.resizeEvent): Scene rect: {self.scene.sceneRect().width():.1f}x{self.scene.sceneRect().height():.1f}")
+#             print(f"DEBUG (StratigraphicColumn.resizeEvent): Scene rect: {self.scene.sceneRect().width():.1f}x{self.scene.sceneRect().height():.1f}")
             
             # Always reapply fitInView for overview mode, even if we don't have data yet
             # This ensures immediate rescaling on any resize
@@ -602,11 +617,11 @@ class StratigraphicColumn(QGraphicsView):
                 
                 # Force immediate repaint
                 self.viewport().update()
-                print(f"DEBUG (StratigraphicColumn.resizeEvent): Forced immediate update")
+#                 print(f"DEBUG (StratigraphicColumn.resizeEvent): Forced immediate update")
             else:
                 print(f"DEBUG (StratigraphicColumn.resizeEvent): Scene rect is empty, cannot apply fitInView")
             
-            print(f"DEBUG (StratigraphicColumn.resizeEvent): === RESIZE COMPLETE ===")
+#             print(f"DEBUG (StratigraphicColumn.resizeEvent): === RESIZE COMPLETE ===")
             
             # DO NOT redraw the column - this resets the scaling
             # The fitInView call above already handles the scaling correctly
@@ -621,7 +636,8 @@ class StratigraphicColumn(QGraphicsView):
         """Scroll the view to make the given depth visible."""
         # In overview mode, ignore scroll commands - overview should not scroll
         if self.overview_mode:
-            print(f"DEBUG (StratigraphicColumn.scroll_to_depth): Ignoring scroll command in overview mode (depth={depth})")
+            pass
+#             print(f"DEBUG (StratigraphicColumn.scroll_to_depth): Ignoring scroll command in overview mode (depth={depth})")
             return
             
         # Add validation for depth scale
@@ -642,7 +658,8 @@ class StratigraphicColumn(QGraphicsView):
         
         # Validate view height
         if view_height <= 0:
-            print(f"WARNING: Invalid view height in scroll_to_depth: {view_height}")
+            pass
+#             print(f"WARNING: Invalid view height in scroll_to_depth: {view_height}")
             return
             
         scroll_value = int(y - view_height / 2)
@@ -653,10 +670,11 @@ class StratigraphicColumn(QGraphicsView):
         self.verticalScrollBar().setValue(scroll_value)
     def set_overview_mode(self, enabled, hole_min_depth=0.0, hole_max_depth=500.0):
         """Enable or disable overview mode (showing entire hole)."""
-        print(f"DEBUG (StratigraphicColumn.set_overview_mode): Setting overview_mode={enabled}, hole_min_depth={hole_min_depth}, hole_max_depth={hole_max_depth}")
+#         print(f"DEBUG (StratigraphicColumn.set_overview_mode): Setting overview_mode={enabled}, hole_min_depth={hole_min_depth}, hole_max_depth={hole_max_depth}")
         
         self.overview_mode = enabled
         if enabled:
+            pass
             # Store hole depth range for overview mode
             self.hole_min_depth = hole_min_depth
             self.hole_max_depth = hole_max_depth
@@ -679,13 +697,14 @@ class StratigraphicColumn(QGraphicsView):
             
             # Set overview engineering scale to 1:200
             self.set_engineering_scale('1:200')
-            print(f"DEBUG (StratigraphicColumn.set_overview_mode): Set overview engineering scale to 1:200")
+#             print(f"DEBUG (StratigraphicColumn.set_overview_mode): Set overview engineering scale to 1:200")
             
             print(f"DEBUG (StratigraphicColumn.set_overview_mode): Using fitInView with padding (5% L/R, 10% T/B)")
             
             # If we already have a scene rect, immediately apply fitInView
             if not self.scene.sceneRect().isEmpty():
-                print(f"DEBUG (StratigraphicColumn.set_overview_mode): Immediately applying fitInView")
+                pass
+#                 print(f"DEBUG (StratigraphicColumn.set_overview_mode): Immediately applying fitInView")
                 self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
         else:
             # Disable overview mode - restore original width
@@ -697,9 +716,10 @@ class StratigraphicColumn(QGraphicsView):
     def force_overview_rescale(self):
         """Force immediate rescale of overview column (call after pane/window resize)."""
         if self.overview_mode and not self.scene.sceneRect().isEmpty():
-            print(f"DEBUG (StratigraphicColumn.force_overview_rescale): === MANUAL RESCALE TRIGGERED ===")
+            pass
+#             print(f"DEBUG (StratigraphicColumn.force_overview_rescale): === MANUAL RESCALE TRIGGERED ===")
             print(f"DEBUG (StratigraphicColumn.force_overview_rescale): Viewport: {self.viewport().size().width()}x{self.viewport().size().height()}")
-            print(f"DEBUG (StratigraphicColumn.force_overview_rescale): Scene: {self.scene.sceneRect().width():.1f}x{self.scene.sceneRect().height():.1f}")
+#             print(f"DEBUG (StratigraphicColumn.force_overview_rescale): Scene: {self.scene.sceneRect().width():.1f}x{self.scene.sceneRect().height():.1f}")
             
             # Call fitInView to apply scaling with padding
             self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
@@ -712,7 +732,7 @@ class StratigraphicColumn(QGraphicsView):
     
     def update_zoom_overlay(self, zoom_min_depth, zoom_max_depth):
         """Update the zoom overlay rectangle showing current plot view region (Subtask 3.3)."""
-        print(f"DEBUG (StratigraphicColumn.update_zoom_overlay): zoom_min={zoom_min_depth}, zoom_max={zoom_max_depth}, overview_mode={self.overview_mode}")
+#         print(f"DEBUG (StratigraphicColumn.update_zoom_overlay): zoom_min={zoom_min_depth}, zoom_max={zoom_max_depth}, overview_mode={self.overview_mode}")
         
         self.current_zoom_min = zoom_min_depth
         self.current_zoom_max = zoom_max_depth
@@ -723,7 +743,8 @@ class StratigraphicColumn(QGraphicsView):
             
         # Validate depth scale and range
         if not hasattr(self, 'depth_scale') or self.depth_scale <= 0:
-            print(f"WARNING (StratigraphicColumn.update_zoom_overlay): Invalid depth_scale: {getattr(self, 'depth_scale', 'NOT SET')}")
+            pass
+#             print(f"WARNING (StratigraphicColumn.update_zoom_overlay): Invalid depth_scale: {getattr(self, 'depth_scale', 'NOT SET')}")
             return
             
         if not hasattr(self, 'min_depth'):
@@ -739,7 +760,7 @@ class StratigraphicColumn(QGraphicsView):
         y_start = (zoom_min_depth - self.min_depth) * self.depth_scale
         overlay_height = (zoom_max_depth - zoom_min_depth) * self.depth_scale
         
-        print(f"DEBUG (StratigraphicColumn.update_zoom_overlay): y_start={y_start:.1f}, overlay_height={overlay_height:.1f}, depth_scale={self.depth_scale:.4f}")
+#         print(f"DEBUG (StratigraphicColumn.update_zoom_overlay): y_start={y_start:.1f}, overlay_height={overlay_height:.1f}, depth_scale={self.depth_scale:.4f}")
         
         # Validate overlay position and size
         if overlay_height <= 0:

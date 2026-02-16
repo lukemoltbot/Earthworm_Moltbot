@@ -71,6 +71,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         """Initialize enhanced stratigraphic column with synchronization features."""
         super().__init__(parent)
         
+        self.default_view_range = 20.0  # Show 20 metres by default
         # Enhanced display settings
         self.show_detailed_labels = False  # Disable labels inside units - will show on hover instead
         self.show_lithology_codes = False  # Disable - will show in tooltip
@@ -123,19 +124,21 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         self.setMouseTracking(True)
         self.viewport().setMouseTracking(True)
         
-        # Match curve plotter scale for synchronization
-        # Curve plotter uses depth_scale = 10, so enhanced column should match
-        # This ensures they show the same depth range and scroll together
-        self.depth_scale = 10.0  # Match curve plotter scale
+        # Default to show 20m view for detailed analysis
+        # This matches the LAS curves pane for 1:1 comparison
+        self.default_view_range = 20.0  # Show 20 metres by default
+        self.depth_scale = 50.0  # Adjusted for 20m view (1000px / 20m = 50px/m)
         
-        # Fixed scale - prevent scale changes during scrolling
+        # Synchronized scale with curve plotter
         self.fixed_scale_enabled = True
+        self.sync_with_curve_plotter = True
         
     def set_classified_data(self, classified_dataframe):
         """Set the classified dataframe containing original curve data."""
         self.classified_dataframe = classified_dataframe.copy() if classified_dataframe is not None else None
         if self.classified_dataframe is not None:
-            print(f"DEBUG (EnhancedStratigraphicColumn): Set classified dataframe with {len(self.classified_dataframe)} rows")
+            pass
+#             print(f"DEBUG (EnhancedStratigraphicColumn): Set classified dataframe with {len(self.classified_dataframe)} rows")
             print(f"DEBUG (EnhancedStratigraphicColumn): Classified dataframe columns: {list(self.classified_dataframe.columns)}")
     
     def draw_column(self, units_dataframe, min_overall_depth, max_overall_depth, 
@@ -145,7 +148,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         
         Overrides base class method to add detailed labels and enhanced visualization.
         """
-        print(f"DEBUG (EnhancedStratigraphicColumn): draw_column called with {len(units_dataframe)} units, min_depth={min_overall_depth}, max_depth={max_overall_depth}, depth_scale={self.depth_scale}")
+#         print(f"DEBUG (EnhancedStratigraphicColumn): draw_column called with {len(units_dataframe)} units, min_depth={min_overall_depth}, max_depth={max_overall_depth}, depth_scale={self.depth_scale}")
         print(f"DEBUG (EnhancedStratigraphicColumn): units_dataframe is None: {units_dataframe is None}, empty: {units_dataframe.empty if units_dataframe is not None else 'N/A'}")
         
         # Debug: print available columns
@@ -156,7 +159,8 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             curve_columns = ['gamma', 'density', 'short_space_density', 'long_space_density']
             available_curves = [col for col in curve_columns if col in units_dataframe.columns]
             if available_curves:
-                print(f"DEBUG (EnhancedStratigraphicColumn): Available curve columns: {available_curves}")
+                pass
+#                 print(f"DEBUG (EnhancedStratigraphicColumn): Available curve columns: {available_curves}")
                 # Print first unit's curve values
                 first_unit = units_dataframe.iloc[0]
                 for curve in available_curves:
@@ -184,7 +188,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         
     def _store_unit_data(self, units_dataframe):
         """Store unit data for tooltips and hover events."""
-        print(f"DEBUG (EnhancedStratigraphicColumn._store_unit_data): Storing data for {len(units_dataframe)} units")
+#         print(f"DEBUG (EnhancedStratigraphicColumn._store_unit_data): Storing data for {len(units_dataframe)} units")
         print(f"DEBUG (EnhancedStratigraphicColumn._store_unit_data): self.min_depth = {self.min_depth}, self.depth_scale = {self.depth_scale}")
         
         for index, unit in units_dataframe.iterrows():
@@ -198,7 +202,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             y_start = (from_depth - self.min_depth) * self.depth_scale
             rect_height = thickness * self.depth_scale
             
-            print(f"DEBUG (EnhancedStratigraphicColumn._store_unit_data): Unit {index}: from={from_depth}, to={to_depth}, thickness={thickness}, y_start={y_start}, rect_height={rect_height}")
+#             print(f"DEBUG (EnhancedStratigraphicColumn._store_unit_data): Unit {index}: from={from_depth}, to={to_depth}, thickness={thickness}, y_start={y_start}, rect_height={rect_height}")
             
             # Apply minimum display height
             if rect_height > 0 and rect_height < self.min_display_height_pixels:
@@ -206,7 +210,8 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
                 print(f"DEBUG (EnhancedStratigraphicColumn._store_unit_data): Applied min display height: {rect_height}")
                 
             if rect_height <= 0:
-                print(f"DEBUG (EnhancedStratigraphicColumn._store_unit_data): Skipping unit {index} - rect_height <= 0")
+                pass
+#                 print(f"DEBUG (EnhancedStratigraphicColumn._store_unit_data): Skipping unit {index} - rect_height <= 0")
                 continue
             
             # Store unit data for tooltips
@@ -238,6 +243,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             
             # If curve values are not in units dataframe, try to get them from classified dataframe
             if self.classified_dataframe is not None and 'DEPT' in self.classified_dataframe.columns:
+                pass
                 # Get average curve values for this unit's depth range
                 from_depth = unit_info['from_depth']
                 to_depth = unit_info['to_depth']
@@ -249,6 +255,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
                 if not unit_rows.empty:
                     for curve in curve_columns:
                         if curve in self.classified_dataframe.columns and curve not in unit_info:
+                            pass
                             # Calculate average value for this curve in the unit
                             curve_values = unit_rows[curve]
                             valid_values = curve_values[pd.notna(curve_values)]
@@ -272,7 +279,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
     
     def _on_unit_hover_enter(self, event, unit_index):
         """Handle mouse hover enter event for a unit."""
-        print(f"DEBUG (EnhancedStratigraphicColumn._on_unit_hover_enter): Hover entered unit {unit_index}")
+#         print(f"DEBUG (EnhancedStratigraphicColumn._on_unit_hover_enter): Hover entered unit {unit_index}")
         self.hovered_unit_index = unit_index
         
         # Find unit data
@@ -296,7 +303,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             view_pos = self.mapFromScene(scene_pos)
             global_pos = self.mapToGlobal(view_pos)
             
-            print(f"DEBUG (EnhancedStratigraphicColumn._on_unit_hover_enter): Showing tooltip at global position {global_pos}")
+#             print(f"DEBUG (EnhancedStratigraphicColumn._on_unit_hover_enter): Showing tooltip at global position {global_pos}")
             QToolTip.showText(global_pos, tooltip_text, self)
         else:
             print(f"DEBUG (EnhancedStratigraphicColumn._on_unit_hover_enter): No unit info found for index {unit_index}")
@@ -367,6 +374,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         # (Note: parent class already created these, we just need to find them)
         for item in self.scene.items():
             if isinstance(item, QGraphicsRectItem):
+                pass
                 # Check if this is a unit rectangle (not axis or other rect)
                 rect = item.rect()
                 if rect.x() == self.y_axis_width and rect.width() == self.column_width:
@@ -376,6 +384,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
                     if rect.height() > 20:
                         current_brush = item.brush()
                         if current_brush.style() != Qt.BrushStyle.NoBrush:
+                            pass
                             # Create a subtle vertical gradient
                             gradient = QLinearGradient(rect.topLeft(), rect.bottomLeft())
                             color = current_brush.color()
@@ -391,7 +400,8 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             
         # Check if synchronization should proceed (prevent infinite loops)
         if not self.sync_tracker.should_sync():
-            print(f"DEBUG (EnhancedStratigraphicColumn._on_scroll_value_changed): Sync blocked by tracker")
+            pass
+#             print(f"DEBUG (EnhancedStratigraphicColumn._on_scroll_value_changed): Sync blocked by tracker")
             return
             
         self.sync_tracker.begin_sync()
@@ -416,7 +426,8 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             
             # Only emit scroll signal if depth changed significantly
             if abs(center_depth - self.last_sync_depth) > 0.1:
-                print(f"DEBUG (EnhancedStratigraphicColumn._on_scroll_value_changed): Emitting depthScrolled signal with center_depth={center_depth}")
+                pass
+#                 print(f"DEBUG (EnhancedStratigraphicColumn._on_scroll_value_changed): Emitting depthScrolled signal with center_depth={center_depth}")
                 self.depthScrolled.emit(center_depth)
                 self.last_sync_depth = center_depth
                 
@@ -450,8 +461,10 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         
         # Connect signals for bidirectional synchronization
         if curve_plotter:
+            pass
             # When curve plotter scrolls, update strat column
             if hasattr(curve_plotter, 'viewRangeChanged'):
+                pass
                 # Note: PyQtGraphCurvePlotter already has viewRangeChanged signal
                 curve_plotter.viewRangeChanged.connect(self._on_curve_plotter_scrolled)
                 
@@ -465,7 +478,8 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             
         # Check if synchronization should proceed (prevent infinite loops)
         if not self.sync_tracker.should_sync():
-            print(f"DEBUG (EnhancedStratigraphicColumn._on_curve_plotter_scrolled): Sync blocked by tracker")
+            pass
+#             print(f"DEBUG (EnhancedStratigraphicColumn._on_curve_plotter_scrolled): Sync blocked by tracker")
             return
             
         self.sync_tracker.begin_sync()
@@ -481,7 +495,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             
             # Update visible depth range (should match after scrolling)
             self._update_visible_depth_range()
-            print(f"DEBUG (EnhancedStratigraphicColumn._on_curve_plotter_scrolled): After scrolling, visible range: {self.visible_min_depth:.2f}-{self.visible_max_depth:.2f}")
+#             print(f"DEBUG (EnhancedStratigraphicColumn._on_curve_plotter_scrolled): After scrolling, visible range: {self.visible_min_depth:.2f}-{self.visible_max_depth:.2f}")
             
         finally:
             self.sync_tracker.end_sync()
@@ -499,7 +513,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         self.sync_tracker.begin_sync()
         
         try:
-            print(f"DEBUG (EnhancedStratigraphicColumn._on_strat_column_scrolled): Strat column scrolled to center_depth={center_depth:.2f}")
+#             print(f"DEBUG (EnhancedStratigraphicColumn._on_strat_column_scrolled): Strat column scrolled to center_depth={center_depth:.2f}")
             
             # Get current view height from curve plotter
             if hasattr(self.sync_curve_plotter, 'plot_widget'):
@@ -513,6 +527,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
                     
                     # Validate current_height
                     if current_height <= 0:
+                        pass
                         # Use default height
                         if hasattr(self.sync_curve_plotter, 'data') and self.sync_curve_plotter.data is not None:
                             data = self.sync_curve_plotter.data
@@ -520,7 +535,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
                                 data_y_min = data[self.sync_curve_plotter.depth_column].min()
                                 data_y_max = data[self.sync_curve_plotter.depth_column].max()
                                 current_height = (data_y_max - data_y_min) * 0.1
-                                print(f"DEBUG (EnhancedStratigraphicColumn._on_strat_column_scrolled): Using data-based height: {current_height:.2f}")
+#                                 print(f"DEBUG (EnhancedStratigraphicColumn._on_strat_column_scrolled): Using data-based height: {current_height:.2f}")
                     
                     if current_height <= 0:
                         current_height = 10.0  # Default fallback
@@ -530,7 +545,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
                     new_y_min = center_depth - current_height / 2
                     new_y_max = center_depth + current_height / 2
                     
-                    print(f"DEBUG (EnhancedStratigraphicColumn._on_strat_column_scrolled): Setting curve plotter range: {new_y_min:.2f}-{new_y_max:.2f}")
+#                     print(f"DEBUG (EnhancedStratigraphicColumn._on_strat_column_scrolled): Setting curve plotter range: {new_y_min:.2f}-{new_y_max:.2f}")
                     
                     # Apply to curve plotter
                     self.sync_curve_plotter.plot_widget.setYRange(new_y_min, new_y_max)
@@ -550,7 +565,8 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         
         # Check if synchronization should proceed (prevent infinite loops)
         if self.sync_enabled and not self.sync_tracker.should_sync():
-            print(f"DEBUG (EnhancedStratigraphicColumn.scroll_to_depth): Sync blocked by tracker")
+            pass
+#             print(f"DEBUG (EnhancedStratigraphicColumn.scroll_to_depth): Sync blocked by tracker")
             return
             
         self.sync_tracker.begin_sync()
@@ -571,7 +587,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
                 self.zoom_state_manager.center_depth = center_depth
                 self.zoom_state_manager.visible_min_depth = self.visible_min_depth
                 self.zoom_state_manager.visible_max_depth = self.visible_max_depth
-                print(f"DEBUG (EnhancedStratigraphicColumn.scroll_to_depth): Updated zoom state manager")
+#                 print(f"DEBUG (EnhancedStratigraphicColumn.scroll_to_depth): Updated zoom state manager")
             
             # Emit synchronization signal with center depth
             if self.sync_enabled:
@@ -594,6 +610,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         """Set the zoom state manager for synchronization."""
         self.zoom_state_manager = zoom_manager
         if self.zoom_state_manager:
+            pass
             # Connect signals
             self.zoom_state_manager.zoomStateChanged.connect(self._on_zoom_state_changed)
             self.zoom_state_manager.zoomLevelChanged.connect(self._on_zoom_level_changed)
@@ -617,8 +634,8 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             # Scroll to center depth
             self.scroll_to_depth(center_depth)
             
-            print(f"DEBUG (EnhancedStratigraphicColumn): Zoom state changed: "
-                  f"center={center_depth:.2f}, range=[{min_depth:.2f}, {max_depth:.2f}]")
+#             print(f"DEBUG (EnhancedStratigraphicColumn): Zoom state changed: "
+#                   f"center={center_depth:.2f}, range=[{min_depth:.2f}, {max_depth:.2f}]")
         finally:
             self.is_zooming = False
             
@@ -633,7 +650,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         if depth_scale > 0:
             self.depth_scale = depth_scale
             self.current_scale_label = scale_label or f"{depth_scale:.1f} px/m"
-            print(f"DEBUG (EnhancedStratigraphicColumn): Depth scale changed: {depth_scale} ({self.current_scale_label})")
+#             print(f"DEBUG (EnhancedStratigraphicColumn): Depth scale changed: {depth_scale} ({self.current_scale_label})")
     
     def _on_engineering_scale_changed(self, scale_label, pixels_per_metre):
         """Handle engineering scale changes."""
@@ -648,7 +665,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
     def set_fixed_scale_enabled(self, enabled):
         """Enable or disable fixed scale (prevent scale changes during scrolling)."""
         self.fixed_scale_enabled = enabled
-        print(f"DEBUG (EnhancedStratigraphicColumn): Fixed scale {'enabled' if enabled else 'disabled'}")
+#         print(f"DEBUG (EnhancedStratigraphicColumn): Fixed scale {'enabled' if enabled else 'disabled'}")
         
     def set_detailed_labels_enabled(self, enabled):
         """Enable or disable detailed unit labels."""
@@ -681,6 +698,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         
         # Check if this is a zoom operation (Ctrl+wheel)
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            pass
             # Handle zoom with Ctrl+wheel
             self._handle_zoom_wheel(event)
             event.accept()
@@ -701,6 +719,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         # Calculate zoom factor change
         zoom_delta = 0.1  # 10% zoom change per wheel step
         if delta > 0:
+            pass
             # Zoom in
             new_zoom_factor = self.current_zoom_factor * (1.0 + zoom_delta)
         else:
@@ -722,8 +741,8 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             self.current_zoom_factor = new_zoom_factor
             self.zoomLevelChanged.emit(new_zoom_factor)
             
-        print(f"DEBUG (EnhancedStratigraphicColumn): Zoom wheel: delta={delta}, "
-              f"zoom_factor={self.current_zoom_factor:.2f} -> {new_zoom_factor:.2f}")
+#         print(f"DEBUG (EnhancedStratigraphicColumn): Zoom wheel: delta={delta}, "
+#               f"zoom_factor={self.current_zoom_factor:.2f} -> {new_zoom_factor:.2f}")
             
     def mousePressEvent(self, event):
         """Handle mouse clicks with enhanced selection highlighting."""

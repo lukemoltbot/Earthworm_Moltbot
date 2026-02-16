@@ -68,6 +68,10 @@ class DataProcessor:
 
         # Create standardized columns based on mnemonic_map
         for standard_name, original_mnemonic in mnemonic_map.items():
+            # Handle "None" option - skip if user selected None
+            if original_mnemonic is None or str(original_mnemonic).lower() == "none":
+                continue  # Skip this curve - user doesn't want to use it
+            
             if original_mnemonic in processed_df.columns:
                 # Use .loc assignment to avoid chained assignment warning
                 processed_df.loc[:, standard_name] = processed_df[original_mnemonic].values
