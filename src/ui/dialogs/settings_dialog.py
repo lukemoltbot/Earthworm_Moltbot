@@ -89,6 +89,24 @@ class SettingsDialog(QDialog):
         # Load initial settings into controls
         self.load_settings()
 
+    def on_ok(self):
+        """Handle OK button click - save settings and close dialog."""
+        # Gather current settings
+        settings = self.gather_settings()
+        # Emit signal with updated settings
+        self.settings_updated.emit(settings)
+        # Close dialog with accept
+        self.accept()
+
+    def on_apply(self):
+        """Handle Apply button click - save settings without closing."""
+        # Gather current settings
+        settings = self.gather_settings()
+        # Emit signal with updated settings
+        self.settings_updated.emit(settings)
+        # Update current_settings for immediate feedback
+        self.current_settings = settings
+
     def load_qualifiers(self):
         """Load lithology qualifiers from the CoalLog standards JSON file."""
         qualifiers_path = os.path.join(
@@ -745,9 +763,9 @@ class SettingsDialog(QDialog):
         if 'invert_resistivity' in self.current_settings:
             self.invertResistivityCheckBox.setChecked(self.current_settings['invert_resistivity'])
         
-        # Load SVG disable setting
-        if 'disable_svg' in self.current_settings:
-            self.disableSvgCheckBox.setChecked(self.current_settings['disable_svg'])
+        # Load SVG disable setting (removed - SVG functionality removed)
+        # if 'disable_svg' in self.current_settings:
+        #     self.disableSvgCheckBox.setChecked(self.current_settings['disable_svg'])
 
         # Load analysis settings
         if 'use_researched_defaults' in self.current_settings:
@@ -887,7 +905,7 @@ class SettingsDialog(QDialog):
         settings['invert_resistivity'] = self.invertResistivityCheckBox.isChecked()
         settings['invert_caliper'] = self.invertCaliperCheckBox.isChecked()
         settings['invert_resistivity'] = self.invertResistivityCheckBox.isChecked()
-        settings['disable_svg'] = self.disableSvgCheckBox.isChecked()
+        # settings['disable_svg'] = self.disableSvgCheckBox.isChecked()  # SVG functionality removed
 
         # Gather analysis settings
         settings['use_researched_defaults'] = self.useResearchedDefaultsCheckBox.isChecked()
