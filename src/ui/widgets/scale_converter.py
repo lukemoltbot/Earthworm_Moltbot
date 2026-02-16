@@ -51,12 +51,12 @@ class EngineeringScaleConverter(QObject):
     def __init__(self, parent=None):
         super().__init__(parent)
         
+        # Screen DPI (default to 96 DPI if not available)
+        self._screen_dpi = self._get_screen_dpi()
+        
         # Current scale state
         self._current_scale = '1:50'  # Default detailed view
         self._pixels_per_metre = self._calculate_pixels_per_metre(self._current_scale)
-        
-        # Screen DPI (default to 96 DPI if not available)
-        self._screen_dpi = self._get_screen_dpi()
         
         # Scale adjustment step (for CTRL+wheel)
         self._scale_step = 0.1  # 10% adjustment per wheel tick

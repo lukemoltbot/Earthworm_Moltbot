@@ -441,13 +441,14 @@ class HistogramCurveMode(CurveDisplayMode):
                            brush=pg.mkBrush(color.red(), color.green(), color.blue(), 100))
 
 
-class CurveDisplayModes:
+class CurveDisplayModes(QObject):
     """Manager for curve display modes."""
     
     # Signal emitted when display mode changes
     displayModeChanged = pyqtSignal(str, dict)  # mode_name, mode_info
     
     def __init__(self):
+        super().__init__()
         # Available display modes
         self.modes = {
             'overlaid': OverlaidCurveMode(),

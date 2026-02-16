@@ -9,10 +9,10 @@ Provides toolbar buttons, context menus, and keyboard shortcuts for switching be
 """
 
 from PyQt6.QtWidgets import (
-    QWidget, QToolBar, QPushButton, QMenu, QAction, QActionGroup,
+    QWidget, QToolBar, QPushButton, QMenu,
     QLabel, QComboBox, QHBoxLayout, QVBoxLayout, QSizePolicy
 )
-from PyQt6.QtGui import QIcon, QFont, QKeySequence
+from PyQt6.QtGui import QIcon, QFont, QKeySequence, QAction, QActionGroup
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 import os
 
@@ -206,6 +206,56 @@ class CurveDisplayModeSwitcher(QToolBar):
     def get_current_mode(self):
         """Get current display mode."""
         return self.current_mode
+    
+    def add_curve_settings_buttons(self):
+        """Add curve settings export/import buttons to the toolbar."""
+        # Export button
+        export_action = QAction("Export Settings", self)
+        export_action.setToolTip("Export curve settings to file")
+        export_action.triggered.connect(self.export_curve_settings)
+        self.addAction(export_action)
+        
+        # Import button
+        import_action = QAction("Import Settings", self)
+        import_action.setToolTip("Import curve settings from file")
+        import_action.triggered.connect(self.import_curve_settings)
+        self.addAction(import_action)
+    
+    def export_curve_settings(self):
+        """Export current curve settings to a file."""
+        print("DEBUG: Export curve settings requested")
+        self.exportCurveSettingsRequested.emit()
+        
+    def import_curve_settings(self):
+        """Import curve settings from a file."""
+        print("DEBUG: Import curve settings requested")
+        self.importCurveSettingsRequested.emit()
+    
+    def add_sync_status_indicator(self):
+        """Add cross-hole sync status indicator to toolbar."""
+        # Sync status label
+        self.sync_status_label = QLabel("Sync: OFF")
+        self.sync_status_label.setStyleSheet("color: #999; font-style: italic;")
+        self.sync_status_label.setToolTip("Cross-hole synchronization status\nClick to configure sync settings")
+        
+        # Make it clickable
+        self.sync_status_label.mousePressEvent = self.on_sync_status_clicked
+        
+        self.addWidget(self.sync_status_label)
+    
+    def on_sync_status_clicked(self, event):
+        """Handle click on sync status indicator."""
+        print("DEBUG: Sync status clicked - opening sync settings")
+        self.syncSettingsRequested.emit()
+    
+    def update_sync_status(self, enabled: bool, hole_count: int = 0):
+        """Update sync status indicator."""
+        if enabled:
+            self.sync_status_label.setText(f"Sync: ON ({hole_count} holes)")
+            self.sync_status_label.setStyleSheet("color: #0a0; font-weight: bold;")
+        else:
+            self.sync_status_label.setText("Sync: OFF")
+            self.sync_status_label.setStyleSheet("color: #999; font-style: italic;")
 
 
 class CurveDisplayModeMenu(QMenu):
@@ -327,58 +377,6 @@ class CurveDisplayModeMenu(QMenu):
                 if action_text == mode_name:
                     action.setChecked(True)
                     break
-    
-    def add_curve_settings_buttons(self):
-        """Add curve settings export/import buttons to the toolbar."""
-        # Export button
-        export_action = QAction("Export Settings", self)
-        export_action.setToolTip("Export curve settings to file")
-        export_action.triggered.connect(self.export_curve_settings)
-        self.addAction(export_action)
-        
-        # Import button
-        import_action = QAction("Import Settings", self)
-        import_action.setToolTip("Import curve settings from file")
-        import_action.triggered.connect(self.import_curve_settings)
-        self.addAction(import_action)
-    
-    def export_curve_settings(self):
-        """Export current curve settings to a file."""
-        print("DEBUG: Export curve settings requested")
-        self.exportCurveSettingsRequested.emit()
-        
-    def import_curve_settings(self):
-        """Import curve settings from a file."""
-        print("DEBUG: Import curve settings requested")
-        self.importCurveSettingsRequested.emit()
-    
-    def add_sync_status_indicator(self):
-        """Add cross-hole sync status indicator to toolbar."""
-        # Sync status label
-        self.sync_status_label = QLabel("Sync: OFF")
-        self.sync_status_label.setStyleSheet("color: #999; font-style: italic;")
-        self.sync_status_label.setToolTip("Cross-hole synchronization status\nClick to configure sync settings")
-        
-        # Make it clickable
-        self.sync_status_label.mousePressEvent = self.on_sync_status_clicked
-        
-        self.addWidget(self.sync_status_label)
-    
-    def on_sync_status_clicked(self, event):
-        """Handle click on sync status indicator."""
-        print("DEBUG: Sync status clicked - opening sync settings")
-        self.syncSettingsRequested.emit()
-    
-    def update_sync_status(self, enabled: bool, hole_count: int = 0):
-        """Update sync status indicator."""
-        if enabled:
-            self.sync_status_label.setText(f"Sync: ON ({hole_count} holes)")
-            self.sync_status_label.setStyleSheet("color: #0a0; font-weight: bold;")
-        else:
-            self.sync_status_label.setText("Sync: OFF")
-            self.sync_status_label.setStyleSheet("color: #999; font-style: italic;")
-
-
 # Factory function for easy integration
 def create_display_mode_switcher(parent=None, display_modes_manager=None):
     """Create and initialize a display mode switcher toolbar."""
