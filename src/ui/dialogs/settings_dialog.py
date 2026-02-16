@@ -770,8 +770,9 @@ class SettingsDialog(QDialog):
 
         # Load AVG executable path
         
-        # Load SVG directory path
-        if 'svg_directory_path' in self.current_settings:
+        # Load SVG directory path (removed - legacy functionality)
+        # if 'svg_directory_path' in self.current_settings:
+        #     pass  # SVG functionality removed
 
         # Load curve visibility settings
         if 'curve_visibility' in self.current_settings:
@@ -1234,16 +1235,18 @@ class SettingsDialog(QDialog):
         """Export lithology report."""
         if self.parent():
             self.parent().export_lithology_report()
-
-        dir_path = QFileDialog.getExistingDirectory(
-            self,
-            "Select SVG Patterns Directory",
-            "",
-            QFileDialog.Option.ShowDirsOnly
-        )
-        if dir_path:
-            # Update settings immediately (optional)
-            # self.on_apply()
+        
+        # Note: SVG directory selection removed - functionality handled by parent
+        # dir_path = QFileDialog.getExistingDirectory(
+        #     self,
+        #     "Select SVG Patterns Directory",
+        #     "",
+        #     QFileDialog.Option.ShowDirsOnly
+        # )
+        # if dir_path:
+        #     # Update settings immediately (optional)
+        #     # self.on_apply()
+        pass
 
     def accept(self):
         """Override accept to ensure settings are saved."""

@@ -3082,17 +3082,17 @@ class MainWindow(QMainWindow):
         self.caliperComboBox.clear()
         self.resistivityComboBox.clear()
 
-                self.addItem("--- None ---")
+        self.gammaRayComboBox.addItem("--- None ---")
         self.gammaRayComboBox.addItems(mnemonics)
-                self.addItem("--- None ---")
+        self.densityComboBox.addItem("--- None ---")
         self.densityComboBox.addItems(mnemonics)
-                self.addItem("--- None ---")
+        self.shortSpaceDensityComboBox.addItem("--- None ---")
         self.shortSpaceDensityComboBox.addItems(mnemonics)
-                self.addItem("--- None ---")
+        self.longSpaceDensityComboBox.addItem("--- None ---")
         self.longSpaceDensityComboBox.addItems(mnemonics)
-                self.addItem("--- None ---")
+        self.caliperComboBox.addItem("--- None ---")
         self.caliperComboBox.addItems(mnemonics)
-                self.addItem("--- None ---")
+        self.resistivityComboBox.addItem("--- None ---")
         self.resistivityComboBox.addItems(mnemonics)
 
         # Set default selections
@@ -4095,9 +4095,10 @@ class MainWindow(QMainWindow):
             'caliper': self.caliperComboBox.currentText(),
             'resistivity': self.resistivityComboBox.currentText()
         }
-# Allow empty/None selection for curves
-#             QMessageBox.warning(self, "Missing Curve Mapping", "Please select both Gamma Ray and Density curves.")
-            return
+        # Allow empty/None selection for curves
+        # if not mnemonic_map['gamma'] or not mnemonic_map['density']:
+        #     QMessageBox.warning(self, "Missing Curve Mapping", "Please select both Gamma Ray and Density curves.")
+        #     return
         # Ensure lithology rules are up-to-date from the settings table before running analysis
         self.save_settings_rules_from_table(show_message=False)
 

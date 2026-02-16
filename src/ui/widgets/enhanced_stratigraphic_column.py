@@ -131,7 +131,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         
         # Synchronized scale with curve plotter
         self.fixed_scale_enabled = True
-        self.sync_with_curve_plotter = True
+        self.sync_enabled_with_curve_plotter = True
         
     def set_classified_data(self, classified_dataframe):
         """Set the classified dataframe containing original curve data."""
