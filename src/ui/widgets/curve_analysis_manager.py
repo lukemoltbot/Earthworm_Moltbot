@@ -389,22 +389,25 @@ class CurveAnalysisManager(QObject):
                 results['regression'] = {'error': str(e)}
         else:
             results['regression'] = {'error': 'scipy not available for regression analysis'}
-            'x_statistics': {
-                'mean': float(np.mean(x_values)),
-                'std': float(np.std(x_values)),
-                'min': float(np.min(x_values)),
-                'max': float(np.max(x_values))
-            },
-            'y_statistics': {
-                'mean': float(np.mean(y_values)),
-                'std': float(np.std(y_values)),
-                'min': float(np.min(y_values)),
-                'max': float(np.max(y_values))
-            },
-            'plot_data': {
-                'x': x_values.tolist(),
-                'y': y_values.tolist()
-            }
+        
+        # Add statistics
+        results['x_statistics'] = {
+            'mean': float(np.mean(x_values)),
+            'std': float(np.std(x_values)),
+            'min': float(np.min(x_values)),
+            'max': float(np.max(x_values))
+        }
+        
+        results['y_statistics'] = {
+            'mean': float(np.mean(y_values)),
+            'std': float(np.std(y_values)),
+            'min': float(np.min(y_values)),
+            'max': float(np.max(y_values))
+        }
+        
+        results['plot_data'] = {
+            'x': x_values.tolist(),
+            'y': y_values.tolist()
         }
         
         self.analysisComplete.emit('cross_plot', results)
