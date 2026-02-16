@@ -614,6 +614,13 @@ class SettingsDialog(QDialog):
         file_layout.addWidget(self.researchedDefaultsButton)
         file_layout.addWidget(self.exportLithologyReportButton)
 
+        # Connect file operation buttons
+        self.saveAsSettingsButton.clicked.connect(self.save_settings_as_file)
+        self.updateSettingsButton.clicked.connect(self.update_settings)
+        self.loadSettingsButton.clicked.connect(self.load_settings_from_file)
+        self.researchedDefaultsButton.clicked.connect(self.open_researched_defaults_dialog)
+        self.exportLithologyReportButton.clicked.connect(self.export_lithology_report)
+
         layout.addWidget(file_group)
 
         layout.addStretch()
@@ -1231,6 +1238,17 @@ class SettingsDialog(QDialog):
         # This should delegate to parent MainWindow
         if self.parent():
             self.parent().save_settings_as_file()
+
+    def update_settings(self):
+        """Update settings from current dialog state."""
+        # This is similar to Apply but doesn't close dialog
+        # Gather current settings
+        settings = self.gather_settings()
+        # Emit signal with updated settings
+        self.settings_updated.emit(settings)
+        # Update current_settings for immediate feedback
+        self.current_settings = settings
+        print("[DEBUG] Settings updated from dialog")
 
     def load_settings_from_file(self):
         """Open file dialog to load settings from a JSON file."""
