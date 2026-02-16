@@ -801,6 +801,319 @@ class HoleEditorWindow(QWidget):
         
         dialog.accept()
     
+    def curve_analysis_dialog(self):
+        """Open dialog for advanced curve analysis tools."""
+        from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
+                                   QComboBox, QPushButton, QGroupBox, QFormLayout,
+                                   QSpinBox, QDoubleSpinBox, QCheckBox, QTextEdit,
+                                   QTabWidget, QWidget, QMessageBox)
+        
+        # Check if we have curve data
+        if not hasattr(self, 'curvePlotter') or not self.curvePlotter:
+            QMessageBox.warning(self, "No Data", "No curve data available for analysis")
+            return
+        
+        # Get curve data and configurations
+        curve_data = self.curvePlotter.data if hasattr(self.curvePlotter, 'data') else None
+        curve_configs = self.curvePlotter.curve_configs if hasattr(self.curvePlotter, 'curve_configs') else []
+        
+        if curve_data is None or curve_data.empty:
+            QMessageBox.warning(self, "No Data", "No curve data available for analysis")
+            return
+        
+        if not curve_configs:
+            QMessageBox.warning(self, "No Curves", "No curve configurations available")
+            return
+        
+        # Get curve names
+        curve_names = [config.get('name', '') for config in curve_configs if config.get('name')]
+        if not curve_names:
+            QMessageBox.warning(self, "No Curves", "No valid curve names found")
+            return
+        
+        # Create analysis dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Curve Analysis Tools")
+        dialog.setMinimumWidth(600)
+        dialog.setMinimumHeight(500)
+        
+        layout = QVBoxLayout()
+        
+        # Create tab widget for different analysis types
+        tab_widget = QTabWidget()
+        
+        # Tab 1: Statistical Analysis
+        stats_tab = QWidget()
+        stats_layout = QVBoxLayout()
+        
+        # Curve selection
+        curve_selection_group = QGroupBox("Curve Selection")
+        curve_selection_layout = QFormLayout()
+        
+        curve_combo = QComboBox()
+        curve_combo.addItems(curve_names)
+        curve_selection_layout.addRow(QLabel("Select Curve:"), curve_combo)
+        
+        # Depth range
+        depth_range_group = QGroupBox("Depth Range (Optional)")
+        depth_range_layout = QFormLayout()
+        
+        depth_min_spin = QDoubleSpinBox()
+        depth_min_spin.setRange(0, 10000)
+        depth_min_spin.setDecimals(2)
+        depth_min_spin.setSpecialValueText("Auto")
+        
+        depth_max_spin = QDoubleSpinBox()
+        depth_max_spin.setRange(0, 10000)
+        depth_max_spin.setDecimals(2)
+        depth_max_spin.setSpecialValueText("Auto")
+        
+        depth_range_layout.addRow(QLabel("Min Depth:"), depth_min_spin)
+        depth_range_layout.addRow(QLabel("Max Depth:"), depth_max_spin)
+        depth_range_group.setLayout(depth_range_layout)
+        
+        stats_layout.addWidget(curve_selection_group)
+        stats_layout.addWidget(depth_range_group)
+        
+        # Results display
+        results_text = QTextEdit()
+        results_text.setReadOnly(True)
+        results_text.setPlaceholderText("Analysis results will appear here...")
+        stats_layout.addWidget(QLabel("Results:"))
+        stats_layout.addWidget(results_text)
+        
+        # Analyze button
+        analyze_button = QPushButton("Analyze Statistics")
+        analyze_button.clicked.connect(lambda: self._perform_statistical_analysis(
+            dialog, curve_data, curve_names, curve_combo.currentText(),
+            depth_min_spin.value(), depth_max_spin.value(), results_text
+        ))
+        stats_layout.addWidget(analyze_button)
+        
+        stats_tab.setLayout(stats_layout)
+        tab_widget.addTab(stats_tab, "Statistics")
+        
+        # Tab 2: Filtering
+        filter_tab = QWidget()
+        filter_layout = QVBoxLayout()
+        
+        # Filter type selection
+        filter_type_group = QGroupBox("Filter Settings")
+        filter_type_layout = QFormLayout()
+        
+        filter_type_combo = QComboBox()
+        filter_type_combo.addItems(["Moving Average", "Gaussian", "Median", "Savitzky-Golay"])
+        filter_type_layout.addRow(QLabel("Filter Type:"), filter_type_combo)
+        
+        window_size_spin = QSpinBox()
+        window_size_spin.setRange(3, 101)
+        window_size_spin.setValue(5)
+        window_size_spin.setSingleStep(2)
+        filter_type_layout.addRow(QLabel("Window Size:"), window_size_spin)
+        
+        filter_type_group.setLayout(filter_type_layout)
+        filter_layout.addWidget(filter_type_group)
+        
+        # Apply filter button
+        apply_filter_button = QPushButton("Apply Filter")
+        apply_filter_button.clicked.connect(lambda: self._apply_curve_filter(
+            dialog, curve_data, curve_names, curve_combo.currentText(),
+            filter_type_combo.currentText().lower().replace(' ', '_').replace('-', '_'),
+            window_size_spin.value()
+        ))
+        filter_layout.addWidget(apply_filter_button)
+        
+        filter_tab.setLayout(filter_layout)
+        tab_widget.addTab(filter_tab, "Filtering")
+        
+        # Tab 3: Correlation Analysis
+        correlation_tab = QWidget()
+        correlation_layout = QVBoxLayout()
+        
+        # Curve selection for correlation
+        correlation_group = QGroupBox("Curve Selection")
+        correlation_form = QFormLayout()
+        
+        x_curve_combo = QComboBox()
+        x_curve_combo.addItems(curve_names)
+        correlation_form.addRow(QLabel("X-axis Curve:"), x_curve_combo)
+        
+        y_curve_combo = QComboBox()
+        y_curve_combo.addItems(curve_names)
+        correlation_form.addRow(QLabel("Y-axis Curve:"), y_curve_combo)
+        
+        correlation_group.setLayout(correlation_form)
+        correlation_layout.addWidget(correlation_group)
+        
+        # Correlation button
+        correlation_button = QPushButton("Calculate Correlation")
+        correlation_button.clicked.connect(lambda: self._perform_correlation_analysis(
+            dialog, curve_data, x_curve_combo.currentText(), y_curve_combo.currentText()
+        ))
+        correlation_layout.addWidget(correlation_button)
+        
+        correlation_tab.setLayout(correlation_layout)
+        tab_widget.addTab(correlation_tab, "Correlation")
+        
+        layout.addWidget(tab_widget)
+        
+        # Close button
+        close_button = QPushButton("Close")
+        close_button.clicked.connect(dialog.accept)
+        layout.addWidget(close_button)
+        
+        dialog.setLayout(layout)
+        dialog.exec()
+    
+    def _perform_statistical_analysis(self, dialog, curve_data, curve_names, selected_curve,
+                                     min_depth, max_depth, results_text):
+        """Perform statistical analysis on selected curve."""
+        if selected_curve not in curve_data.columns:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(dialog, "Error", f"Curve '{selected_curve}' not found in data")
+            return
+        
+        # Prepare depth range
+        depth_range = None
+        if min_depth > 0 and max_depth > 0 and max_depth > min_depth:
+            depth_range = (min_depth, max_depth)
+        
+        # Perform analysis
+        try:
+            results = self.curve_analysis_manager.analyze_statistics(
+                curve_data, [selected_curve], depth_range
+            )
+            
+            if selected_curve in results:
+                stats = results[selected_curve]
+                
+                # Format results
+                result_text = f"Statistical Analysis: {selected_curve}\n"
+                result_text += "=" * 50 + "\n\n"
+                
+                if 'error' in stats:
+                    result_text += f"Error: {stats['error']}\n"
+                else:
+                    result_text += f"Data Points: {stats['count']}\n"
+                    result_text += f"Depth Range: {depth_range if depth_range else 'Full dataset'}\n\n"
+                    
+                    result_text += "Basic Statistics:\n"
+                    result_text += f"  Mean: {stats['mean']:.4f}\n"
+                    result_text += f"  Median: {stats['median']:.4f}\n"
+                    result_text += f"  Min: {stats['min']:.4f}\n"
+                    result_text += f"  Max: {stats['max']:.4f}\n"
+                    result_text += f"  Range: {stats['range']:.4f}\n"
+                    result_text += f"  Std Dev: {stats['std']:.4f}\n"
+                    result_text += f"  Variance: {stats['variance']:.4f}\n\n"
+                    
+                    result_text += "Percentiles:\n"
+                    result_text += f"  10th: {stats['percentile_10']:.4f}\n"
+                    result_text += f"  25th: {stats['percentile_25']:.4f}\n"
+                    result_text += f"  50th: {stats['percentile_50']:.4f}\n"
+                    result_text += f"  75th: {stats['percentile_75']:.4f}\n"
+                    result_text += f"  90th: {stats['percentile_90']:.4f}\n\n"
+                    
+                    if stats.get('skewness') is not None:
+                        result_text += f"Skewness: {stats['skewness']:.4f}\n"
+                    if stats.get('kurtosis') is not None:
+                        result_text += f"Kurtosis: {stats['kurtosis']:.4f}\n"
+                
+                results_text.setPlainText(result_text)
+            else:
+                results_text.setPlainText(f"No results returned for curve: {selected_curve}")
+                
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(dialog, "Analysis Error", f"Statistical analysis failed: {str(e)}")
+    
+    def _apply_curve_filter(self, dialog, curve_data, curve_names, selected_curve,
+                           filter_type, window_size):
+        """Apply filter to selected curve."""
+        if selected_curve not in curve_data.columns:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(dialog, "Error", f"Curve '{selected_curve}' not found in data")
+            return
+        
+        try:
+            # Apply filter
+            filtered_data = self.curve_analysis_manager.apply_filter(
+                curve_data[selected_curve],
+                filter_type=filter_type,
+                window_size=window_size
+            )
+            
+            # Update curve plotter with filtered data
+            # TODO: Implement visualization of filtered curve
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(
+                dialog, 
+                "Filter Applied", 
+                f"{filter_type.replace('_', ' ').title()} filter applied to '{selected_curve}'.\n"
+                f"Window size: {window_size}\n\n"
+                "Note: Visualization of filtered curves will be implemented in future update."
+            )
+            
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(dialog, "Filter Error", f"Filter application failed: {str(e)}")
+    
+    def _perform_correlation_analysis(self, dialog, curve_data, x_curve, y_curve):
+        """Perform correlation analysis between two curves."""
+        if x_curve not in curve_data.columns or y_curve not in curve_data.columns:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(dialog, "Error", f"Curves not found: '{x_curve}' or '{y_curve}'")
+            return
+        
+        if x_curve == y_curve:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(dialog, "Error", "Cannot correlate a curve with itself")
+            return
+        
+        try:
+            # Calculate correlation
+            correlation_matrix = self.curve_analysis_manager.calculate_correlation(
+                curve_data, [x_curve, y_curve]
+            )
+            
+            if not correlation_matrix.empty:
+                correlation_value = correlation_matrix.loc[x_curve, y_curve]
+                
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.information(
+                    dialog,
+                    "Correlation Results",
+                    f"Correlation between '{x_curve}' and '{y_curve}':\n\n"
+                    f"Correlation Coefficient: {correlation_value:.4f}\n\n"
+                    f"Interpretation:\n"
+                    f"{self._interpret_correlation(correlation_value)}"
+                )
+            else:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.warning(dialog, "Analysis Error", "Could not calculate correlation")
+                
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(dialog, "Analysis Error", f"Correlation analysis failed: {str(e)}")
+    
+    def _interpret_correlation(self, r_value):
+        """Interpret correlation coefficient value."""
+        abs_r = abs(r_value)
+        
+        if abs_r >= 0.9:
+            strength = "Very strong"
+        elif abs_r >= 0.7:
+            strength = "Strong"
+        elif abs_r >= 0.5:
+            strength = "Moderate"
+        elif abs_r >= 0.3:
+            strength = "Weak"
+        else:
+            strength = "Very weak or no"
+        
+        direction = "positive" if r_value > 0 else "negative" if r_value < 0 else "no"
+        
+        return f"{strength} {direction} correlation"
+    
     def _on_scale_adjusted(self, pixels_per_metre, scale_label):
         """Handle scale adjustment from keyboard controls."""
         print(f"DEBUG (main_window): Scale adjusted via keyboard: {scale_label} ({pixels_per_metre:.1f} px/m)")
