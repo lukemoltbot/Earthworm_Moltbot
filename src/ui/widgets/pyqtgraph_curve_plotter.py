@@ -1973,6 +1973,11 @@ class PyQtGraphCurvePlotter(QWidget):
                       Can also be a group name: 'all_gamma', 'all_density', 'all'
             visible: True to show the curve, False to hide it
         """
+        # Validate curve_name is a string
+        if not isinstance(curve_name, str):
+            print(f"ERROR (set_curve_visibility): curve_name must be string, got {type(curve_name)}: {curve_name}")
+            return
+            
         # Check if this is a group toggle request
         if curve_name.startswith('all_'):
             group_name = curve_name[4:]  # Remove 'all_' prefix

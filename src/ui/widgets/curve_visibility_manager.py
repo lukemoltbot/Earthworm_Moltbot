@@ -288,9 +288,23 @@ class CurveVisibilityManager(QObject):
         if not self.curve_plotter:
             return
         
+        print(f"DEBUG (auto_register_from_plotter): Checking curve_plotter.curve_items")
+        
         # Try to get curves from curve_items dictionary
         if hasattr(self.curve_plotter, 'curve_items'):
+            print(f"DEBUG (auto_register_from_plotter): curve_items has {len(self.curve_plotter.curve_items)} items")
             for curve_name, curve_item in self.curve_plotter.curve_items.items():
+                # Debug: check curve_name type
+                if not isinstance(curve_name, str):
+                    print(f"ERROR (auto_register_from_plotter): curve_name is {type(curve_name)}, not string: {curve_name}")
+                    print(f"ERROR (auto_register_from_plotter): curve_item type: {type(curve_item)}")
+                    # Try to get string representation
+                    try:
+                        print(f"ERROR (auto_register_from_plotter): curve_name repr: {repr(curve_name)}")
+                    except:
+                        pass
+                    continue
+                    
                 # Try to get color from curve item
                 color = None
                 if hasattr(curve_item, 'opts'):

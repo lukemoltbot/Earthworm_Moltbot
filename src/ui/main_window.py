@@ -1542,6 +1542,12 @@ class HoleEditorWindow(QWidget):
                                        f"Data exported to {os.path.basename(file_path)}")
             except Exception as e:
                 QMessageBox.critical(self, "Export Error", f"Failed to export data: {e}")
+    
+    def _on_splitter_moved(self, pos, index):
+        """Handle splitter movement in HoleEditorWindow (stub method to prevent errors)."""
+        # This is a stub method to prevent AttributeError
+        # The actual splitter handling is in MainWindow
+        pass
 
 
 class Worker(QObject):
