@@ -77,6 +77,9 @@ class PyQtGraphCurvePlotter(QWidget):
         self.lithology_data = None
         self.boundary_lines = {}  # Dict mapping (row_index, boundary_type) -> pg.InfiniteLine
         
+        # Recursion protection for viewbox updates
+        self._updating_all_viewboxes = False
+        
         # Boundary line styling
         self.top_boundary_color = QColor(0, 128, 0)  # Green for top boundaries (From_Depth)
         self.bottom_boundary_color = QColor(128, 0, 0)  # Red for bottom boundaries (To_Depth)
@@ -471,19 +474,27 @@ class PyQtGraphCurvePlotter(QWidget):
         
         def update_all_on_scroll():
             """Update all ViewBoxes during scrolling."""
-            rect = self.plot_item.vb.sceneBoundingRect()
-            view_range = self.plot_item.vb.viewRange()
-            if view_range and len(view_range) > 1:
-                y_min, y_max = view_range[1]
-                if self.gamma_viewbox:
-                    self.gamma_viewbox.setGeometry(rect)
-                    self.gamma_viewbox.setYRange(y_min, y_max, padding=0)
-                if self.caliper_viewbox:
-                    self.caliper_viewbox.setGeometry(rect)
-                    self.caliper_viewbox.setYRange(y_min, y_max, padding=0)
-                if self.resistivity_viewbox:
-                    self.resistivity_viewbox.setGeometry(rect)
-                    self.resistivity_viewbox.setYRange(y_min, y_max, padding=0)
+            # Add recursion protection
+            if hasattr(self, '_updating_all_viewboxes') and self._updating_all_viewboxes:
+                return
+                
+            self._updating_all_viewboxes = True
+            try:
+                rect = self.plot_item.vb.sceneBoundingRect()
+                view_range = self.plot_item.vb.viewRange()
+                if view_range and len(view_range) > 1:
+                    y_min, y_max = view_range[1]
+                    if self.gamma_viewbox:
+                        self.gamma_viewbox.setGeometry(rect)
+                        self.gamma_viewbox.setYRange(y_min, y_max, padding=0)
+                    if self.caliper_viewbox:
+                        self.caliper_viewbox.setGeometry(rect)
+                        self.caliper_viewbox.setYRange(y_min, y_max, padding=0)
+                    if self.resistivity_viewbox:
+                        self.resistivity_viewbox.setGeometry(rect)
+                        self.resistivity_viewbox.setYRange(y_min, y_max, padding=0)
+            finally:
+                self._updating_all_viewboxes = False
         
         # Connect resize signal
         self.plot_item.vb.sigResized.connect(update_all_viewboxes)
@@ -1973,10 +1984,20 @@ class PyQtGraphCurvePlotter(QWidget):
                       Can also be a group name: 'all_gamma', 'all_density', 'all'
             visible: True to show the curve, False to hide it
         """
-        # Validate curve_name is a string
+        # Validate curve_name is a string, handle method objects
         if not isinstance(curve_name, str):
             print(f"ERROR (set_curve_visibility): curve_name must be string, got {type(curve_name)}: {curve_name}")
-            return
+            # Try to convert to string if it's a method or callable
+            if hasattr(curve_name, '__name__'):
+                curve_name = curve_name.__name__
+            elif callable(curve_name):
+                try:
+                    curve_name = str(curve_name())
+                except:
+                    curve_name = str(curve_name)
+            else:
+                curve_name = str(curve_name)
+            print(f"DEBUG (set_curve_visibility): Converted to string: {curve_name}")
             
         # Check if this is a group toggle request
         if curve_name.startswith('all_'):

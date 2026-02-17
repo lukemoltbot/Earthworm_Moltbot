@@ -352,11 +352,14 @@ class CurveVisibilityToolbar(QToolBar):
         if not self.visibility_manager:
             return
         
-        # Clear existing checkboxes
+        # Clear existing checkboxes and actions
+        self.clear()  # Clear all actions from toolbar
         for checkbox in self.curve_checkboxes.values():
-            self.removeWidget(checkbox)
             checkbox.deleteLater()
         self.curve_checkboxes.clear()
+        
+        # Re-add title and reset button
+        self._add_title_and_reset_button()
         
         # Add checkboxes for each curve in the manager
         for curve_name, metadata in self.visibility_manager.curve_metadata.items():

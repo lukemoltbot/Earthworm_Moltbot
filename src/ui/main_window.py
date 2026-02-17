@@ -189,6 +189,10 @@ class HoleEditorWindow(QWidget):
         self.loadingLabel = QLabel("Loading...")
         self.loadingLabel.setVisible(False)
 
+        # Initialize cross-widget sync attributes (same as MainWindow)
+        self._cross_widget_sync_in_progress = False
+        self._cross_widget_sync_lock_time = 0
+
         # Connect table row selection to stratigraphic column highlighting
         self.editorTable.rowSelectionChangedSignal.connect(self._on_table_row_selected)
 
@@ -1552,6 +1556,35 @@ class HoleEditorWindow(QWidget):
                                        f"Data exported to {os.path.basename(file_path)}")
             except Exception as e:
                 QMessageBox.critical(self, "Export Error", f"Failed to export data: {e}")
+    
+    def _should_cross_widget_sync(self):
+        """Check if cross-widget synchronization should proceed (HoleEditorWindow version)."""
+        import time
+        current_time = time.time() * 1000  # Convert to milliseconds
+        
+        if self._cross_widget_sync_in_progress:
+            print(f"DEBUG (HoleEditorWindow): Cross-widget sync blocked - already in progress")
+            return False
+            
+        # Check debounce time (50ms same as SyncStateTracker)
+        time_since_last = current_time - self._cross_widget_sync_lock_time
+        if time_since_last < 50:
+            print(f"DEBUG (HoleEditorWindow): Cross-widget sync debouncing - {time_since_last:.1f}ms since last sync")
+            return False
+            
+        return True
+        
+    def _begin_cross_widget_sync(self):
+        """Mark the beginning of cross-widget synchronization (HoleEditorWindow version)."""
+        import time
+        self._cross_widget_sync_in_progress = True
+        self._cross_widget_sync_lock_time = time.time() * 1000
+        print(f"DEBUG (HoleEditorWindow): Beginning cross-widget sync")
+        
+    def _end_cross_widget_sync(self):
+        """Mark the end of cross-widget synchronization (HoleEditorWindow version)."""
+        self._cross_widget_sync_in_progress = False
+        print(f"DEBUG (HoleEditorWindow): Ending cross-widget sync")
     
     def _on_splitter_moved(self, pos, index):
         """Handle splitter movement in HoleEditorWindow (stub method to prevent errors)."""

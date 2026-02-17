@@ -98,7 +98,7 @@ class ScaleKeyboardControls(QObject):
         
         # Handle wheel events with CTRL modifier
         if event.type() == event.Type.Wheel:
-            wheel_event = QWheelEvent(event)
+            wheel_event = event  # event is already a QWheelEvent
             modifiers = wheel_event.modifiers()
             
             # Check if CTRL is pressed

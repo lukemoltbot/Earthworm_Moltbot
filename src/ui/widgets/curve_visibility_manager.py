@@ -303,7 +303,21 @@ class CurveVisibilityManager(QObject):
                         print(f"ERROR (auto_register_from_plotter): curve_name repr: {repr(curve_name)}")
                     except:
                         pass
-                    continue
+                    
+                    # Try to extract string name from curve_item
+                    if hasattr(curve_item, 'name'):
+                        try:
+                            # Call the name method if it's callable
+                            if callable(curve_item.name):
+                                curve_name = curve_item.name()
+                            else:
+                                curve_name = str(curve_item.name)
+                            print(f"DEBUG (auto_register_from_plotter): Extracted curve name: {curve_name}")
+                        except Exception as e:
+                            print(f"ERROR (auto_register_from_plotter): Failed to extract name: {e}")
+                            continue
+                    else:
+                        continue
                     
                 # Try to get color from curve item
                 color = None
