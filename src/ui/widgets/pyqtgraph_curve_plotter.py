@@ -142,7 +142,13 @@ class PyQtGraphCurvePlotter(QWidget):
         
         # Get the plot item for dual-axis configuration
         self.plot_item = self.plot_widget.plotItem
-        self.plot_item.legend = None  # Ensure no legend
+        # Ensure no legend - set both public and private attributes
+        try:
+            self.plot_item.legend = None
+            if hasattr(self.plot_item, '_legend'):
+                self.plot_item._legend = None
+        except:
+            pass  # Some pyqtgraph versions might not like this, but we try
         
         # Configure Y-axis for whole metre increments
         self.configure_y_axis_ticks()
@@ -646,6 +652,46 @@ class PyQtGraphCurvePlotter(QWidget):
     
     def draw_curves(self):
         """Draw all configured curves using PyQtGraph with dual-axis support."""
+        # CRITICAL FIX: Ensure no legend exists BEFORE drawing any curves
+        # In pyqtgraph, accessing plot_item.legend can automatically create a legend!
+        # We must NEVER access plot_item.legend property.
+        
+        # Method 1: Remove any LegendItem from plot items without accessing legend property
+        items_to_remove = []
+        for item in self.plot_item.items[:]:
+            # Check if this is a LegendItem by class name (safer than checking legend property)
+            class_name = item.__class__.__name__
+            if 'Legend' in class_name or 'legend' in str(item).lower():
+                print(f"DEBUG (draw_curves): Found potential legend item: {class_name}, removing")
+                items_to_remove.append(item)
+        
+        for item in items_to_remove:
+            try:
+                self.plot_item.removeItem(item)
+                item.hide()
+                if hasattr(item, 'setParent'):
+                    item.setParent(None)
+                if hasattr(item, 'close'):
+                    item.close()
+            except Exception as e:
+                print(f"DEBUG (draw_curves): Error removing legend item: {e}")
+        
+        # Method 2: Try to set private _legend attribute if it exists
+        # This avoids triggering the legend property getter
+        try:
+            if hasattr(self.plot_item, '_legend'):
+                self.plot_item._legend = None
+        except:
+            pass
+        
+        # Method 3: Disable auto-add-to-legend behavior if possible
+        # Some pyqtgraph versions have autoAddToLegend setting
+        try:
+            if hasattr(self.plot_item, 'autoAddToLegend'):
+                self.plot_item.autoAddToLegend = False
+        except:
+            pass
+        
         # Phase 3.2: Try to use viewport cache first
         # TODO: Implement viewport cache properly
         # if self.viewport_cache_manager and self.performance_monitor_enabled:
@@ -969,44 +1015,15 @@ class PyQtGraphCurvePlotter(QWidget):
             # Store in dictionary for visibility control
             self.curve_items[curve_name] = curve
         
-        # Add legend (commented out per user request)
-        # self.plot_item.addLegend()
-        
-        # Ensure no legend exists - more aggressive removal
-        if hasattr(self.plot_item, 'legend'):
-            if self.plot_item.legend is not None:
-                print(f"DEBUG: Legend found, removing")
-                try:
-                    self.plot_item.legend.hide()
-                    self.plot_item.legend.setParent(None)
-                    self.plot_item.legend.close()
-                    self.plot_item.legend = None
-                except:
-                    pass
-            # Also disable auto-legend
-            self.plot_item.autoLegend = False
+        # LEGEND REMOVAL: No legend should ever be shown
+        # All legend removal is done at the beginning of draw_curves
+        # We must NOT access plot_item.legend property here as it may create a legend
         
         # Set axis ranges and labels
         self.update_axis_ranges()
         
         # Setup X-axis labels (legacy feature migration)
         self.setup_x_axis_labels()
-        
-        # Final legend check and disable
-        if hasattr(self.plot_item, 'legend') and self.plot_item.legend is not None:
-            print(f"ERROR: Legend still exists after drawing curves, forcing removal")
-            try:
-                self.plot_item.legend.hide()
-                self.plot_item.legend.setParent(None)
-                self.plot_item.legend.close()
-                self.plot_item.legend = None
-            except:
-                pass
-        
-        # Disable legend at the pyqtgraph level
-        # Note: pyqtgraph doesn't have showLegend method, we handle it differently
-        if hasattr(self.plot_item, 'legend'):
-            self.plot_item.legend = None
         
     def update_axis_ranges(self):
         """Update plot axis ranges based on curve configurations for dual-axis system."""
@@ -2084,20 +2101,13 @@ class PyQtGraphCurvePlotter(QWidget):
             print(f"Warning: Curve '{curve_name}' not found in plot. Available curves: {list(self.curve_items.keys())}")
     
     def _update_curve_visibility(self, curve_item, visible: bool, curve_name: str):
-        """Update visibility of a single curve item with legend synchronization."""
+        """Update visibility of a single curve item."""
         # Set visibility of the curve item
         curve_item.setVisible(visible)
         
-        # Also update legend if it exists
-        if hasattr(self.plot_item, 'legend'):
-            legend = self.plot_item.legend
-            if legend:
-                pass
-                # Find the legend item for this curve and update its visibility
-                for item in legend.items:
-                    if hasattr(item, 'item') and item.item == curve_item:
-                        item.setVisible(visible)
-                        break
+        # NO LEGEND SYNCHRONIZATION - We never want a legend to appear
+        # Accessing plot_item.legend can automatically create a legend in pyqtgraph
+        # So we must never check or update the legend
     
     def _set_group_visibility(self, group_name: str, visible: bool):
         """Set visibility for an entire group of curves."""
