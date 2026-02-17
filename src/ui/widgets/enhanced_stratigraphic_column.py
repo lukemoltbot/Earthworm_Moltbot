@@ -14,7 +14,7 @@ import pandas as pd
 import numpy as np
 from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsTextItem, QGraphicsLineItem, QGraphicsSimpleTextItem, QToolTip
 from PyQt6.QtSvgWidgets import QGraphicsSvgItem
-from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPixmap, QPen, QLinearGradient
+from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPixmap, QPen, QLinearGradient, QTransform
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtCore import QRectF, Qt, pyqtSignal, QPointF, QPoint
 from ...core.config import LITHOLOGY_COLUMN, RECOVERED_THICKNESS_COLUMN

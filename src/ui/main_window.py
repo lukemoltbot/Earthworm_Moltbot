@@ -390,13 +390,20 @@ class HoleEditorWindow(QWidget):
     def _on_plot_view_range_changed_for_enhanced(self, x_range, y_range):
         """Handle plot view range changes to sync enhanced column."""
         if hasattr(self, 'enhancedStratColumnView') and self.enhancedStratColumnView.sync_enabled:
-            pass
             # Update enhanced column with current visible depth range
-            min_depth, max_depth = y_range
-            if hasattr(self, 'zoom_state_manager'):
-                pass
-                # Use zoom state manager for synchronization
-                self.zoom_state_manager.sync_from_curve_plotter(min_depth, max_depth)
+            # Check if y_range is a tuple (min, max) or a single value
+            try:
+                if isinstance(y_range, (tuple, list)) and len(y_range) == 2:
+                    min_depth, max_depth = y_range
+                else:
+                    # If it's a single value, use it as both min and max
+                    min_depth = max_depth = y_range
+                    
+                if hasattr(self, 'zoom_state_manager'):
+                    # Use zoom state manager for synchronization
+                    self.zoom_state_manager.sync_from_curve_plotter(min_depth, max_depth)
+            except Exception as e:
+                print(f"DEBUG: Error in _on_plot_view_range_changed_for_enhanced: {e}")
             else:
                 # Fallback to direct sync
                 self.enhancedStratColumnView._on_curve_plotter_scrolled(min_depth, max_depth)

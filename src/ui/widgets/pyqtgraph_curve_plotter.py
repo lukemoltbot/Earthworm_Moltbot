@@ -990,7 +990,9 @@ class PyQtGraphCurvePlotter(QWidget):
                 pass
         
         # Disable legend at the pyqtgraph level
-        self.plot_item.showLegend(False)
+        # Note: pyqtgraph doesn't have showLegend method, we handle it differently
+        if hasattr(self.plot_item, 'legend'):
+            self.plot_item.legend = None
         
     def update_axis_ranges(self):
         """Update plot axis ranges based on curve configurations for dual-axis system."""
