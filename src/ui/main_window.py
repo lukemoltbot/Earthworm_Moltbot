@@ -361,11 +361,10 @@ class HoleEditorWindow(QWidget):
             print("DEBUG (main_window): Zoom state manager connected to widgets")
         
         # Connect curve plotter signals to enhanced column
-        if hasattr(self.curvePlotter, 'viewRangeChanged'):
-            self.curvePlotter.viewRangeChanged.connect(self._on_plot_view_range_changed_for_enhanced)
-        
-        if hasattr(self.curvePlotter, 'pointClicked'):
-            self.curvePlotter.pointClicked.connect(self._on_plot_point_clicked_for_enhanced)
+        # Note: viewRangeChanged is already connected at line 199 to _on_plot_view_range_changed
+        # which now handles both overview overlay AND enhanced column sync
+        # Note: pointClicked is already connected at line 196 to _on_plot_point_clicked
+        # which already handles enhanced column scrolling
         
         # Connect enhanced column signals to curve plotter
         self.enhancedStratColumnView.depthScrolled.connect(self._on_enhanced_column_scrolled)
@@ -387,46 +386,31 @@ class HoleEditorWindow(QWidget):
         # Set up bidirectional synchronization using the enhanced column's method
         self.enhancedStratColumnView.sync_with_curve_plotter(self.curvePlotter)
 
-    def _on_plot_view_range_changed_for_enhanced(self, x_range, y_range):
-        """Handle plot view range changes to sync enhanced column."""
-        if hasattr(self, 'enhancedStratColumnView') and self.enhancedStratColumnView.sync_enabled:
-            # Update enhanced column with current visible depth range
-            # Check if y_range is a tuple (min, max) or a single value
-            try:
-                if isinstance(y_range, (tuple, list)) and len(y_range) == 2:
-                    min_depth, max_depth = y_range
-                else:
-                    # If it's a single value, use it as both min and max
-                    min_depth = max_depth = y_range
-                    
-                if hasattr(self, 'zoom_state_manager'):
-                    # Use zoom state manager for synchronization
-                    self.zoom_state_manager.sync_from_curve_plotter(min_depth, max_depth)
-            except Exception as e:
-                print(f"DEBUG: Error in _on_plot_view_range_changed_for_enhanced: {e}")
-            else:
-                # Fallback to direct sync
-                self.enhancedStratColumnView._on_curve_plotter_scrolled(min_depth, max_depth)
+    # Note: _on_plot_view_range_changed_for_enhanced removed - functionality merged into _on_plot_view_range_changed
 
-    def _on_plot_point_clicked_for_enhanced(self, depth):
-        """Handle plot point clicks to sync enhanced column."""
-        if hasattr(self, 'enhancedStratColumnView'):
-            pass
-            # Scroll enhanced column to this depth
-            self.enhancedStratColumnView.scroll_to_depth(depth)
+    # Note: _on_plot_point_clicked_for_enhanced removed - functionality merged into _on_plot_point_clicked
 
     def _on_enhanced_column_scrolled(self, center_depth):
         """Handle enhanced column scrolling to sync curve plotter."""
-        if hasattr(self, 'curvePlotter') and self.enhancedStratColumnView.sync_enabled:
-            if hasattr(self, 'zoom_state_manager'):
-                pass
-                # Get current visible range from enhanced column
-                min_depth, max_depth = self.enhancedStratColumnView.get_visible_depth_range()
-                # Use zoom state manager for synchronization
-                self.zoom_state_manager.sync_from_enhanced_column(center_depth, min_depth, max_depth)
-            else:
-                # Fallback to direct sync
-                self.curvePlotter.scroll_to_depth(center_depth)
+        # Check cross-widget sync lock to prevent infinite loops
+        if not self._should_cross_widget_sync():
+            print(f"DEBUG (_on_enhanced_column_scrolled): Cross-widget sync blocked")
+            return
+            
+        self._begin_cross_widget_sync()
+        
+        try:
+            if hasattr(self, 'curvePlotter') and self.enhancedStratColumnView.sync_enabled:
+                if hasattr(self, 'zoom_state_manager'):
+                    # Get current visible range from enhanced column
+                    min_depth, max_depth = self.enhancedStratColumnView.get_visible_depth_range()
+                    # Use zoom state manager for synchronization
+                    self.zoom_state_manager.sync_from_enhanced_column(center_depth, min_depth, max_depth)
+                else:
+                    # Fallback to direct sync
+                    self.curvePlotter.scroll_to_depth(center_depth)
+        finally:
+            self._end_cross_widget_sync()
 
     def _on_enhanced_sync_requested(self):
         """Handle sync request from enhanced column."""
@@ -1208,8 +1192,34 @@ class HoleEditorWindow(QWidget):
 #                 print(f"Plot clicked at depth: {depth}m -> No lithology data available")
 
     def _on_plot_view_range_changed(self, min_depth, max_depth):
-        """Handle plot view range changes to update overview overlay (Subtask 3.3)."""
-        self.stratigraphicColumnView.update_zoom_overlay(min_depth, max_depth)
+        """
+        Handle plot view range changes for ALL synchronized widgets.
+        
+        This single handler replaces both:
+        1. _on_plot_view_range_changed (overview overlay)
+        2. _on_plot_view_range_changed_for_enhanced (enhanced column sync)
+        """
+        # Check cross-widget sync lock to prevent infinite loops
+        if not self._should_cross_widget_sync():
+            print(f"DEBUG (_on_plot_view_range_changed): Cross-widget sync blocked")
+            return
+            
+        self._begin_cross_widget_sync()
+        
+        try:
+            # 1. Update overview overlay (static, non-scrollable column)
+            self.stratigraphicColumnView.update_zoom_overlay(min_depth, max_depth)
+            
+            # 2. Sync enhanced column if enabled
+            if hasattr(self, 'enhancedStratColumnView') and self.enhancedStratColumnView.sync_enabled:
+                # Use zoom state manager for synchronization if available
+                if hasattr(self, 'zoom_state_manager'):
+                    self.zoom_state_manager.sync_from_curve_plotter(min_depth, max_depth)
+                else:
+                    # Fallback to direct sync
+                    self.enhancedStratColumnView._on_curve_plotter_scrolled(min_depth, max_depth)
+        finally:
+            self._end_cross_widget_sync()
 
     def _on_boundary_dragged(self, row_index, boundary_type, new_depth):
         """
@@ -1628,6 +1638,11 @@ class MainWindow(QMainWindow):
         self.load_window_geometry()
         self.las_file_path = None
         self.las_metadata = None
+        
+        # Cross-widget synchronization lock to prevent infinite loops
+        # When one widget is syncing, others should wait
+        self._cross_widget_sync_in_progress = False
+        self._cross_widget_sync_lock_time = 0
 
     def load_window_geometry(self):
         """Load window size and position from settings or set reasonable defaults based on screen size."""
@@ -1890,6 +1905,35 @@ class MainWindow(QMainWindow):
         self.create_view_menu()
         self.create_help_menu()
         self.create_toolbar()
+
+    def _should_cross_widget_sync(self):
+        """Check if cross-widget synchronization should proceed."""
+        import time
+        current_time = time.time() * 1000  # Convert to milliseconds
+        
+        if self._cross_widget_sync_in_progress:
+            print(f"DEBUG (MainWindow): Cross-widget sync blocked - already in progress")
+            return False
+            
+        # Check debounce time (50ms same as SyncStateTracker)
+        time_since_last = current_time - self._cross_widget_sync_lock_time
+        if time_since_last < 50:
+            print(f"DEBUG (MainWindow): Cross-widget sync debouncing - {time_since_last:.1f}ms since last sync")
+            return False
+            
+        return True
+        
+    def _begin_cross_widget_sync(self):
+        """Mark the beginning of cross-widget synchronization."""
+        import time
+        self._cross_widget_sync_in_progress = True
+        self._cross_widget_sync_lock_time = time.time() * 1000
+        print(f"DEBUG (MainWindow): Beginning cross-widget sync")
+        
+    def _end_cross_widget_sync(self):
+        """Mark the end of cross-widget synchronization."""
+        self._cross_widget_sync_in_progress = False
+        print(f"DEBUG (MainWindow): Ending cross-widget sync")
 
     def create_file_menu(self):
         """Create File menu with session management and file operations."""
