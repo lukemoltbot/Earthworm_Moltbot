@@ -465,18 +465,31 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         
         # Calculate the scale needed to show 20m in the viewport
         viewport_height = self.viewport().height()
+        
+        # Ensure we have a valid viewport size
+        if viewport_height <= 0:
+            # Use default viewport size if not yet available
+            viewport_height = 500  # Reasonable default
+            
         needed_height = view_max_y - view_min_y
-        scale = viewport_height / needed_height if needed_height > 0 else 1.0
+        
+        # Ensure we have valid heights
+        if needed_height <= 0 or viewport_height <= 0:
+            print(f"DEBUG (EnhancedStratigraphicColumn.set_initial_view): Invalid dimensions - viewport={viewport_height}, needed={needed_height}")
+            return
+            
+        scale = viewport_height / needed_height
         
         # Apply the scale transform
         self.setTransform(QTransform.fromScale(scale, scale))
         
         # Center on the top of the hole
-        self.centerOn(0, view_min_y)
+        self.centerOn(0, view_min_y + (needed_height / 2))
         
         print(f"DEBUG (EnhancedStratigraphicColumn.set_initial_view): "
               f"Setting view to {view_min_depth:.2f}-{view_max_depth:.2f}m "
-              f"(top {self.default_view_range}m of hole), scale={scale:.4f}")
+              f"(top {self.default_view_range}m of hole), "
+              f"scale={scale:.4f}, viewport={viewport_height}px")
     
     # REMOVED _redraw_y_axis_for_visible_range method
     # Y-axis is drawn once and stays static - no need to redraw dynamically
@@ -485,10 +498,14 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
     def fitInView(self, rect, mode=None):
         """Override fitInView to prevent showing entire hole in enhanced column."""
         # Don't call parent fitInView - we want to show only 20m, not entire hole
-        print(f"DEBUG (EnhancedStratigraphicColumn.fitInView): Overridden to prevent showing entire hole")
+        print(f"DEBUG (EnhancedStratigraphicColumn.fitInView): Overridden to show 20m view instead of entire hole")
         # Instead, ensure our initial view is maintained
         if hasattr(self, 'default_view_range') and hasattr(self, 'min_depth'):
             self.set_initial_view()
+        else:
+            # Fallback: show reasonable view
+            print(f"DEBUG (EnhancedStratigraphicColumn.fitInView): Using fallback view")
+            self.ensureVisible(0, 0, 100, 1000)
         
     def sync_with_curve_plotter(self, curve_plotter):
         """

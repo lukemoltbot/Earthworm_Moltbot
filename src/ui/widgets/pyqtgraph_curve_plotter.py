@@ -9,6 +9,8 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox,
 from PyQt6.QtGui import QColor, QPen, QFont
 from PyQt6.QtCore import Qt, pyqtSignal, QPointF, QTimer
 import pyqtgraph as pg
+# Disable auto-legend globally in pyqtgraph
+pg.setConfigOptions(antialias=True, foreground='k', background='w')
 from pyqtgraph import AxisItem
 
 # Import ScrollPolicyManager for scroll control
@@ -159,7 +161,8 @@ class PyQtGraphCurvePlotter(QWidget):
         # Connect mouse click signal
         self.plot_widget.scene().sigMouseClicked.connect(self.on_plot_clicked)
         
-        # Connect view range change signal
+        # Connect view range change signal with recursion protection
+        self._updating_view_range = False
         self.plot_widget.sigRangeChanged.connect(self.on_view_range_changed)
         
         layout.addWidget(self.plot_widget)
@@ -776,7 +779,7 @@ class PyQtGraphCurvePlotter(QWidget):
                 inverted = config.get('inverted', False)
                 
                 # Plot the curve - we'll handle inversion at axis level
-                curve = self.plot_widget.plot(valid_values, valid_depths, pen=pen, name=curve_name)
+                curve = self.plot_widget.plot(valid_values, valid_depths, pen=pen)
                 
                 # Store inversion state
                 curve.inverted = inverted
@@ -828,7 +831,7 @@ class PyQtGraphCurvePlotter(QWidget):
             inverted = config.get('inverted', False)
             
             # Create PlotCurveItem for caliper viewbox
-            curve = pg.PlotCurveItem(valid_values, valid_depths, pen=pen, name=curve_name)
+            curve = pg.PlotCurveItem(valid_values, valid_depths, pen=pen)
             curve.inverted = inverted
             curve.config = config
             
@@ -884,7 +887,7 @@ class PyQtGraphCurvePlotter(QWidget):
             inverted = config.get('inverted', False)
             
             # Create PlotCurveItem for resistivity viewbox
-            curve = pg.PlotCurveItem(valid_values, valid_depths, pen=pen, name=curve_name)
+            curve = pg.PlotCurveItem(valid_values, valid_depths, pen=pen)
             curve.inverted = inverted
             curve.config = config
             
@@ -940,7 +943,7 @@ class PyQtGraphCurvePlotter(QWidget):
             inverted = config.get('inverted', False)
             
             # Create PlotCurveItem for gamma viewbox with a name for the legend
-            curve = pg.PlotCurveItem(valid_values, valid_depths, pen=pen, name=curve_name)
+            curve = pg.PlotCurveItem(valid_values, valid_depths, pen=pen)
             
             # Store inversion state
             curve.inverted = inverted
@@ -1431,6 +1434,10 @@ class PyQtGraphCurvePlotter(QWidget):
                 
     def on_view_range_changed(self):
         """Handle view range changes and emit signal for overview synchronization."""
+        # Prevent recursion
+        if hasattr(self, '_updating_view_range') and self._updating_view_range:
+            return
+            
         # Use ScrollOptimizer for smooth scrolling if available
         if self.scroll_optimizer and self.performance_monitor_enabled:
             self.scroll_optimizer.handle_view_range_change()
@@ -2501,20 +2508,27 @@ class PyQtGraphCurvePlotter(QWidget):
                 min_depth = center - adjusted_range / 2
                 max_depth = center + adjusted_range / 2
                 
-        # Call parent method
-        self.plot_widget.setYRange(min_depth, max_depth, padding)
+        # Set recursion protection flag
+        self._updating_view_range = True
         
-        # Update stored depth range
-        self.min_depth = min_depth
-        self.max_depth = max_depth
-        
-        # Update Y-axis ticks for whole metre increments
-        self.update_y_axis_ticks()
-        
-        # Update X-axis labels position
-        self.update_x_axis_labels_position()
-        
-        # Emit view range changed signal
-        self.viewRangeChanged.emit(min_depth, max_depth)
-        
-        print(f"DEBUG (PyQtGraphCurvePlotter): setYRange called: [{min_depth:.2f}, {max_depth:.2f}]")
+        try:
+            # Call parent method
+            self.plot_widget.setYRange(min_depth, max_depth, padding)
+            
+            # Update stored depth range
+            self.min_depth = min_depth
+            self.max_depth = max_depth
+            
+            # Update Y-axis ticks for whole metre increments
+            self.update_y_axis_ticks()
+            
+            # Update X-axis labels position
+            self.update_x_axis_labels_position()
+            
+            # Emit view range changed signal
+            self.viewRangeChanged.emit(min_depth, max_depth)
+            
+            print(f"DEBUG (PyQtGraphCurvePlotter): setYRange called: [{min_depth:.2f}, {max_depth:.2f}]")
+        finally:
+            # Clear recursion protection flag
+            self._updating_view_range = False
