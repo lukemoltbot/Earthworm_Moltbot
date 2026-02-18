@@ -177,7 +177,11 @@ class PyQtGraphCurvePlotter(QWidget):
         layout.addWidget(self.plot_widget)
         
         # Add X-axis controls for each curve (legacy style)
+        # NOTE: User requested "legend should never be shown at all"
+        # This includes the axis controls with section headers like "Density Curves (Bottom Axis)"
+        # So we create the widget but hide it by default
         self.axis_controls_widget = QWidget()
+        self.axis_controls_widget.setVisible(False)  # HIDDEN by default
         self.axis_controls_layout = QVBoxLayout(self.axis_controls_widget)
         self.axis_controls_layout.setContentsMargins(5, 5, 5, 5)
         self.axis_controls_layout.setSpacing(2)
