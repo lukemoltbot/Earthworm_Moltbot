@@ -2006,19 +2006,27 @@ class PyQtGraphCurvePlotter(QWidget):
             visible: True to show the curve, False to hide it
         """
         # Validate curve_name is a string, handle method objects
+        original_curve_name = curve_name  # Keep original for debugging
         if not isinstance(curve_name, str):
-            print(f"ERROR (set_curve_visibility): curve_name must be string, got {type(curve_name)}: {curve_name}")
+            print(f"WARNING (set_curve_visibility): curve_name is not string, got {type(curve_name)}")
             # Try to convert to string if it's a method or callable
-            if hasattr(curve_name, '__name__'):
-                curve_name = curve_name.__name__
-            elif callable(curve_name):
-                try:
-                    curve_name = str(curve_name())
-                except:
+            try:
+                if hasattr(curve_name, '__name__'):
+                    curve_name = curve_name.__name__
+                elif callable(curve_name):
+                    # Try to call it if it takes no arguments
+                    import inspect
+                    sig = inspect.signature(curve_name)
+                    if len(sig.parameters) == 0:
+                        curve_name = str(curve_name())
+                    else:
+                        curve_name = str(curve_name)
+                else:
                     curve_name = str(curve_name)
-            else:
-                curve_name = str(curve_name)
-            print(f"DEBUG (set_curve_visibility): Converted to string: {curve_name}")
+                print(f"DEBUG (set_curve_visibility): Converted {type(original_curve_name)} to string: '{curve_name}'")
+            except Exception as e:
+                print(f"ERROR (set_curve_visibility): Failed to convert curve_name to string: {e}")
+                curve_name = str(curve_name)  # Last resort
             
         # Check if this is a group toggle request
         if curve_name.startswith('all_'):
@@ -2073,30 +2081,62 @@ class PyQtGraphCurvePlotter(QWidget):
             # Check gamma curves
             if hasattr(self, 'gamma_curves'):
                 for curve in self.gamma_curves:
-                    if hasattr(curve, 'name') and curve.name.lower() == curve_name.lower():
-                        self._update_curve_visibility(curve, visible, curve.name)
-                        curves_updated.append(curve.name)
+                    try:
+                        # Curves have config attribute with name, not name attribute
+                        if hasattr(curve, 'config') and 'name' in curve.config:
+                            curve_config_name = curve.config['name']
+                            # Safely compare curve names
+                            curve_name_str = str(curve_name) if not isinstance(curve_name, str) else curve_name
+                            if curve_config_name.lower() == curve_name_str.lower():
+                                self._update_curve_visibility(curve, visible, curve_config_name)
+                                curves_updated.append(curve_config_name)
+                    except Exception as e:
+                        print(f"DEBUG (set_curve_visibility): Error checking gamma curve: {e}")
             
             # Check density curves
             if hasattr(self, 'density_curves'):
                 for curve in self.density_curves:
-                    if hasattr(curve, 'name') and curve.name.lower() == curve_name.lower():
-                        self._update_curve_visibility(curve, visible, curve.name)
-                        curves_updated.append(curve.name)
+                    try:
+                        # Curves have config attribute with name, not name attribute
+                        if hasattr(curve, 'config') and 'name' in curve.config:
+                            curve_config_name = curve.config['name']
+                            # Safely compare curve names
+                            curve_name_str = str(curve_name) if not isinstance(curve_name, str) else curve_name
+                            if curve_config_name.lower() == curve_name_str.lower():
+                                self._update_curve_visibility(curve, visible, curve_config_name)
+                                curves_updated.append(curve_config_name)
+                    except Exception as e:
+                        print(f"DEBUG (set_curve_visibility): Error checking density curve: {e}")
             
             # Check caliper curves
             if hasattr(self, 'caliper_curves'):
                 for curve in self.caliper_curves:
-                    if hasattr(curve, 'name') and curve.name.lower() == curve_name.lower():
-                        self._update_curve_visibility(curve, visible, curve.name)
-                        curves_updated.append(curve.name)
+                    try:
+                        # Curves have config attribute with name, not name attribute
+                        if hasattr(curve, 'config') and 'name' in curve.config:
+                            curve_config_name = curve.config['name']
+                            # Safely compare curve names
+                            curve_name_str = str(curve_name) if not isinstance(curve_name, str) else curve_name
+                            if curve_config_name.lower() == curve_name_str.lower():
+                                self._update_curve_visibility(curve, visible, curve_config_name)
+                                curves_updated.append(curve_config_name)
+                    except Exception as e:
+                        print(f"DEBUG (set_curve_visibility): Error checking caliper curve: {e}")
             
             # Check resistivity curves
             if hasattr(self, 'resistivity_curves'):
                 for curve in self.resistivity_curves:
-                    if hasattr(curve, 'name') and curve.name.lower() == curve_name.lower():
-                        self._update_curve_visibility(curve, visible, curve.name)
-                        curves_updated.append(curve.name)
+                    try:
+                        # Curves have config attribute with name, not name attribute
+                        if hasattr(curve, 'config') and 'name' in curve.config:
+                            curve_config_name = curve.config['name']
+                            # Safely compare curve names
+                            curve_name_str = str(curve_name) if not isinstance(curve_name, str) else curve_name
+                            if curve_config_name.lower() == curve_name_str.lower():
+                                self._update_curve_visibility(curve, visible, curve_config_name)
+                                curves_updated.append(curve_config_name)
+                    except Exception as e:
+                        print(f"DEBUG (set_curve_visibility): Error checking resistivity curve: {e}")
         
         # Log results
         if curves_updated:
