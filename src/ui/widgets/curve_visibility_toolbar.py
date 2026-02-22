@@ -388,6 +388,10 @@ class CurveVisibilityToolbar(QToolBar):
         
         # Add checkboxes for each curve in the manager
         for curve_name, metadata in self.visibility_manager.curve_metadata.items():
+            # Skip non-string keys (e.g., functions)
+            if not isinstance(curve_name, str):
+                print(f"DEBUG (curve_visibility_toolbar): skipping non-string curve key: {curve_name} (type: {type(curve_name).__name__})")
+                continue
             display_name = metadata.get('display_name', curve_name)
             color = metadata.get('color', '#666666')
             if color is None:

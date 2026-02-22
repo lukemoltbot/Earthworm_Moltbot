@@ -1970,6 +1970,7 @@ class MainWindow(QMainWindow):
 
         # Keep references to widgets for backward compatibility with existing methods
         self.curvePlotter = self.editor_hole.curvePlotter
+        self.unifiedViewport = self.editor_hole.unifiedViewport
         self.stratigraphicColumnView = self.editor_hole.stratigraphicColumnView
         self.enhancedStratColumnView = self.editor_hole.enhancedStratColumnView
         self.editorTable = self.editor_hole.editorTable
@@ -5080,6 +5081,7 @@ class MainWindow(QMainWindow):
             print(f"DEBUG (_finalize_analysis_display): enhancedStratColumnView not found!")
 
         # Prepare curve configurations for the single CurvePlotter
+        print(f"DEBUG (_finalize_analysis_display): self = {self}, has curvePlotter: {hasattr(self, 'curvePlotter')}, has unifiedViewport: {hasattr(self, 'unifiedViewport')}")
         print(f"DEBUG (_finalize_analysis_display): classified columns {list(classified_dataframe.columns)}")
         curve_configs = []
         curve_inversion_settings = self.initial_curve_inversion_settings
