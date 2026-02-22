@@ -1073,6 +1073,10 @@ class PyQtGraphCurvePlotter(QWidget):
             else:
                 density_configs.append(config)
         
+        # DEBUG: curve counts and viewbox status
+        print(f"DEBUG (update_axis_ranges): density={len(density_configs)} gamma={len(gamma_configs)} caliper={len(caliper_configs)} resistivity={len(resistivity_configs)}")
+        print(f"DEBUG (update_axis_ranges): viewboxes - gamma={self.gamma_viewbox is not None}, caliper={self.caliper_viewbox is not None}, resistivity={self.resistivity_viewbox is not None}")
+        
         # Set X-axis range for density curves (main plot, bottom axis)
         if density_configs:
             density_x_min = float('inf')
@@ -1098,9 +1102,11 @@ class PyQtGraphCurvePlotter(QWidget):
                 pass
                 # Not inverted: low values on left, high on right
                 self.plot_widget.setXRange(density_x_min - x_padding, density_x_max + x_padding)
+                print(f"DEBUG (update_axis_ranges): Density X range set (not inverted): {density_x_min - x_padding:.2f} to {density_x_max + x_padding:.2f}")
             else:
                 # Inverted (well log style): low values on right, high on left
                 self.plot_widget.setXRange(density_x_max + x_padding, density_x_min - x_padding)
+                print(f"DEBUG (update_axis_ranges): Density X range set (inverted): {density_x_max + x_padding:.2f} to {density_x_min - x_padding:.2f}")
             
             # Update bottom axis label
             self.plot_widget.setLabel('bottom', 'Density', units='g/cc')
@@ -1127,9 +1133,11 @@ class PyQtGraphCurvePlotter(QWidget):
                 pass
                 # Not inverted: low values on left, high on right
                 self.gamma_viewbox.setXRange(gamma_x_min, gamma_x_max)
+                print(f"DEBUG (update_axis_ranges): Gamma X range set (not inverted): {gamma_x_min:.2f} to {gamma_x_max:.2f}")
             else:
                 # Inverted (well log style): low values on right, high on left
                 self.gamma_viewbox.setXRange(gamma_x_max, gamma_x_min)
+                print(f"DEBUG (update_axis_ranges): Gamma X range set (inverted): {gamma_x_max:.2f} to {gamma_x_min:.2f}")
             
             # Update top axis label if gamma axis exists
             if self.gamma_axis:
@@ -1155,9 +1163,11 @@ class PyQtGraphCurvePlotter(QWidget):
                 pass
                 # Not inverted: low values on left, high on right
                 self.caliper_viewbox.setXRange(caliper_x_min, caliper_x_max)
+                print(f"DEBUG (update_axis_ranges): Caliper X range set (not inverted): {caliper_x_min:.2f} to {caliper_x_max:.2f}")
             else:
                 # Inverted (well log style): low values on right, high on left
                 self.caliper_viewbox.setXRange(caliper_x_max, caliper_x_min)
+                print(f"DEBUG (update_axis_ranges): Caliper X range set (inverted): {caliper_x_max:.2f} to {caliper_x_min:.2f}")
             
             # Update caliper axis label
             if self.caliper_axis:
@@ -1184,9 +1194,11 @@ class PyQtGraphCurvePlotter(QWidget):
                 pass
                 # Not inverted: low values on left, high on right
                 self.resistivity_viewbox.setXRange(resistivity_x_min, resistivity_x_max)
+                print(f"DEBUG (update_axis_ranges): Resistivity X range set (not inverted): {resistivity_x_min:.2f} to {resistivity_x_max:.2f}")
             else:
                 # Inverted (well log style): low values on right, high on left
                 self.resistivity_viewbox.setXRange(resistivity_x_max, resistivity_x_min)
+                print(f"DEBUG (update_axis_ranges): Resistivity X range set (inverted): {resistivity_x_max:.2f} to {resistivity_x_min:.2f}")
             
             # Update resistivity axis label
             if self.resistivity_axis:
@@ -1197,7 +1209,16 @@ class PyQtGraphCurvePlotter(QWidget):
         if self.data is not None and not self.data.empty:
             y_min = self.data[self.depth_column].min()
             y_max = self.data[self.depth_column].max()
-            self.setYRange(y_min, y_max)
+            print(f"DEBUG (update_axis_ranges): Setting Y range {y_min:.2f}-{y_max:.2f}, fixed_scale_enabled={self.fixed_scale_enabled}")
+            # Temporarily disable fixed scale to allow full hole view
+            original_fixed_scale = self.fixed_scale_enabled
+            if original_fixed_scale:
+                self.fixed_scale_enabled = False
+            try:
+                self.setYRange(y_min, y_max)
+            finally:
+                if original_fixed_scale:
+                    self.fixed_scale_enabled = original_fixed_scale
             
     def update_axis_controls(self):
         """Update the X-axis controls widget with current curve configurations for dual-axis."""
