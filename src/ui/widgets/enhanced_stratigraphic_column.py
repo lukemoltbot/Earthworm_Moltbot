@@ -647,6 +647,11 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         self.sync_tracker.begin_sync()
         
         try:
+            # Record visible range before scrolling
+            self._update_visible_depth_range()
+            before_min = self.visible_min_depth
+            before_max = self.visible_max_depth
+            
             # Call parent method
             super().scroll_to_depth(depth)
             
@@ -656,6 +661,39 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             # Calculate center depth (should match input depth when centered)
             center_depth = (self.visible_min_depth + self.visible_max_depth) / 2
             print(f"DEBUG (EnhancedStratigraphicColumn.scroll_to_depth): Visible range: {self.visible_min_depth:.2f}-{self.visible_max_depth:.2f}, Center: {center_depth:.2f}")
+            
+            # Check if scrolling actually worked (visible range changed)
+            if abs(before_min - self.visible_min_depth) < 0.01 and abs(before_max - self.visible_max_depth) < 0.01:
+                print(f"DEBUG (EnhancedStratigraphicColumn.scroll_to_depth): Parent scroll_to_depth had no effect - attempting manual scroll")
+                
+                # Manual scroll implementation
+                # Ensure we have valid depth scale and depth range
+                if not hasattr(self, 'depth_scale') or self.depth_scale <= 0:
+                    print(f"WARNING: Invalid depth_scale ({getattr(self, 'depth_scale', 'NOT SET')}), using default 50.0")
+                    self.depth_scale = 50.0
+                
+                if not hasattr(self, 'min_depth') or not hasattr(self, 'max_depth'):
+                    print(f"WARNING: Missing depth range, setting based on target depth ± {self.default_view_range/2}m")
+                    self.min_depth = depth - self.default_view_range / 2
+                    self.max_depth = depth + self.default_view_range / 2
+                
+                # Calculate y position in scene coordinates
+                y = (depth - self.min_depth) * self.depth_scale
+                
+                # Center the view on this y coordinate
+                view_height = self.viewport().height()
+                if view_height > 0:
+                    scroll_value = int(y - view_height / 2)
+                    # Clamp to valid range
+                    scroll_max = self.verticalScrollBar().maximum()
+                    scroll_value = max(0, min(scroll_value, scroll_max))
+                    self.verticalScrollBar().setValue(scroll_value)
+                    print(f"DEBUG (EnhancedStratigraphicColumn.scroll_to_depth): Manual scroll to value {scroll_value} (y={y}, view_height={view_height})")
+                    
+                    # Update visible range again
+                    self._update_visible_depth_range()
+                    center_depth = (self.visible_min_depth + self.visible_max_depth) / 2
+                    print(f"DEBUG (EnhancedStratigraphicColumn.scroll_to_depth): After manual scroll - Visible range: {self.visible_min_depth:.2f}-{self.visible_max_depth:.2f}, Center: {center_depth:.2f}")
             
             # Update zoom state manager if available
             if self.zoom_state_manager and not self.is_zooming:
