@@ -390,6 +390,9 @@ class CurveVisibilityToolbar(QToolBar):
         for curve_name, metadata in self.visibility_manager.curve_metadata.items():
             display_name = metadata.get('display_name', curve_name)
             color = metadata.get('color', '#666666')
+            if color is None:
+                color = '#666666'
+                print(f"DEBUG (curve_visibility_toolbar): curve {curve_name} has None color, using default")
             abbreviation = self._get_abbreviation(curve_name)
             
             self.add_curve_checkbox(
@@ -430,6 +433,9 @@ class ColorCheckbox(QCheckBox):
     
     def __init__(self, text="", color="#666666", parent=None):
         super().__init__(text, parent)
+        if color is None:
+            color = "#666666"
+            print(f"DEBUG (ColorCheckbox): color is None, using default")
         self.color = QColor(color)
         self.setStyleSheet("""
             QCheckBox {

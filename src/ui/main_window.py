@@ -5047,8 +5047,13 @@ class MainWindow(QMainWindow):
         """Finalize the analysis display after all processing is complete."""
         print(f"DEBUG (_finalize_analysis_display): called with units shape {units_dataframe.shape}, classified shape {classified_dataframe.shape}")
         # Settings UI widgets only exist in SettingsDialog, use attribute values directly
+        # Debug viewport attributes
+        viewport_attrs = [attr for attr in dir(self) if 'viewport' in attr.lower() or 'unified' in attr.lower()]
+        print(f"DEBUG (_finalize_analysis_display): viewport attributes: {viewport_attrs}")
         if hasattr(self, 'unifiedViewport'):
             print(f"DEBUG (_finalize_analysis_display): unifiedViewport visible={self.unifiedViewport.isVisible()}, size={self.unifiedViewport.size().width()}x{self.unifiedViewport.size().height()}")
+        else:
+            print(f"DEBUG (_finalize_analysis_display): unifiedViewport attribute missing")
         separator_thickness = self.initial_separator_thickness
         draw_separators = self.initial_draw_separators
 
@@ -5075,6 +5080,7 @@ class MainWindow(QMainWindow):
             print(f"DEBUG (_finalize_analysis_display): enhancedStratColumnView not found!")
 
         # Prepare curve configurations for the single CurvePlotter
+        print(f"DEBUG (_finalize_analysis_display): classified columns {list(classified_dataframe.columns)}")
         curve_configs = []
         curve_inversion_settings = self.initial_curve_inversion_settings
         current_curve_thickness = self.initial_curve_thickness
@@ -5088,6 +5094,7 @@ class MainWindow(QMainWindow):
                 'inverted': curve_inversion_settings.get('gamma', False),
                 'thickness': current_curve_thickness
             })
+            print(f"DEBUG (_finalize_analysis_display): added gamma curve")
         if 'short_space_density' in classified_dataframe.columns:
             curve_configs.append({
                 'name': 'short_space_density',
@@ -5097,6 +5104,7 @@ class MainWindow(QMainWindow):
                 'inverted': curve_inversion_settings.get('short_space_density', False),
                 'thickness': current_curve_thickness
             })
+            print(f"DEBUG (_finalize_analysis_display): added short_space_density curve")
         if 'long_space_density' in classified_dataframe.columns:
             curve_configs.append({
                 'name': 'long_space_density',
