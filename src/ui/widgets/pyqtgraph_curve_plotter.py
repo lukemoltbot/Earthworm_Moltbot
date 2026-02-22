@@ -1380,6 +1380,7 @@ class PyQtGraphCurvePlotter(QWidget):
         
     def set_depth_range(self, min_depth, max_depth):
         """Set the visible depth range."""
+        print(f"DEBUG (set_depth_range): Setting range {min_depth}-{max_depth}, current view range: {self.get_view_range()}")
         self.min_depth = min_depth
         self.max_depth = max_depth
         self.setYRange(min_depth, max_depth)
