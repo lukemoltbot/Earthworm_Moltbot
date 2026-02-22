@@ -813,6 +813,7 @@ class PyQtGraphCurvePlotter(QWidget):
             )
         else:
             # For other modes, use existing dual-axis logic (for now)
+            print(f"DEBUG (draw_curves): Plotting {len(density_configs)} density curves, {len(gamma_configs)} gamma curves, {len(caliper_configs)} caliper curves, {len(resistivity_configs)} resistivity curves")
             # Plot density curves on main plot (bottom axis)
             for config in density_configs:
                 curve_name = config['name']
@@ -1383,9 +1384,21 @@ class PyQtGraphCurvePlotter(QWidget):
     def set_depth_range(self, min_depth, max_depth):
         """Set the visible depth range."""
         print(f"DEBUG (set_depth_range): Setting range {min_depth}-{max_depth}, current view range: {self.get_view_range()}")
-        self.min_depth = min_depth
-        self.max_depth = max_depth
-        self.setYRange(min_depth, max_depth)
+        # Temporarily disable fixed scale to allow full-hole view
+        original_fixed_scale = self.fixed_scale_enabled
+        if original_fixed_scale:
+            print(f"DEBUG (set_depth_range): Temporarily disabling fixed scale enforcement")
+            self.fixed_scale_enabled = False
+        
+        try:
+            self.min_depth = min_depth
+            self.max_depth = max_depth
+            self.setYRange(min_depth, max_depth)
+        finally:
+            # Restore original setting
+            if original_fixed_scale:
+                print(f"DEBUG (set_depth_range): Restoring fixed scale enforcement")
+                self.fixed_scale_enabled = original_fixed_scale
         
     def scroll_to_depth(self, depth):
         """Scroll the view to make the given depth visible with center alignment."""
