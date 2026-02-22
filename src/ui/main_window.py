@@ -5129,6 +5129,7 @@ class MainWindow(QMainWindow):
 
         # Update the single curve plotter and set its depth range
         print(f"DEBUG (_finalize_analysis_display): curve_configs count = {len(curve_configs)}")
+        print(f"DEBUG (_finalize_analysis_display): curvePlotter id={id(self.curvePlotter)}")
         self.curvePlotter.set_curve_configs(curve_configs)
         self.curvePlotter.set_data(classified_dataframe)
         self.curvePlotter.set_depth_range(min_overall_depth, max_overall_depth)

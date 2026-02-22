@@ -592,7 +592,7 @@ class PyQtGraphCurvePlotter(QWidget):
     def set_curve_configs(self, configs):
         """Set curve configurations and redraw."""
         import traceback
-        print(f"DEBUG (set_curve_configs): called with {len(configs)} configs, current data is {'None' if self.data is None else 'present'}")
+        print(f"DEBUG (set_curve_configs): object id={id(self)}, data id={id(self.data) if self.data is not None else 'None'}, current data is {'None' if self.data is None else 'present'}")
         print(f"DEBUG (set_curve_configs) call stack:")
         for line in traceback.format_stack()[-5:-1]:
             print(f"  {line.strip()}")
@@ -607,7 +607,7 @@ class PyQtGraphCurvePlotter(QWidget):
     def set_data(self, dataframe):
         """Set data and redraw curves."""
         import traceback
-        print(f"DEBUG (set_data): called with {len(dataframe)} rows, columns {list(dataframe.columns)}")
+        print(f"DEBUG (set_data): object id={id(self)}, data id={id(dataframe)}, current data id={id(self.data) if self.data is not None else 'None'}")
         print(f"DEBUG (set_data) call stack:")
         for line in traceback.format_stack()[-5:-1]:
             print(f"  {line.strip()}")
@@ -668,7 +668,7 @@ class PyQtGraphCurvePlotter(QWidget):
     
     def draw_curves(self):
         """Draw all configured curves using PyQtGraph with dual-axis support."""
-        print(f"DEBUG (draw_curves): called with data={'None' if self.data is None else f'{len(self.data)} rows'}, curve_configs={len(self.curve_configs) if self.curve_configs else 0}")
+        print(f"DEBUG (draw_curves): object id={id(self)}, data id={id(self.data) if self.data is not None else 'None'}, curve_configs={len(self.curve_configs) if self.curve_configs else 0}")
         # CRITICAL FIX: Ensure no legend exists BEFORE drawing any curves
         # In pyqtgraph, accessing plot_item.legend can automatically create a legend!
         # We must NEVER access plot_item.legend property.
