@@ -5072,14 +5072,6 @@ class MainWindow(QMainWindow):
         # Pass the overall depth range to both stratigraphic columns
 #         print(f"DEBUG (_finalize_analysis_display): Drawing overview column")
         self.stratigraphicColumnView.draw_column(units_dataframe, min_overall_depth, max_overall_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
-        if hasattr(self, 'enhancedStratColumnView'):
-            print(f"DEBUG (_finalize_analysis_display): Drawing enhanced column, hasattr: {hasattr(self, 'enhancedStratColumnView')}")
-            # Set classified data for curve values in tooltips
-            self.enhancedStratColumnView.set_classified_data(classified_dataframe)
-            self.enhancedStratColumnView.draw_column(units_dataframe, min_overall_depth, max_overall_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
-        else:
-            print(f"DEBUG (_finalize_analysis_display): enhancedStratColumnView not found!")
-
         # Prepare curve configurations for the single CurvePlotter
         print(f"DEBUG (_finalize_analysis_display): self = {self}, has curvePlotter: {hasattr(self, 'curvePlotter')}, has unifiedViewport: {hasattr(self, 'unifiedViewport')}")
         print(f"DEBUG (_finalize_analysis_display): classified columns {list(classified_dataframe.columns)}")
@@ -5140,6 +5132,14 @@ class MainWindow(QMainWindow):
         self.curvePlotter.set_curve_configs(curve_configs)
         self.curvePlotter.set_data(classified_dataframe)
         self.curvePlotter.set_depth_range(min_overall_depth, max_overall_depth)
+        if hasattr(self, 'enhancedStratColumnView'):
+            print(f"DEBUG (_finalize_analysis_display): Drawing enhanced column, hasattr: {hasattr(self, 'enhancedStratColumnView')}")
+            # Set classified data for curve values in tooltips
+            self.enhancedStratColumnView.set_classified_data(classified_dataframe)
+            self.enhancedStratColumnView.draw_column(units_dataframe, min_overall_depth, max_overall_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
+        else:
+            print(f"DEBUG (_finalize_analysis_display): enhancedStratColumnView not found!")
+
 
         # Set bit size for anomaly detection
         if hasattr(self.curvePlotter, 'set_bit_size'):
