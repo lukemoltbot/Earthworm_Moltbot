@@ -307,12 +307,18 @@ class GeologicalAnalysisViewport(QWidget):
         self._depth_manager = depth_manager
         self._pixel_mapper = pixel_mapper
         
-        # Add components to containers
+        # Ensure components have proper size policies for expansion
         if self._strat_column:
+            self._strat_column.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             self._column_container.layout().addWidget(self._strat_column)
         
         if self._curve_plotter:
+            self._curve_plotter.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             self._curve_container.layout().addWidget(self._curve_plotter)
+        
+        # Ensure containers are visible and have minimum size
+        self._column_container.setMinimumSize(100, 100)
+        self._curve_container.setMinimumSize(100, 100)
         
         # Connect components via adapter for synchronized scrolling
         if self._component_adapter:

@@ -347,6 +347,31 @@ class CurveVisibilityToolbar(QToolBar):
         for checkbox in self.curve_checkboxes.values():
             checkbox.blockSignals(False)
     
+    def _add_title_and_reset_button(self):
+        """Add title label, group controls, and reset button to toolbar."""
+        # Add separator
+        self.addSeparator()
+        
+        # Add title label
+        title_label = QLabel("Curves:")
+        title_label.setStyleSheet("font-weight: bold; padding: 0 5px;")
+        self.addWidget(title_label)
+        
+        # Add separator
+        self.addSeparator()
+        
+        # Add group controls
+        self.create_group_controls()
+        
+        # Add separator
+        self.addSeparator()
+        
+        # Add reset button
+        reset_button = QPushButton("Reset All")
+        reset_button.setToolTip("Reset all curves to default visibility")
+        reset_button.clicked.connect(self.on_reset_all)
+        self.addWidget(reset_button)
+    
     def register_curves_from_manager(self):
         """Register curves from visibility manager."""
         if not self.visibility_manager:

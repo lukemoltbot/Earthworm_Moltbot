@@ -1673,7 +1673,7 @@ class Worker(QObject):
 
     def run(self):
         try:
-#             print(f"DEBUG (Worker): run() started with file={self.file_path}")
+            print(f"DEBUG (Worker): run() started with file={self.file_path}")
             print(f"DEBUG (Worker): lithology_rules count={len(self.lithology_rules)}")
             data_processor = DataProcessor()
             analyzer = Analyzer()
@@ -1692,16 +1692,16 @@ class Worker(QObject):
             if self.analysis_method == "simple":
                 classified_dataframe = analyzer.classify_rows_simple(processed_dataframe, self.lithology_rules, full_mnemonic_map, self.casing_depth_enabled, self.casing_depth_m)
             else:
-#                 print(f"DEBUG (Worker): Calling classify_rows with use_researched_defaults={self.use_researched_defaults}")
+                print(f"DEBUG (Worker): Calling classify_rows with use_researched_defaults={self.use_researched_defaults}")
                 classified_dataframe = analyzer.classify_rows(processed_dataframe, self.lithology_rules, full_mnemonic_map, self.use_researched_defaults, self.use_fallback_classification, self.casing_depth_enabled, self.casing_depth_m)
             # Debug: print lithology rules being passed
-#             print(f"DEBUG (Worker): lithology_rules count = {len(self.lithology_rules)}")
+            print(f"DEBUG (Worker): lithology_rules count = {len(self.lithology_rules)}")
             for idx, rule in enumerate(self.lithology_rules):
                 print(f"  [{idx}] code={rule.get('code', 'N/A')}, name={rule.get('name', 'N/A')}, background_color={rule.get('background_color', 'MISSING')}, svg_path={rule.get('svg_path', 'MISSING')}")
             units_dataframe = analyzer.group_into_units(classified_dataframe, self.lithology_rules, self.smart_interbedding, self.smart_interbedding_max_sequence_length, self.smart_interbedding_thick_unit_threshold)
-#             print(f"DEBUG (Worker): units_dataframe columns: {list(units_dataframe.columns)}")
+            print(f"DEBUG (Worker): units_dataframe columns: {list(units_dataframe.columns)}")
             print(f"DEBUG (Worker): background_color in columns? {'background_color' in units_dataframe.columns}")
-#             print(f"DEBUG (Worker): svg_path in columns? {'svg_path' in units_dataframe.columns}")
+            print(f"DEBUG (Worker): svg_path in columns? {'svg_path' in units_dataframe.columns}")
             if not units_dataframe.empty:
                 print(f"DEBUG (Worker): First unit background_color: {units_dataframe.iloc[0].get('background_color', 'MISSING')}")
                 print(f"DEBUG (Worker): First unit svg_path: {units_dataframe.iloc[0].get('svg_path', 'MISSING')}")
@@ -4200,6 +4200,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "Export Error", f"Failed to export data: {e}")
 
     def run_analysis(self):
+        print(f"DEBUG (run_analysis): starting analysis for {self.las_file_path}")
         if not self.las_file_path:
             QMessageBox.warning(self, "No LAS File", "Please load an LAS file first.")
             return
@@ -4271,6 +4272,7 @@ class MainWindow(QMainWindow):
         self.thread.start()
 
     def analysis_finished(self, units_dataframe, classified_dataframe):
+        print(f"DEBUG (analysis_finished): called with units shape {units_dataframe.shape}, classified shape {classified_dataframe.shape}")
         self.runAnalysisButton.setEnabled(True)
 
         # Store recent analysis results for reporting
@@ -4281,14 +4283,17 @@ class MainWindow(QMainWindow):
 
         # Debug: check columns
         print(f"DEBUG (analysis_finished): units_dataframe columns: {list(units_dataframe.columns)}")
-#         print(f"DEBUG (analysis_finished): background_color in columns? {'background_color' in units_dataframe.columns}")
+        print(f"DEBUG (analysis_finished): background_color in columns? {'background_color' in units_dataframe.columns}")
         print(f"DEBUG (analysis_finished): svg_path in columns? {'svg_path' in units_dataframe.columns}")
+        print(f"DEBUG (analysis_finished): units_dataframe shape: {units_dataframe.shape}")
+        print(f"DEBUG (analysis_finished): classified_dataframe shape: {classified_dataframe.shape}")
         if not units_dataframe.empty:
-            pass
-#             print(f"DEBUG (analysis_finished): First few units:")
+            print(f"DEBUG (analysis_finished): First few units:")
             for idx in range(min(5, len(units_dataframe))):
                 unit = units_dataframe.iloc[idx]
                 print(f"  [{idx}] lithology={unit.get(LITHOLOGY_COLUMN, 'N/A')}, background_color={unit.get('background_color', 'MISSING')}, svg_path={unit.get('svg_path', 'MISSING')}")
+        else:
+            print(f"DEBUG (analysis_finished): units_dataframe is EMPTY!")
 
         # Check for smart interbedding suggestions if enabled
 #         print(f"DEBUG: Smart interbedding enabled check: {self.smart_interbedding}")
@@ -5040,7 +5045,10 @@ class MainWindow(QMainWindow):
 
     def _finalize_analysis_display(self, units_dataframe, classified_dataframe):
         """Finalize the analysis display after all processing is complete."""
+        print(f"DEBUG (_finalize_analysis_display): called with units shape {units_dataframe.shape}, classified shape {classified_dataframe.shape}")
         # Settings UI widgets only exist in SettingsDialog, use attribute values directly
+        if hasattr(self, 'unifiedViewport'):
+            print(f"DEBUG (_finalize_analysis_display): unifiedViewport visible={self.unifiedViewport.isVisible()}, size={self.unifiedViewport.size().width()}x{self.unifiedViewport.size().height()}")
         separator_thickness = self.initial_separator_thickness
         draw_separators = self.initial_draw_separators
 
@@ -5118,6 +5126,7 @@ class MainWindow(QMainWindow):
             })
 
         # Update the single curve plotter and set its depth range
+        print(f"DEBUG (_finalize_analysis_display): curve_configs count = {len(curve_configs)}")
         self.curvePlotter.set_curve_configs(curve_configs)
         self.curvePlotter.set_data(classified_dataframe)
         self.curvePlotter.set_depth_range(min_overall_depth, max_overall_depth)
