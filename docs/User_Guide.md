@@ -68,17 +68,54 @@ The main interface consists of several key areas:
 - **View**: Toggle visibility of panels and tools
 - **Help**: Access user guide and about information
 
-### 2. Project Explorer (Left Panel)
+### 2. Unified Geological Analysis Viewport (Main Workspace)
+The unified viewport is Earthworm's default display for geological analysis, combining LAS curves and stratigraphic column with pixel-perfect synchronization.
+
+**Key Features:**
+- **Side-by-side Layout**: LAS curves (68% width) and stratigraphic column (32% width)
+- **Pixel-perfect Synchronization**: ≤1 pixel drift between components
+- **Professional Geological Styling**: Standard geological colors and typography
+- **Unified Navigation**: Single scroll bar, synchronized zoom and depth
+- **Curve Visibility Control**: Toggle individual curves (gamma, density, caliper, resistivity)
+
+**Layout:**
+```
+┌─────────────────────────────────────────────┐
+│ Unified Geological Analysis Viewport        │
+│ ┌─────────────┬──────────────────────────┐ │
+│ │             │                          │ │
+│ │  Strat      │       LAS Curves         │ │
+│ │  Column     │                          │ │
+│ │  (32%)      │        (68%)             │ │
+│ │             │                          │ │
+│ └─────────────┴──────────────────────────┘ │
+│          Unified Scroll/Depth              │
+└─────────────────────────────────────────────┘
+```
+
+**Benefits over Previous Layout:**
+1. **Immediate Visual Correlation**: See curves and lithology side-by-side
+2. **Reduced Cognitive Load**: No need to mentally align separate displays
+3. **Professional Appearance**: Matches commercial geological software standards
+4. **Improved Accuracy**: Pixel-perfect synchronization eliminates drift
+
+**Navigation:**
+- **Mouse Wheel**: Scroll through depth
+- **Click**: Select depth position
+- **Drag**: Adjust stratigraphic boundaries
+- **Zoom**: Use +/- keys or zoom controls
+
+### 3. Project Explorer (Left Panel)
 - Browse and manage project files
 - Double-click files to open them
 - Organize files into folders
 
-### 3. Main Workspace (Center)
-- **Hole Editor Window**: Primary workspace for analyzing borehole data
+### 4. Additional Windows
+- **Hole Editor Window**: Contains the unified geological analysis viewport for borehole analysis
 - **Map Window**: Visualize hole locations geographically
 - **Cross-Section Window**: Create fence diagrams between holes
 
-### 4. Control Panel (Right Panel)
+### 5. Control Panel (Right Panel)
 - Analysis controls and settings
 - Curve selection and configuration
 - Run analysis button
@@ -880,6 +917,30 @@ Controls file handling, paths, and workspace management.
   - Try "Disable SVG" option
   - Update graphics drivers
   - Reduce column complexity
+
+#### 6. Unified Viewport Issues
+- **Issue**: Curves and stratigraphic column appear misaligned
+- **Solution**:
+  - Check synchronization status (debug mode available)
+  - Ensure pixel tolerance is ≤1 pixel (default)
+  - Report issue if persistent misalignment >1 pixel
+
+- **Issue**: Scroll bar doesn't move both displays
+- **Solution**:
+  - Verify components are properly connected
+  - Check synchronization engine status
+  - Restart application if issue persists
+
+- **Issue**: Zoom controls affect only one display
+- **Solution**:
+  - Verify ZoomStateManager is connected
+  - Check signal connections in debug mode
+  - Ensure unified depth scale manager is active
+
+- **Known Limitation**: Scrolling may not work when no geological data is loaded
+  - **Root Cause**: Scene height < viewport height when empty
+  - **Workaround**: Load geological data before programmatic scrolling
+  - **Status**: Pre-existing issue, does not affect production usage with data
 
 ### Getting Help
 
