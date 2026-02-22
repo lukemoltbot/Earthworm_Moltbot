@@ -396,10 +396,22 @@ class GeologicalAnalysisViewport(QWidget):
             min_depth: Minimum depth value
             max_depth: Maximum depth value
         """
+        print(f"DEBUG (GeologicalAnalysisViewport.set_depth_range): Setting range {min_depth:.2f}-{max_depth:.2f}")
         self._depth_range = (min_depth, max_depth)
         
+        # Set depth manager
         if self._depth_manager:
             self._depth_manager.set_view_range(min_depth, max_depth, emit_signal=False)
+            print(f"DEBUG (GeologicalAnalysisViewport.set_depth_range): Depth manager updated")
+        
+        # Also set the curve plotter and strat column directly
+        if self._curve_plotter and hasattr(self._curve_plotter, 'set_depth_range'):
+            self._curve_plotter.set_depth_range(min_depth, max_depth)
+            print(f"DEBUG (GeologicalAnalysisViewport.set_depth_range): Curve plotter range set")
+        
+        if self._strat_column and hasattr(self._strat_column, 'set_depth_range'):
+            self._strat_column.set_depth_range(min_depth, max_depth)
+            print(f"DEBUG (GeologicalAnalysisViewport.set_depth_range): Strat column range set")
         
         logger.debug(f"Depth range set: {min_depth:.2f} - {max_depth:.2f}")
     

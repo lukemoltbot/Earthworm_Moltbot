@@ -594,7 +594,7 @@ class PyQtGraphCurvePlotter(QWidget):
         import traceback
         print(f"DEBUG (set_curve_configs): object id={id(self)}, data id={id(self.data) if self.data is not None else 'None'}, current data is {'None' if self.data is None else 'present'}")
         print(f"DEBUG (set_curve_configs) call stack:")
-        for line in traceback.format_stack()[-5:-1]:
+        for line in traceback.format_stack()[-8:-1]:  # More stack frames
             print(f"  {line.strip()}")
         self.curve_configs = configs
         # Only draw if we have data
@@ -2582,6 +2582,12 @@ class PyQtGraphCurvePlotter(QWidget):
             max_depth: Maximum Y value
             padding: Optional padding
         """
+        import traceback
+        print(f"DEBUG (PyQtGraphCurvePlotter.setYRange): Called with [{min_depth:.2f}, {max_depth:.2f}], current view range: {self.get_view_range()}")
+        print(f"DEBUG (PyQtGraphCurvePlotter.setYRange) call stack:")
+        for line in traceback.format_stack()[-8:-1]:
+            print(f"  {line.strip()}")
+        
         # Ensure valid range
         if min_depth >= max_depth:
             print(f"ERROR (PyQtGraphCurvePlotter): Invalid range in setYRange: {min_depth} >= {max_depth}")
@@ -2589,15 +2595,13 @@ class PyQtGraphCurvePlotter(QWidget):
             
         # Apply fixed scale if enabled
         if self.fixed_scale_enabled and hasattr(self, 'depth_scale'):
-            pass
             # Calculate expected pixel height based on depth scale
             expected_pixel_height = (max_depth - min_depth) * self.depth_scale
             actual_pixel_height = self.plot_widget.height()
             
             # Adjust range to maintain fixed scale if needed
             if abs(expected_pixel_height - actual_pixel_height) > 10:  # 10 pixel tolerance
-                pass
-#                 print(f"DEBUG (PyQtGraphCurvePlotter): Adjusting range to maintain fixed scale")
+                print(f"DEBUG (PyQtGraphCurvePlotter): Adjusting range to maintain fixed scale")
                 # Recalculate range based on actual pixel height and depth scale
                 adjusted_range = actual_pixel_height / self.depth_scale
                 center = (min_depth + max_depth) / 2
@@ -2624,7 +2628,7 @@ class PyQtGraphCurvePlotter(QWidget):
             # Emit view range changed signal
             self.viewRangeChanged.emit(min_depth, max_depth)
             
-            print(f"DEBUG (PyQtGraphCurvePlotter): setYRange called: [{min_depth:.2f}, {max_depth:.2f}]")
+            print(f"DEBUG (PyQtGraphCurvePlotter): setYRange executed: [{min_depth:.2f}, {max_depth:.2f}]")
         finally:
             # Clear recursion protection flag
             self._updating_view_range = False
