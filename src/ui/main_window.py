@@ -5133,6 +5133,11 @@ class MainWindow(QMainWindow):
         self.curvePlotter.set_curve_configs(curve_configs)
         self.curvePlotter.set_data(classified_dataframe)
         self.curvePlotter.set_depth_range(min_overall_depth, max_overall_depth)
+        
+        # Also set the unified viewport depth range to ensure all components sync
+        if hasattr(self, 'unifiedViewport') and self.unifiedViewport:
+            print(f"DEBUG (_finalize_analysis_display): Setting unified viewport depth range {min_overall_depth}-{max_overall_depth}")
+            self.unifiedViewport.set_depth_range(min_overall_depth, max_overall_depth)
         if hasattr(self, 'enhancedStratColumnView'):
             print(f"DEBUG (_finalize_analysis_display): Drawing enhanced column, hasattr: {hasattr(self, 'enhancedStratColumnView')}")
             # Set classified data for curve values in tooltips
