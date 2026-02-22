@@ -591,6 +591,7 @@ class PyQtGraphCurvePlotter(QWidget):
         
     def set_curve_configs(self, configs):
         """Set curve configurations and redraw."""
+        print(f"DEBUG (set_curve_configs): called with {len(configs)} configs")
         self.curve_configs = configs
         self.draw_curves()
         self.update_axis_controls()
@@ -599,6 +600,7 @@ class PyQtGraphCurvePlotter(QWidget):
         
     def set_data(self, dataframe):
         """Set data and redraw curves."""
+        print(f"DEBUG (set_data): called with {len(dataframe)} rows, columns {list(dataframe.columns)}")
         self.data = dataframe
         self.draw_curves()
         self.on_data_updated()
@@ -656,6 +658,7 @@ class PyQtGraphCurvePlotter(QWidget):
     
     def draw_curves(self):
         """Draw all configured curves using PyQtGraph with dual-axis support."""
+        print(f"DEBUG (draw_curves): called with data={'None' if self.data is None else f'{len(self.data)} rows'}, curve_configs={len(self.curve_configs) if self.curve_configs else 0}")
         # CRITICAL FIX: Ensure no legend exists BEFORE drawing any curves
         # In pyqtgraph, accessing plot_item.legend can automatically create a legend!
         # We must NEVER access plot_item.legend property.
@@ -735,10 +738,12 @@ class PyQtGraphCurvePlotter(QWidget):
             self.setup_dual_axes()
         
         if self.data is None or self.data.empty or not self.curve_configs:
+            print(f"DEBUG (draw_curves): early return - data is None: {self.data is None}, data empty: {self.data.empty if self.data is not None else 'N/A'}, curve_configs: {len(self.curve_configs) if self.curve_configs else 0}")
             return
         
         # Extract depth data
         if self.depth_column not in self.data.columns:
+            print(f"DEBUG (draw_curves): depth column '{self.depth_column}' not in data columns: {list(self.data.columns)}")
             return
             
         depth_data = self.data[self.depth_column].values
