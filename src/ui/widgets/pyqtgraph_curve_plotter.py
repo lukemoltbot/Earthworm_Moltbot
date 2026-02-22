@@ -751,6 +751,8 @@ class PyQtGraphCurvePlotter(QWidget):
             print(f"DEBUG (draw_curves): early return - data is None: {self.data is None}, data empty: {self.data.empty if self.data is not None else 'N/A'}, curve_configs: {len(self.curve_configs) if self.curve_configs else 0}")
             return
         
+        print(f"DEBUG (draw_curves): Proceeding to draw - data shape {self.data.shape}, depth column '{self.depth_column}' present: {self.depth_column in self.data.columns}")
+        
         # Extract depth data
         if self.depth_column not in self.data.columns:
             print(f"DEBUG (draw_curves): depth column '{self.depth_column}' not in data columns: {list(self.data.columns)}")
