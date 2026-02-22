@@ -591,16 +591,26 @@ class PyQtGraphCurvePlotter(QWidget):
         
     def set_curve_configs(self, configs):
         """Set curve configurations and redraw."""
-        print(f"DEBUG (set_curve_configs): called with {len(configs)} configs")
+        import traceback
+        print(f"DEBUG (set_curve_configs): called with {len(configs)} configs, current data is {'None' if self.data is None else 'present'}")
+        print(f"DEBUG (set_curve_configs) call stack:")
+        for line in traceback.format_stack()[-5:-1]:
+            print(f"  {line.strip()}")
         self.curve_configs = configs
-        self.draw_curves()
+        # Only draw if we have data
+        if self.data is not None and not self.data.empty:
+            self.draw_curves()
         self.update_axis_controls()
         # Update X-axis labels
         self.setup_x_axis_labels()
         
     def set_data(self, dataframe):
         """Set data and redraw curves."""
+        import traceback
         print(f"DEBUG (set_data): called with {len(dataframe)} rows, columns {list(dataframe.columns)}")
+        print(f"DEBUG (set_data) call stack:")
+        for line in traceback.format_stack()[-5:-1]:
+            print(f"  {line.strip()}")
         self.data = dataframe
         self.draw_curves()
         self.on_data_updated()
