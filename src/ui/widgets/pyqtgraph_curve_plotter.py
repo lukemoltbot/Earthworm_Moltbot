@@ -104,6 +104,11 @@ class PyQtGraphCurvePlotter(QWidget):
         self.is_zooming = False
         self.fixed_scale_enabled = True  # Prevent scale changes during scrolling
         
+        # Density scaling for alignment with gamma track
+        # Density 0-4.0 g/cc should align with Gamma 0-400 API
+        # Scale factor = 100 (makes 4.0 g/cc map to 400 "scaled units")
+        self.density_scale_factor = 100.0
+        
         # Anomaly detection
         self.bit_size_mm = 150.0  # Default bit size in mm
         self.anomaly_regions = []  # List of pg.LinearRegionItem for anomaly highlighting
@@ -839,6 +844,9 @@ class PyQtGraphCurvePlotter(QWidget):
                 valid_values = curve_data[mask]
                 print(f"DEBUG (draw_curves): Density curve '{curve_name}' - valid points: {len(valid_values)}, range: {valid_values.min():.2f}-{valid_values.max():.2f}, config: {config['min']}-{config['max']}")
                 
+                # Scale density values by 100 to align with gamma track (0-4.0 g/cc -> 0-400 scaled units)
+                valid_values = valid_values * 100.0
+                
                 # Phase 5: Apply downsampling for performance optimization
                 if self.performance_monitor_enabled and len(valid_values) > 1000:
                     valid_values, valid_depths = self._get_downsampled_data(
@@ -1098,22 +1106,25 @@ class PyQtGraphCurvePlotter(QWidget):
         print(f"DEBUG (update_axis_ranges): viewboxes - gamma={self.gamma_viewbox is not None}, caliper={self.caliper_viewbox is not None}, resistivity={self.resistivity_viewbox is not None}")
         
         # Set X-axis range for density curves (main plot, bottom axis)
+        # Scale density range by 100 to align with gamma track (0-4.0 g/cc -> 0-400 scaled units)
         if density_configs:
             density_x_min = float('inf')
             density_x_max = float('-inf')
             
             for config in density_configs:
-                density_x_min = min(density_x_min, config['min'])
-                density_x_max = max(density_x_max, config['max'])
+                # Scale config min/max by 100 for alignment with gamma
+                density_x_min = min(density_x_min, config['min'] * 100.0)
+                density_x_max = max(density_x_max, config['max'] * 100.0)
             
-            # Default range for density curves if not specified: 0.0 to 4.0
+            # Default range for density curves if not specified: 0.0 to 4.0 -> scaled to 0 to 400
             if density_x_min == float('inf'):
                 density_x_min = 0.0
             if density_x_max == float('-inf'):
-                density_x_max = 4.0
+                density_x_max = 400.0
                 
-            # Set X-axis range with some padding
-            x_padding = (density_x_max - density_x_min) * 0.05
+            # NO PADDING for density curves - align exactly with gamma scale
+            # Density: 0-400 scaled units should align with Gamma: 0-400 API
+            x_padding = 0.0  # Remove padding for exact alignment
             
             # Check inversion for density curves
             # Default is inverted=False (well log style, axis inverted)
@@ -1136,8 +1147,18 @@ class PyQtGraphCurvePlotter(QWidget):
                 except Exception as e:
                     print(f"ERROR (update_axis_ranges): Failed to set X range: {e}")
             
-            # Update bottom axis label
+            # Update bottom axis label (still shows g/cc)
             self.plot_widget.setLabel('bottom', 'Density', units='g/cc')
+            
+            # Customize density axis ticks to show 0,1,2,3,4 g/cc at positions 0,100,200,300,400
+            bottom_axis = self.plot_item.getAxis('bottom')
+            if bottom_axis:
+                # Create custom ticks: position in scaled units -> label in g/cc
+                tick_positions = [0, 100, 200, 300, 400]
+                tick_labels = ['0', '1', '2', '3', '4']
+                tick_dict = [(pos, label) for pos, label in zip(tick_positions, tick_labels)]
+                bottom_axis.setTicks([tick_dict])
+                print(f"DEBUG (update_axis_ranges): Set custom density axis ticks: {tick_dict}")
         
         # Set X-axis range for gamma curves (gamma viewbox, top axis)
         if gamma_configs and self.gamma_viewbox:
