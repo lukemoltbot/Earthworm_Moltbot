@@ -307,18 +307,36 @@ class GeologicalAnalysisViewport(QWidget):
         self._depth_manager = depth_manager
         self._pixel_mapper = pixel_mapper
         
+        # DEBUG: print component sizes
+        print(f"DEBUG (GeologicalAnalysisViewport.set_components):")
+        print(f"  - self.size() = {self.size()}")
+        print(f"  - _column_container size = {self._column_container.size()}")
+        print(f"  - _curve_container size = {self._curve_container.size()}")
+        print(f"  - _splitter sizes = {self._splitter.sizes()}")
+        
         # Ensure components have proper size policies for expansion
         if self._strat_column:
             self._strat_column.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            print(f"  - Adding strat_column to _column_container, parent = {self._strat_column.parent()}")
             self._column_container.layout().addWidget(self._strat_column)
+            print(f"  - After add, strat_column parent = {self._strat_column.parent()}")
         
         if self._curve_plotter:
             self._curve_plotter.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            print(f"  - Adding curve_plotter to _curve_container, parent = {self._curve_plotter.parent()}")
             self._curve_container.layout().addWidget(self._curve_plotter)
+            print(f"  - After add, curve_plotter parent = {self._curve_plotter.parent()}")
         
         # Ensure containers are visible and have minimum size
         self._column_container.setMinimumSize(100, 100)
         self._curve_container.setMinimumSize(100, 100)
+        
+        # DEBUG: update splitter sizes to match actual width
+        if self._splitter.width() > 0:
+            column_width = int(self._splitter.width() * self.config.column_width_ratio)
+            curve_width = int(self._splitter.width() * self.config.curve_width_ratio)
+            self._splitter.setSizes([column_width, curve_width])
+            print(f"  - Updated splitter sizes: {self._splitter.sizes()} (total width {self._splitter.width()})")
         
         # Connect components via adapter for synchronized scrolling
         if self._component_adapter:
@@ -330,6 +348,7 @@ class GeologicalAnalysisViewport(QWidget):
         self._connect_component_signals()
         
         logger.info("Components set for unified viewport")
+        print(f"DEBUG (GeologicalAnalysisViewport.set_components): Components added successfully")
     
     def set_curve_visibility(self, curve_name: str, visible: bool) -> None:
         """
@@ -699,6 +718,31 @@ class GeologicalAnalysisViewport(QWidget):
         if self._splitter and self._splitter.count() > 0:
             return self._splitter.sizes()[0]
         return 0
+    
+    def showEvent(self, event):
+        """Handle show event to debug visibility."""
+        super().showEvent(event)
+        print(f"DEBUG (GeologicalAnalysisViewport.showEvent):")
+        print(f"  - isVisible = {self.isVisible()}")
+        print(f"  - size = {self.size()}")
+        print(f"  - splitter sizes = {self._splitter.sizes()}")
+        print(f"  - column_container size = {self._column_container.size()}")
+        print(f"  - curve_container size = {self._curve_container.size()}")
+        if self._strat_column:
+            print(f"  - strat_column parent = {self._strat_column.parent()}, visible = {self._strat_column.isVisible()}")
+        if self._curve_plotter:
+            print(f"  - curve_plotter parent = {self._curve_plotter.parent()}, visible = {self._curve_plotter.isVisible()}")
+    
+    def resizeEvent(self, event):
+        """Handle resize event to update splitter sizes."""
+        super().resizeEvent(event)
+        if self._splitter and self._splitter.width() > 0:
+            column_width = int(self._splitter.width() * self.config.column_width_ratio)
+            curve_width = int(self._splitter.width() * self.config.curve_width_ratio)
+            self._splitter.setSizes([column_width, curve_width])
+            print(f"DEBUG (GeologicalAnalysisViewport.resizeEvent):")
+            print(f"  - new size = {self.size()}")
+            print(f"  - splitter sizes = {self._splitter.sizes()}")
 
 
 # Simple test function
