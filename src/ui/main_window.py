@@ -5078,6 +5078,10 @@ class MainWindow(QMainWindow):
         curve_configs = []
         curve_inversion_settings = self.initial_curve_inversion_settings
         current_curve_thickness = self.initial_curve_thickness
+        print(f"DEBUG (_finalize_analysis_display): current_curve_thickness = {current_curve_thickness}")
+        # TEMPORARY: Force thickness to be visible for debugging
+        current_curve_thickness = 3.0
+        print(f"DEBUG (_finalize_analysis_display): TEMPORARY: forcing thickness to {current_curve_thickness}")
 
         if 'gamma' in classified_dataframe.columns:
             data_min = classified_dataframe['gamma'].min()

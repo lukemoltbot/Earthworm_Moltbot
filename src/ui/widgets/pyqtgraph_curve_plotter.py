@@ -822,6 +822,7 @@ class PyQtGraphCurvePlotter(QWidget):
                 curve_name = config['name']
                 color = config['color']
                 thickness = config.get('thickness', 1.5)
+                print(f"DEBUG (draw_curves): Density config '{curve_name}' - thickness in config: {thickness}, color: {color}")
                 
                 if curve_name not in self.data.columns:
                     continue
@@ -1066,7 +1067,9 @@ class PyQtGraphCurvePlotter(QWidget):
         
     def update_axis_ranges(self):
         """Update plot axis ranges based on curve configurations for dual-axis system."""
+        print(f"DEBUG (update_axis_ranges): START - curve_configs count: {len(self.curve_configs) if self.curve_configs else 0}")
         if not self.curve_configs:
+            print(f"DEBUG (update_axis_ranges): EARLY RETURN - no curve_configs")
             return
             
         # Separate curve configs into gamma, density, caliper, and resistivity
