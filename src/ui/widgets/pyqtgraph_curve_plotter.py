@@ -863,6 +863,7 @@ class PyQtGraphCurvePlotter(QWidget):
                 
                 # Plot the curve - we'll handle inversion at axis level
                 curve = self.plot_widget.plot(valid_values, valid_depths, pen=pen)
+                print(f"DEBUG (draw_curves): Added density curve '{curve_name}' to main plot, curve item: {curve}")
                 
                 # Store inversion state
                 curve.inverted = inverted
@@ -922,6 +923,7 @@ class PyQtGraphCurvePlotter(QWidget):
             # Add to caliper viewbox
             if self.caliper_viewbox:
                 self.caliper_viewbox.addItem(curve)
+                print(f"DEBUG (draw_curves): Added caliper curve '{curve_name}' to caliper_viewbox")
                 # Make axis visible
                 if self.caliper_axis:
                     self.caliper_axis.setVisible(True)
@@ -979,6 +981,7 @@ class PyQtGraphCurvePlotter(QWidget):
             # Add to resistivity viewbox
             if self.resistivity_viewbox:
                 self.resistivity_viewbox.addItem(curve)
+                print(f"DEBUG (draw_curves): Added resistivity curve '{curve_name}' to resistivity_viewbox")
                 # Make axis visible
                 if self.resistivity_axis:
                     self.resistivity_axis.setVisible(True)
@@ -1037,6 +1040,7 @@ class PyQtGraphCurvePlotter(QWidget):
             # Add to gamma viewbox
             if self.gamma_viewbox:
                 self.gamma_viewbox.addItem(curve)
+                print(f"DEBUG (draw_curves): Added gamma curve '{curve_name}' to gamma_viewbox")
             
             # Store reference
             curve.config = config
