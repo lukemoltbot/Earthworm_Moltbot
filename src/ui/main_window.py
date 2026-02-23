@@ -110,19 +110,20 @@ class HoleEditorWindow(QWidget):
         
         # Create unified geological analysis viewport (Phase 4)
         # Configure depth scale manager for pixel-perfect synchronization
+        # Default view range: show 10m for detailed lithology viewing (1 Point Desktop style)
         depth_config = DepthScaleConfig(
             mode=DepthScaleMode.PIXEL_PERFECT,
             pixel_tolerance=1,
             min_depth=0.0,
             max_depth=10000.0,
-            default_view_range=(0.0, 1000.0)
+            default_view_range=(0.0, 10.0)  # Changed from 1000m to 10m for detailed view
         )
         self.unified_depth_manager = UnifiedDepthScaleManager(depth_config)
         
         # Configure pixel mapper with default viewport size (will be updated on resize)
         pixel_config = PixelMappingConfig(
             min_depth=0.0,
-            max_depth=1000.0,
+            max_depth=100.0,  # Reduced from 1000m to 100m as reasonable default
             viewport_width=800,
             viewport_height=600,
             vertical_padding=2,
@@ -5177,6 +5178,24 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'unifiedViewport') and self.unifiedViewport:
             print(f"DEBUG (_finalize_analysis_display): Setting unified viewport depth range {min_overall_depth}-{max_overall_depth}")
             self.unifiedViewport.set_depth_range(min_overall_depth, max_overall_depth)
+            
+            # Update pixel mapper depth range to match hole data
+            if hasattr(self, 'unified_pixel_mapper'):
+                self.unified_pixel_mapper.set_depth_range(min_overall_depth, max_overall_depth)
+                print(f"DEBUG (_finalize_analysis_display): Updated pixel mapper depth range to {min_overall_depth}-{max_overall_depth}")
+            
+            # Set initial visible view range to top 10m for detailed lithology viewing (1 Point Desktop style)
+            # This ensures users can see small lithology units clearly
+            visible_range_size = 10.0  # Show 10 metres initially
+            visible_end_depth = min(min_overall_depth + visible_range_size, max_overall_depth)
+            
+            if hasattr(self, 'unified_depth_manager'):
+                self.unified_depth_manager.set_view_range(min_overall_depth, visible_end_depth)
+                print(f"DEBUG (_finalize_analysis_display): Set visible view range to top {visible_range_size}m: {min_overall_depth}-{visible_end_depth}")
+            elif hasattr(self.unifiedViewport, 'set_view_range'):
+                # Fallback to viewport method if available
+                self.unifiedViewport.set_view_range(min_overall_depth, visible_end_depth)
+                print(f"DEBUG (_finalize_analysis_display): Set viewport visible range to top {visible_range_size}m")
         if hasattr(self, 'enhancedStratColumnView'):
             print(f"DEBUG (_finalize_analysis_display): Drawing enhanced column, hasattr: {hasattr(self, 'enhancedStratColumnView')}")
             # Set classified data for curve values in tooltips

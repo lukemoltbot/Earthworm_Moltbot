@@ -71,7 +71,7 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         """Initialize enhanced stratigraphic column with synchronization features."""
         super().__init__(parent)
         
-        self.default_view_range = 20.0  # Show 20 metres by default
+        self.default_view_range = 10.0  # Show 10 metres by default for detailed lithology viewing (1 Point Desktop style)
         # Enhanced display settings
         self.show_detailed_labels = False  # Disable labels inside units - will show on hover instead
         self.show_lithology_codes = False  # Disable - will show in tooltip
@@ -124,10 +124,10 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         self.setMouseTracking(True)
         self.viewport().setMouseTracking(True)
         
-        # Default to show 20m view for detailed analysis
-        # This matches the LAS curves pane for 1:1 comparison
-        self.default_view_range = 20.0  # Show 20 metres by default
-        self.depth_scale = 50.0  # Adjusted for 20m view (1000px / 20m = 50px/m)
+        # Default to show 10m view for detailed lithology viewing (1 Point Desktop style)
+        # This matches the LAS curves pane for 1:1 comparison at higher detail
+        self.default_view_range = 10.0  # Show 10 metres by default for detailed lithology viewing
+        self.depth_scale = 50.0  # 50 pixels per metre for high-resolution display
         
         # Synchronized scale with curve plotter
         self.fixed_scale_enabled = True
@@ -457,11 +457,16 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
               f"Visible range: {self.visible_min_depth:.2f}-{self.visible_max_depth:.2f}")
     
     def set_initial_view(self):
-        """Set initial view to show default_view_range (20m) at the top of the hole."""
+        """Set initial view to show default_view_range (10m) at the top of the hole."""
+        # Skip scaling when column is part of unified viewport (scaling managed by UnifiedDepthScaleManager)
+        if hasattr(self, '_in_unified_viewport') and self._in_unified_viewport:
+            print(f"DEBUG (EnhancedStratigraphicColumn.set_initial_view): Skipping - column is part of unified viewport")
+            return
+            
         if not hasattr(self, 'min_depth') or not hasattr(self, 'max_depth'):
             return
             
-        # Calculate the visible depth range for 20m view
+        # Calculate the visible depth range for 10m view
         view_min_depth = self.min_depth
         view_max_depth = min(self.min_depth + self.default_view_range, self.max_depth)
         
@@ -509,13 +514,18 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
     
     def fitInView(self, rect, mode=None):
         """Override fitInView to prevent showing entire hole in enhanced column."""
+        # Skip scaling when column is part of unified viewport (scaling managed by UnifiedDepthScaleManager)
+        if hasattr(self, '_in_unified_viewport') and self._in_unified_viewport:
+            print(f"DEBUG (EnhancedStratigraphicColumn.fitInView): Skipping - column is part of unified viewport")
+            return
+            
         # Check if we should skip fitInView (called from parent draw_column)
         if hasattr(self, '_skip_fit_in_view') and self._skip_fit_in_view:
             print(f"DEBUG (EnhancedStratigraphicColumn.fitInView): Skipping - called from parent draw_column")
             return
             
         # Don't call parent fitInView - we want to show only 20m, not entire hole
-        print(f"DEBUG (EnhancedStratigraphicColumn.fitInView): Overridden to show 20m view instead of entire hole")
+        print(f"DEBUG (EnhancedStratigraphicColumn.fitInView): Overridden to show 10m view instead of entire hole")
         
         # Instead, ensure our initial view is maintained
         if hasattr(self, 'default_view_range') and hasattr(self, 'min_depth'):

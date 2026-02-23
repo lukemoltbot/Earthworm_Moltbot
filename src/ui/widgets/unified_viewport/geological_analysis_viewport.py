@@ -323,6 +323,8 @@ class GeologicalAnalysisViewport(QWidget):
             print(f"  - After add, strat_column parent = {self._strat_column.parent()}")
             self._strat_column.setVisible(True)
             print(f"  - strat_column visible = {self._strat_column.isVisible()}, geometry = {self._strat_column.geometry()}, size = {self._strat_column.size()}")
+            # Mark column as part of unified viewport to prevent independent scaling
+            self._strat_column._in_unified_viewport = True
             self._trace_widget_visibility(self._strat_column, "strat_column")
         
         if self._curve_plotter:
@@ -344,6 +346,16 @@ class GeologicalAnalysisViewport(QWidget):
             curve_width = int(self._splitter.width() * self.config.curve_width_ratio)
             self._splitter.setSizes([column_width, curve_width])
             print(f"  - Updated splitter sizes: {self._splitter.sizes()} (total width {self._splitter.width()})")
+        
+        # Update depth manager and pixel mapper with actual viewport dimensions
+        # This ensures pixel-perfect synchronization with correct scaling
+        if self._depth_manager and self.height() > 0:
+            self._depth_manager.set_viewport_height(self.height())
+            print(f"  - Set depth manager viewport height: {self.height()}px")
+        
+        if self._pixel_mapper and self.width() > 0 and self.height() > 0:
+            self._pixel_mapper.update_viewport_size(self.width(), self.height())
+            print(f"  - Updated pixel mapper viewport size: {self.width()}x{self.height()}px")
         
         # Connect components via adapter for synchronized scrolling
         if self._component_adapter:
@@ -556,6 +568,10 @@ class GeologicalAnalysisViewport(QWidget):
         # Update pixel mapper with new size
         if self._pixel_mapper:
             self._pixel_mapper.update_viewport_size(self.width(), self.height())
+        
+        # Update depth manager with new viewport height for pixel-perfect synchronization
+        if self._depth_manager:
+            self._depth_manager.set_viewport_height(self.height())
         
         logger.debug(f"Viewport resized to {self.width()}x{self.height()}")
     
