@@ -79,13 +79,13 @@ ANALYSIS_COLUMNS = ['gamma', 'density']
 # Default ranges for plotting curves
 # Updated for dual-axis plotting: Gamma Ray 0-300 API, Density curves 0.0-4.0 g/cc
 CURVE_RANGES = {
-    'gamma': {'min': 0, 'max': 300, 'color': '#8b008b'}, # Purple for Gamma Ray (top axis)
+    'gamma': {'min': 0, 'max': 400, 'color': '#8b008b'}, # Purple for Gamma Ray (top axis) - increased from 300 to 400 to accommodate 330 API data
     'density': {'min': 0.0, 'max': 4.0, 'color': '#006400'}, # Dark green for density (bottom axis)
     'short_space_density': {'min': 0.0, 'max': 4.0, 'color': '#006400'}, # Dark green
     'long_space_density': {'min': 0.0, 'max': 4.0, 'color': '#00008b'}, # Dark blue
-    'caliper': {'min': 0.0, 'max': 20.0, 'color': '#FFA500'}, # Orange for caliper (inches)
-    'cd': {'min': 0.0, 'max': 20.0, 'color': '#FFA500'}, # Orange for caliper diameter
-    'cal': {'min': 0.0, 'max': 20.0, 'color': '#FFA500'}, # Orange for caliper
+    'caliper': {'min': 0.0, 'max': 300.0, 'color': '#FFA500'}, # Orange for caliper (mm) - changed from inches to mm, max 300mm to accommodate 293mm data
+    'cd': {'min': 0.0, 'max': 300.0, 'color': '#FFA500'}, # Orange for caliper diameter (mm)
+    'cal': {'min': 0.0, 'max': 300.0, 'color': '#FFA500'}, # Orange for caliper (mm)
     'resistivity': {'min': 0.0, 'max': 200.0, 'color': '#FF0000'}, # Red for resistivity (ohm-m)
     'res': {'min': 0.0, 'max': 200.0, 'color': '#FF0000'}, # Red for resistivity
     'rt': {'min': 0.0, 'max': 200.0, 'color': '#FF0000'}, # Red for resistivity

@@ -69,9 +69,9 @@ class PyQtGraphCurvePlotter(QWidget):
         
         # Curve type identification patterns
         self.gamma_patterns = ['gamma', 'gr', 'gamma_ray', 'gammaray']
-        self.density_patterns = ['density', 'den', 'rhob', 'ss', 'ls']
+        self.density_patterns = ['density', 'den', 'rhob', 'ss', 'ls', 'short_space_density', 'long_space_density']
         self.caliper_patterns = ['caliper', 'cal', 'cd', 'diameter']
-        self.resistivity_patterns = ['resistivity', 'res', 'rt', 'ild']
+        self.resistivity_patterns = ['resistivity', 'ild']  # removed 'res' and 'rt' as they cause false matches
         
         # Lithology data for boundary lines
         self.lithology_data = None
@@ -780,10 +780,12 @@ class PyQtGraphCurvePlotter(QWidget):
         for config in sorted_configs:
             curve_name = config['name'].lower()
             
-            # Check curve type patterns
-            is_gamma = any(pattern in curve_name for pattern in self.gamma_patterns)
-            is_caliper = any(pattern in curve_name for pattern in self.caliper_patterns)
-            is_resistivity = any(pattern in curve_name for pattern in self.resistivity_patterns)
+            # Check curve type patterns (using startswith to avoid false matches like 'rt' in 'short_space_density')
+            is_gamma = any(curve_name.startswith(pattern) for pattern in self.gamma_patterns)
+            is_caliper = any(curve_name.startswith(pattern) for pattern in self.caliper_patterns)
+            is_resistivity = any(curve_name.startswith(pattern) for pattern in self.resistivity_patterns)
+            
+            print(f"DEBUG (draw_curves classification): '{curve_name}' -> gamma={is_gamma}, caliper={is_caliper}, resistivity={is_resistivity}")
             
             if is_gamma:
                 gamma_configs.append(config)
@@ -1065,9 +1067,9 @@ class PyQtGraphCurvePlotter(QWidget):
         
         for config in self.curve_configs:
             curve_name = config['name'].lower()
-            is_gamma = any(pattern in curve_name for pattern in self.gamma_patterns)
-            is_caliper = any(pattern in curve_name for pattern in self.caliper_patterns)
-            is_resistivity = any(pattern in curve_name for pattern in self.resistivity_patterns)
+            is_gamma = any(curve_name.startswith(pattern) for pattern in self.gamma_patterns)
+            is_caliper = any(curve_name.startswith(pattern) for pattern in self.caliper_patterns)
+            is_resistivity = any(curve_name.startswith(pattern) for pattern in self.resistivity_patterns)
             
             if is_gamma:
                 gamma_configs.append(config)
@@ -1244,9 +1246,9 @@ class PyQtGraphCurvePlotter(QWidget):
         
         for config in self.curve_configs:
             curve_name = config['name'].lower()
-            is_gamma = any(pattern in curve_name for pattern in self.gamma_patterns)
-            is_caliper = any(pattern in curve_name for pattern in self.caliper_patterns)
-            is_resistivity = any(pattern in curve_name for pattern in self.resistivity_patterns)
+            is_gamma = any(curve_name.startswith(pattern) for pattern in self.gamma_patterns)
+            is_caliper = any(curve_name.startswith(pattern) for pattern in self.caliper_patterns)
+            is_resistivity = any(curve_name.startswith(pattern) for pattern in self.resistivity_patterns)
             
             if is_gamma:
                 gamma_configs.append(config)
@@ -2246,7 +2248,7 @@ class PyQtGraphCurvePlotter(QWidget):
                 curve_name_lower = curve_name.lower()
                 
                 # Check if curve matches any pattern in the group
-                if any(pattern in curve_name_lower for pattern in patterns):
+                if any(curve_name.startswith(pattern)_lower for pattern in patterns):
                     self._update_curve_visibility(curve_item, visible, curve_name)
                     curves_updated.append(curve_name)
         

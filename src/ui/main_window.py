@@ -5080,18 +5080,24 @@ class MainWindow(QMainWindow):
         current_curve_thickness = self.initial_curve_thickness
 
         if 'gamma' in classified_dataframe.columns:
+            data_min = classified_dataframe['gamma'].min()
+            data_max = classified_dataframe['gamma'].max()
+            config_min = CURVE_RANGES['gamma']['min']
+            config_max = CURVE_RANGES['gamma']['max']
+            # Expand config range if data exceeds it (with 5% padding)
+            if data_min < config_min:
+                config_min = data_min * 0.95
+            if data_max > config_max:
+                config_max = data_max * 1.05
             curve_configs.append({
                 'name': 'gamma',
-                'min': CURVE_RANGES['gamma']['min'],
-                'max': CURVE_RANGES['gamma']['max'],
+                'min': config_min,
+                'max': config_max,
                 'color': CURVE_RANGES['gamma']['color'],
                 'inverted': curve_inversion_settings.get('gamma', False),
                 'thickness': current_curve_thickness
             })
-            # Print data range for this curve
-            data_min = classified_dataframe['gamma'].min()
-            data_max = classified_dataframe['gamma'].max()
-            print(f"DEBUG (_finalize_analysis_display): added gamma curve (config: {CURVE_RANGES['gamma']['min']}-{CURVE_RANGES['gamma']['max']}, data: {data_min:.2f}-{data_max:.2f})")
+            print(f"DEBUG (_finalize_analysis_display): added gamma curve (config: {config_min:.2f}-{config_max:.2f}, data: {data_min:.2f}-{data_max:.2f})")
         if 'short_space_density' in classified_dataframe.columns:
             curve_configs.append({
                 'name': 'short_space_density',
@@ -5119,18 +5125,24 @@ class MainWindow(QMainWindow):
             data_max = classified_dataframe['long_space_density'].max()
             print(f"DEBUG (_finalize_analysis_display): added long_space_density curve (config: {CURVE_RANGES['long_space_density']['min']}-{CURVE_RANGES['long_space_density']['max']}, data: {data_min:.2f}-{data_max:.2f})")
         if 'caliper' in classified_dataframe.columns:
+            data_min = classified_dataframe['caliper'].min()
+            data_max = classified_dataframe['caliper'].max()
+            config_min = CURVE_RANGES['caliper']['min']
+            config_max = CURVE_RANGES['caliper']['max']
+            # Expand config range if data exceeds it (with 5% padding)
+            if data_min < config_min:
+                config_min = data_min * 0.95
+            if data_max > config_max:
+                config_max = data_max * 1.05
             curve_configs.append({
                 'name': 'caliper',
-                'min': CURVE_RANGES['caliper']['min'],
-                'max': CURVE_RANGES['caliper']['max'],
+                'min': config_min,
+                'max': config_max,
                 'color': CURVE_RANGES['caliper']['color'],
                 'inverted': curve_inversion_settings.get('caliper', False),
                 'thickness': current_curve_thickness
             })
-            # Print data range for this curve
-            data_min = classified_dataframe['caliper'].min()
-            data_max = classified_dataframe['caliper'].max()
-            print(f"DEBUG (_finalize_analysis_display): added caliper curve (config: {CURVE_RANGES['caliper']['min']}-{CURVE_RANGES['caliper']['max']}, data: {data_min:.2f}-{data_max:.2f})")
+            print(f"DEBUG (_finalize_analysis_display): added caliper curve (config: {config_min:.2f}-{config_max:.2f}, data: {data_min:.2f}-{data_max:.2f})")
         if 'resistivity' in classified_dataframe.columns:
             curve_configs.append({
                 'name': 'resistivity',
