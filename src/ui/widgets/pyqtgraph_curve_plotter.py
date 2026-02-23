@@ -1056,6 +1056,11 @@ class PyQtGraphCurvePlotter(QWidget):
         # Set axis ranges and labels
         self.update_axis_ranges()
         
+        # Debug: print view range
+        if self.plot_item.vb:
+            view_range = self.plot_item.vb.viewRange()
+            print(f"DEBUG (draw_curves): Main viewbox X range: {view_range[0] if view_range else 'N/A'}, Y range: {view_range[1] if view_range else 'N/A'}")
+        
         # Setup X-axis labels (legacy feature migration)
         self.setup_x_axis_labels()
         
