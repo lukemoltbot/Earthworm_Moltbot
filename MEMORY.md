@@ -131,7 +131,14 @@
   - Max values now align (left side): 4.0 g/cc vertically aligns with 400 API
   - Density variations visually exaggerated (100× more pixels per unit change)
 - **Commit**: `3c25f8d` (density‑gamma track alignment)
-- **Status**: Ready for manual testing - should match 1 Point Desktop visual alignment
+- **Status**: **Issue**: Max values extend beyond viewport to the right; zero alignment uncertain
+
+## Debug Update (2026-02-24)
+- **Added debug prints** to verify actual X view ranges after setting
+- **Custom gamma axis ticks** at 0,100,200,300,400 (same positions as density)
+- **Verification** of inversion status and view ranges
+- **Commit**: `d74b02d` (debug additions)
+- **Next**: Need console output to diagnose why max values not visible
 
 ## Current Status
 - Gateway: RUNNING (PID: 64085)
