@@ -321,16 +321,16 @@ class GeologicalAnalysisViewport(QWidget):
             print(f"  - Adding strat_column to _column_container, parent = {self._strat_column.parent()}")
             self._column_container.layout().addWidget(self._strat_column)
             print(f"  - After add, strat_column parent = {self._strat_column.parent()}")
-            self._strat_column.show()
-            print(f"  - strat_column visible = {self._strat_column.isVisible()}")
+            self._strat_column.setVisible(True)
+            print(f"  - strat_column visible = {self._strat_column.isVisible()}, geometry = {self._strat_column.geometry()}, size = {self._strat_column.size()}")
         
         if self._curve_plotter:
             self._curve_plotter.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             print(f"  - Adding curve_plotter to _curve_container, parent = {self._curve_plotter.parent()}")
             self._curve_container.layout().addWidget(self._curve_plotter)
             print(f"  - After add, curve_plotter parent = {self._curve_plotter.parent()}")
-            self._curve_plotter.show()
-            print(f"  - curve_plotter visible = {self._curve_plotter.isVisible()}")
+            self._curve_plotter.setVisible(True)
+            print(f"  - curve_plotter visible = {self._curve_plotter.isVisible()}, geometry = {self._curve_plotter.geometry()}, size = {self._curve_plotter.size()}")
         
         # Ensure containers are visible and have minimum size
         self._column_container.setMinimumSize(100, 100)
@@ -736,9 +736,9 @@ class GeologicalAnalysisViewport(QWidget):
         print(f"  - column_container visible = {self._column_container.isVisible()}")
         print(f"  - curve_container visible = {self._curve_container.isVisible()}")
         if self._strat_column:
-            print(f"  - strat_column parent = {self._strat_column.parent()}, visible = {self._strat_column.isVisible()}")
+            print(f"  - strat_column parent = {self._strat_column.parent()}, visible = {self._strat_column.isVisible()}, geometry = {self._strat_column.geometry()}, size = {self._strat_column.size()}")
         if self._curve_plotter:
-            print(f"  - curve_plotter parent = {self._curve_plotter.parent()}, visible = {self._curve_plotter.isVisible()}")
+            print(f"  - curve_plotter parent = {self._curve_plotter.parent()}, visible = {self._curve_plotter.isVisible()}, geometry = {self._curve_plotter.geometry()}, size = {self._curve_plotter.size()}")
     
     def resizeEvent(self, event):
         """Handle resize event to update splitter sizes."""
