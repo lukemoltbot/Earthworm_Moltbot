@@ -321,13 +321,15 @@ class HoleEditorWindow(QWidget):
         plot_layout.setSpacing(5)
         
         # Add curve plotter - use all available space
-        plot_layout.addWidget(self.curvePlotter)
+        # NOTE: Disabled when using unified viewport - widgets added to unified viewport instead
+        # plot_layout.addWidget(self.curvePlotter)
 
         # Second Container: Enhanced Stratigraphic Column (detailed, synchronized)
         enhanced_column_container = QWidget()
         enhanced_column_layout = QVBoxLayout(enhanced_column_container)
         enhanced_column_layout.setContentsMargins(0, 0, 0, 0)
-        enhanced_column_layout.addWidget(self.enhancedStratColumnView)
+        # NOTE: Disabled when using unified viewport - widgets added to unified viewport instead
+        # enhanced_column_layout.addWidget(self.enhancedStratColumnView)
 
         # Third Container: Data Table (Lithology Editor)
         table_container = QWidget()
