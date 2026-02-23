@@ -118,4 +118,27 @@
 - Context: Proactively managed with compaction triggers
 - Last cleanup: 2026-02-20 13:39
 - Last fix: 2026-02-20 15:03 - Watchdog system completely removed
-- **Latest update**: 2026-02-24 - Enhanced column scale fix + LAS curves fixed-scale reversion committed
+## LAS Curves Track Alignment Fix (2026-02-24)
+- **Issue**: Zero points aligned but max values (4.0 g/cc vs 400 API) not aligned, making density variations too subtle
+- **Solution**: Scale density track to align with gamma track (100× scaling)
+- **Changes**:
+  - Density values scaled by 100× when plotting (0-4.0 g/cc → 0-400 scaled units)
+  - Density X‑axis range set to 0‑400 (same as gamma), remove padding
+  - Custom density axis ticks: show 0,1,2,3,4 g/cc at positions 0,100,200,300,400
+  - Maintain inverted axes (well‑log style) for both tracks
+- **Result**: 
+  - Zero points remain aligned (right side)
+  - Max values now align (left side): 4.0 g/cc vertically aligns with 400 API
+  - Density variations visually exaggerated (100× more pixels per unit change)
+- **Commit**: `3c25f8d` (density‑gamma track alignment)
+- **Status**: Ready for manual testing - should match 1 Point Desktop visual alignment
+
+## Current Status
+- Gateway: RUNNING (PID: 64085)
+- Watchdog: REMOVED per user request (2026-02-20 15:03)
+- Context Manager: v2 deployed and running every 6 hours
+- Sessions: Cleaned and optimized (6MB total)
+- Context: Proactively managed with compaction triggers
+- Last cleanup: 2026-02-20 13:39
+- Last fix: 2026-02-20 15:03 - Watchdog system completely removed
+- **Latest update**: 2026-02-24 - Density‑gamma track alignment fix committed
