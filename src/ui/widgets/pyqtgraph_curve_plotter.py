@@ -1092,6 +1092,9 @@ class PyQtGraphCurvePlotter(QWidget):
             is_caliper = any(curve_name.startswith(pattern) for pattern in self.caliper_patterns)
             is_resistivity = any(curve_name.startswith(pattern) for pattern in self.resistivity_patterns)
             
+            # Debug inversion
+            print(f"DEBUG (update_axis_ranges): curve '{curve_name}', inverted={config.get('inverted', False)}")
+            
             if is_gamma:
                 gamma_configs.append(config)
             elif is_caliper:
@@ -1169,6 +1172,9 @@ class PyQtGraphCurvePlotter(QWidget):
                 tick_dict = [(pos, label) for pos, label in zip(tick_positions, tick_labels)]
                 bottom_axis.setTicks([tick_dict])
                 print(f"DEBUG (update_axis_ranges): Set custom density axis ticks: {tick_dict}")
+        
+        # Debug: plot widget geometry
+        print(f"DEBUG (update_axis_ranges): Plot widget geometry: {self.plot_widget.geometry()}, size: {self.plot_widget.size()}")
         
         # Set X-axis range for gamma curves (gamma viewbox, top axis)
         if gamma_configs and self.gamma_viewbox:
