@@ -439,7 +439,7 @@ class PyQtGraphCurvePlotter(QWidget):
         
         # Link top axis to Gamma Ray ViewBox
         self.gamma_axis.linkToView(self.gamma_viewbox)
-        self.gamma_viewbox.setXLink(self.plot_item)  # Share X-axis transform
+        self.gamma_viewbox.setXLink(self.plot_item.vb)  # Share X-axis transform (FIXED: link to ViewBox, not PlotItem)
         # CRITICAL FIX: Add Y-axis linking for scrolling synchronization
         self.gamma_viewbox.setYLink(self.plot_item.vb)
         self.gamma_axis.setLabel('Gamma Ray', units='API', color='#8b008b')
@@ -451,7 +451,7 @@ class PyQtGraphCurvePlotter(QWidget):
         self.caliper_viewbox = pg.ViewBox()
         self.plot_item.scene().addItem(self.caliper_viewbox)
         self.caliper_axis.linkToView(self.caliper_viewbox)
-        self.caliper_viewbox.setXLink(self.plot_item)  # Share X-axis transform
+        self.caliper_viewbox.setXLink(self.plot_item.vb)  # Share X-axis transform (FIXED: link to ViewBox, not PlotItem)
         self.caliper_viewbox.setYLink(self.plot_item.vb)
         self.caliper_axis.setLabel('Caliper', units='mm', color='#FFA500')
         self.caliper_axis.setVisible(False)  # Hide until caliper curves are added
@@ -463,7 +463,7 @@ class PyQtGraphCurvePlotter(QWidget):
         self.resistivity_viewbox = pg.ViewBox()
         self.plot_item.scene().addItem(self.resistivity_viewbox)
         self.resistivity_axis.linkToView(self.resistivity_viewbox)
-        self.resistivity_viewbox.setXLink(self.plot_item)
+        self.resistivity_viewbox.setXLink(self.plot_item.vb)  # Share X-axis transform (FIXED: link to ViewBox, not PlotItem)
         self.resistivity_viewbox.setYLink(self.plot_item.vb)
         self.resistivity_axis.setLabel('Resistivity', units='ohm.m', color='#FF0000')
         self.resistivity_axis.setVisible(False)  # Hide until resistivity curves are added
@@ -1125,8 +1125,16 @@ class PyQtGraphCurvePlotter(QWidget):
                 print(f"DEBUG (update_axis_ranges): Density X range set (not inverted): {density_x_min - x_padding:.2f} to {density_x_max + x_padding:.2f}")
             else:
                 # Inverted (well log style): low values on right, high on left
-                self.plot_widget.setXRange(density_x_max + x_padding, density_x_min - x_padding)
-                print(f"DEBUG (update_axis_ranges): Density X range set (inverted): {density_x_max + x_padding:.2f} to {density_x_min - x_padding:.2f}")
+                try:
+                    self.plot_widget.setXRange(density_x_max + x_padding, density_x_min - x_padding)
+                    print(f"DEBUG (update_axis_ranges): Density X range set (inverted): {density_x_max + x_padding:.2f} to {density_x_min - x_padding:.2f}")
+                    # Verify the range was actually set
+                    if hasattr(self.plot_widget, 'viewRange'):
+                        actual_range = self.plot_widget.viewRange()
+                        if actual_range and len(actual_range) > 0:
+                            print(f"DEBUG (update_axis_ranges): Actual X range after setXRange: {actual_range[0]}")
+                except Exception as e:
+                    print(f"ERROR (update_axis_ranges): Failed to set X range: {e}")
             
             # Update bottom axis label
             self.plot_widget.setLabel('bottom', 'Density', units='g/cc')
