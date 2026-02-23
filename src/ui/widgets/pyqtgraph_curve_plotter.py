@@ -669,6 +669,7 @@ class PyQtGraphCurvePlotter(QWidget):
     def draw_curves(self):
         """Draw all configured curves using PyQtGraph with dual-axis support."""
         print(f"DEBUG (draw_curves): object id={id(self)}, data id={id(self.data) if self.data is not None else 'None'}, curve_configs={len(self.curve_configs) if self.curve_configs else 0}")
+        print(f"DEBUG (draw_curves): plot_widget size: {self.plot_widget.width()}x{self.plot_widget.height()}")
         # CRITICAL FIX: Ensure no legend exists BEFORE drawing any curves
         # In pyqtgraph, accessing plot_item.legend can automatically create a legend!
         # We must NEVER access plot_item.legend property.
@@ -833,6 +834,7 @@ class PyQtGraphCurvePlotter(QWidget):
                     
                 valid_depths = depth_data[mask]
                 valid_values = curve_data[mask]
+                print(f"DEBUG (draw_curves): Density curve '{curve_name}' - valid points: {len(valid_values)}, range: {valid_values.min():.2f}-{valid_values.max():.2f}, config: {config['min']}-{config['max']}")
                 
                 # Phase 5: Apply downsampling for performance optimization
                 if self.performance_monitor_enabled and len(valid_values) > 1000:
@@ -888,6 +890,7 @@ class PyQtGraphCurvePlotter(QWidget):
                 
             valid_depths = depth_data[mask]
             valid_values = curve_data[mask]
+            print(f"DEBUG (draw_curves): Caliper curve '{curve_name}' - valid points: {len(valid_values)}, range: {valid_values.min():.2f}-{valid_values.max():.2f}, config: {config['min']}-{config['max']}")
             
             # Phase 5: Apply downsampling for performance optimization
             if self.performance_monitor_enabled and len(valid_values) > 1000:
@@ -944,6 +947,7 @@ class PyQtGraphCurvePlotter(QWidget):
                 
             valid_depths = depth_data[mask]
             valid_values = curve_data[mask]
+            print(f"DEBUG (draw_curves): Resistivity curve '{curve_name}' - valid points: {len(valid_values)}, range: {valid_values.min():.2f}-{valid_values.max():.2f}, config: {config['min']}-{config['max']}")
             
             # Phase 5: Apply downsampling for performance optimization
             if self.performance_monitor_enabled and len(valid_values) > 1000:
@@ -1000,6 +1004,7 @@ class PyQtGraphCurvePlotter(QWidget):
                 
             valid_depths = depth_data[mask]
             valid_values = curve_data[mask]
+            print(f"DEBUG (draw_curves): Gamma curve '{curve_name}' - valid points: {len(valid_values)}, range: {valid_values.min():.2f}-{valid_values.max():.2f}, config: {config['min']}-{config['max']}")
             
             # Phase 5: Apply downsampling for performance optimization
             if self.performance_monitor_enabled and len(valid_values) > 1000:
