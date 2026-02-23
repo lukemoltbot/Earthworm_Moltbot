@@ -323,6 +323,7 @@ class GeologicalAnalysisViewport(QWidget):
             print(f"  - After add, strat_column parent = {self._strat_column.parent()}")
             self._strat_column.setVisible(True)
             print(f"  - strat_column visible = {self._strat_column.isVisible()}, geometry = {self._strat_column.geometry()}, size = {self._strat_column.size()}")
+            self._trace_widget_visibility(self._strat_column, "strat_column")
         
         if self._curve_plotter:
             self._curve_plotter.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -331,6 +332,7 @@ class GeologicalAnalysisViewport(QWidget):
             print(f"  - After add, curve_plotter parent = {self._curve_plotter.parent()}")
             self._curve_plotter.setVisible(True)
             print(f"  - curve_plotter visible = {self._curve_plotter.isVisible()}, geometry = {self._curve_plotter.geometry()}, size = {self._curve_plotter.size()}")
+            self._trace_widget_visibility(self._curve_plotter, "curve_plotter")
         
         # Ensure containers are visible and have minimum size
         self._column_container.setMinimumSize(100, 100)
@@ -724,6 +726,17 @@ class GeologicalAnalysisViewport(QWidget):
             return self._splitter.sizes()[0]
         return 0
     
+    def _trace_widget_visibility(self, widget, name):
+        """Trace widget visibility up the parent chain."""
+        if not widget:
+            return
+        current = widget
+        chain = []
+        while current:
+            chain.append(f"{current.__class__.__name__} (visible={current.isVisible()}, size={current.size()})")
+            current = current.parent()
+        print(f"DEBUG (Visibility trace for {name}): {' -> '.join(chain)}")
+    
     def showEvent(self, event):
         """Handle show event to debug visibility."""
         super().showEvent(event)
@@ -736,9 +749,15 @@ class GeologicalAnalysisViewport(QWidget):
         print(f"  - column_container visible = {self._column_container.isVisible()}")
         print(f"  - curve_container visible = {self._curve_container.isVisible()}")
         if self._strat_column:
-            print(f"  - strat_column parent = {self._strat_column.parent()}, visible = {self._strat_column.isVisible()}, geometry = {self._strat_column.geometry()}, size = {self._strat_column.size()}")
+            parent = self._strat_column.parent()
+            parent_visible = parent.isVisible() if parent else 'No parent'
+            print(f"  - strat_column parent = {parent}, visible = {self._strat_column.isVisible()}, parent visible = {parent_visible}, geometry = {self._strat_column.geometry()}, size = {self._strat_column.size()}")
+            self._trace_widget_visibility(self._strat_column, "strat_column")
         if self._curve_plotter:
-            print(f"  - curve_plotter parent = {self._curve_plotter.parent()}, visible = {self._curve_plotter.isVisible()}, geometry = {self._curve_plotter.geometry()}, size = {self._curve_plotter.size()}")
+            parent = self._curve_plotter.parent()
+            parent_visible = parent.isVisible() if parent else 'No parent'
+            print(f"  - curve_plotter parent = {parent}, visible = {self._curve_plotter.isVisible()}, parent visible = {parent_visible}, geometry = {self._curve_plotter.geometry()}, size = {self._curve_plotter.size()}")
+            self._trace_widget_visibility(self._curve_plotter, "curve_plotter")
     
     def resizeEvent(self, event):
         """Handle resize event to update splitter sizes."""
