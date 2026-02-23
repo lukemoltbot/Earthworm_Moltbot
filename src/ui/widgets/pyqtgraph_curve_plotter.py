@@ -1134,6 +1134,11 @@ class PyQtGraphCurvePlotter(QWidget):
                 # Not inverted: low values on left, high on right
                 self.plot_widget.setXRange(density_x_min - x_padding, density_x_max + x_padding)
                 print(f"DEBUG (update_axis_ranges): Density X range set (not inverted): {density_x_min - x_padding:.2f} to {density_x_max + x_padding:.2f}")
+                # Verify the range was actually set
+                if hasattr(self.plot_widget, 'viewRange'):
+                    actual_range = self.plot_widget.viewRange()
+                    if actual_range and len(actual_range) > 0:
+                        print(f"DEBUG (update_axis_ranges): Final density X view range (not inverted): {actual_range[0]}")
             else:
                 # Inverted (well log style): low values on right, high on left
                 try:
@@ -1146,6 +1151,11 @@ class PyQtGraphCurvePlotter(QWidget):
                             print(f"DEBUG (update_axis_ranges): Actual X range after setXRange: {actual_range[0]}")
                 except Exception as e:
                     print(f"ERROR (update_axis_ranges): Failed to set X range: {e}")
+                # Verify the range was actually set (after try-except)
+                if hasattr(self.plot_widget, 'viewRange'):
+                    actual_range = self.plot_widget.viewRange()
+                    if actual_range and len(actual_range) > 0:
+                        print(f"DEBUG (update_axis_ranges): Final density X view range: {actual_range[0]}")
             
             # Update bottom axis label (still shows g/cc)
             self.plot_widget.setLabel('bottom', 'Density', units='g/cc')
@@ -1183,14 +1193,30 @@ class PyQtGraphCurvePlotter(QWidget):
                 # Not inverted: low values on left, high on right
                 self.gamma_viewbox.setXRange(gamma_x_min, gamma_x_max)
                 print(f"DEBUG (update_axis_ranges): Gamma X range set (not inverted): {gamma_x_min:.2f} to {gamma_x_max:.2f}")
+                # Verify the range was actually set
+                if hasattr(self.gamma_viewbox, 'viewRange'):
+                    actual_range = self.gamma_viewbox.viewRange()
+                    if actual_range and len(actual_range) > 0:
+                        print(f"DEBUG (update_axis_ranges): Final gamma X view range (not inverted): {actual_range[0]}")
             else:
                 # Inverted (well log style): low values on right, high on left
                 self.gamma_viewbox.setXRange(gamma_x_max, gamma_x_min)
                 print(f"DEBUG (update_axis_ranges): Gamma X range set (inverted): {gamma_x_max:.2f} to {gamma_x_min:.2f}")
+                # Verify the range was actually set
+                if hasattr(self.gamma_viewbox, 'viewRange'):
+                    actual_range = self.gamma_viewbox.viewRange()
+                    if actual_range and len(actual_range) > 0:
+                        print(f"DEBUG (update_axis_ranges): Final gamma X view range (inverted): {actual_range[0]}")
             
             # Update top axis label if gamma axis exists
             if self.gamma_axis:
                 self.gamma_axis.setLabel('Gamma Ray', units='API', color='#8b008b')
+                # Customize gamma axis ticks to show 0,100,200,300,400 at same positions as density
+                tick_positions = [0, 100, 200, 300, 400]
+                tick_labels = ['0', '100', '200', '300', '400']
+                tick_dict = [(pos, label) for pos, label in zip(tick_positions, tick_labels)]
+                self.gamma_axis.setTicks([tick_dict])
+                print(f"DEBUG (update_axis_ranges): Set custom gamma axis ticks: {tick_dict}")
         
         # Set X-axis range for caliper curves (caliper viewbox, bottom2 axis)
         if caliper_configs and self.caliper_viewbox:
