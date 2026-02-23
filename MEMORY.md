@@ -94,6 +94,21 @@
 - **Commit**: `cff6ef4` (pushed to GitHub main)
 - **Status**: Ready for manual testing
 
+## LAS Curves Pane Scaling Fix (2026-02-24)
+- **Issue**: Density curves (0-4.0 g/cc range) appeared flat because data occupied only small portion of range
+- **Solution**: Data-driven range adjustment with padding for density and resistivity curves
+- **Changes**:
+  - Density curves (`short_space_density`, `long_space_density`, `density`): auto-adjust min/max based on data range ±10% (min padding 0.1 g/cc)
+  - Resistivity curves: auto-adjust with 10% padding (min 1.0 ohm-m)
+  - Ensured density curves cannot go negative (clamp at 0.0)
+  - Maintains expansion beyond default ranges if data exceeds them
+- **Features**:
+  - Density curves now fill pane width similar to gamma, making variations visible
+  - Consistent scaling approach across all curve types
+  - Backward compatible - existing functionality preserved
+- **Commit**: `7ef9df8` (pushed to GitHub main)
+- **Status**: Ready for manual testing
+
 ## Current Status
 - Gateway: RUNNING (PID: 64085)
 - Watchdog: REMOVED per user request (2026-02-20 15:03)
@@ -102,4 +117,4 @@
 - Context: Proactively managed with compaction triggers
 - Last cleanup: 2026-02-20 13:39
 - Last fix: 2026-02-20 15:03 - Watchdog system completely removed
-- **Latest update**: 2026-02-24 - Enhanced column scale fix committed
+- **Latest update**: 2026-02-24 - Enhanced column scale fix + LAS curves scaling fix committed
