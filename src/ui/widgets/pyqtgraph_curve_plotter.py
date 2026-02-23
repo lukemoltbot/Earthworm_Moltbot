@@ -2248,7 +2248,7 @@ class PyQtGraphCurvePlotter(QWidget):
                 curve_name_lower = curve_name.lower()
                 
                 # Check if curve matches any pattern in the group
-                if any(curve_name.startswith(pattern)_lower for pattern in patterns):
+                if any(curve_name_lower.startswith(pattern) for pattern in patterns):
                     self._update_curve_visibility(curve_item, visible, curve_name)
                     curves_updated.append(curve_name)
         
