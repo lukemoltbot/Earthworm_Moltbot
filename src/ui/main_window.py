@@ -5088,7 +5088,10 @@ class MainWindow(QMainWindow):
                 'inverted': curve_inversion_settings.get('gamma', False),
                 'thickness': current_curve_thickness
             })
-            print(f"DEBUG (_finalize_analysis_display): added gamma curve")
+            # Print data range for this curve
+            data_min = classified_dataframe['gamma'].min()
+            data_max = classified_dataframe['gamma'].max()
+            print(f"DEBUG (_finalize_analysis_display): added gamma curve (config: {CURVE_RANGES['gamma']['min']}-{CURVE_RANGES['gamma']['max']}, data: {data_min:.2f}-{data_max:.2f})")
         if 'short_space_density' in classified_dataframe.columns:
             curve_configs.append({
                 'name': 'short_space_density',
@@ -5098,7 +5101,10 @@ class MainWindow(QMainWindow):
                 'inverted': curve_inversion_settings.get('short_space_density', False),
                 'thickness': current_curve_thickness
             })
-            print(f"DEBUG (_finalize_analysis_display): added short_space_density curve")
+            # Print data range for this curve
+            data_min = classified_dataframe['short_space_density'].min()
+            data_max = classified_dataframe['short_space_density'].max()
+            print(f"DEBUG (_finalize_analysis_display): added short_space_density curve (config: {CURVE_RANGES['short_space_density']['min']}-{CURVE_RANGES['short_space_density']['max']}, data: {data_min:.2f}-{data_max:.2f})")
         if 'long_space_density' in classified_dataframe.columns:
             curve_configs.append({
                 'name': 'long_space_density',
@@ -5108,6 +5114,10 @@ class MainWindow(QMainWindow):
                 'inverted': curve_inversion_settings.get('long_space_density', False),
                 'thickness': current_curve_thickness
             })
+            # Print data range for this curve
+            data_min = classified_dataframe['long_space_density'].min()
+            data_max = classified_dataframe['long_space_density'].max()
+            print(f"DEBUG (_finalize_analysis_display): added long_space_density curve (config: {CURVE_RANGES['long_space_density']['min']}-{CURVE_RANGES['long_space_density']['max']}, data: {data_min:.2f}-{data_max:.2f})")
         if 'caliper' in classified_dataframe.columns:
             curve_configs.append({
                 'name': 'caliper',
@@ -5117,6 +5127,10 @@ class MainWindow(QMainWindow):
                 'inverted': curve_inversion_settings.get('caliper', False),
                 'thickness': current_curve_thickness
             })
+            # Print data range for this curve
+            data_min = classified_dataframe['caliper'].min()
+            data_max = classified_dataframe['caliper'].max()
+            print(f"DEBUG (_finalize_analysis_display): added caliper curve (config: {CURVE_RANGES['caliper']['min']}-{CURVE_RANGES['caliper']['max']}, data: {data_min:.2f}-{data_max:.2f})")
         if 'resistivity' in classified_dataframe.columns:
             curve_configs.append({
                 'name': 'resistivity',
@@ -5126,6 +5140,10 @@ class MainWindow(QMainWindow):
                 'inverted': curve_inversion_settings.get('resistivity', False),
                 'thickness': current_curve_thickness
             })
+            # Print data range for this curve
+            data_min = classified_dataframe['resistivity'].min()
+            data_max = classified_dataframe['resistivity'].max()
+            print(f"DEBUG (_finalize_analysis_display): added resistivity curve (config: {CURVE_RANGES['resistivity']['min']}-{CURVE_RANGES['resistivity']['max']}, data: {data_min:.2f}-{data_max:.2f})")
 
         # Update the single curve plotter and set its depth range
         print(f"DEBUG (_finalize_analysis_display): curve_configs count = {len(curve_configs)}")
