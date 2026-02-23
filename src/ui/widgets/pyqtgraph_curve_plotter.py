@@ -854,6 +854,7 @@ class PyQtGraphCurvePlotter(QWidget):
                     pen = pg.mkPen(color=color, width=thickness, style=Qt.PenStyle.DashDotLine)
                 else:  # solid
                     pen = pg.mkPen(color=color, width=thickness)
+                print(f"DEBUG (draw_curves): Density '{curve_name}' pen color={color}, thickness={thickness}, line_style={line_style}")
                 
                 # Apply inversion if specified
                 # Note: In legacy plotter:
