@@ -94,20 +94,21 @@
 - **Commit**: `cff6ef4` (pushed to GitHub main)
 - **Status**: Ready for manual testing
 
-## LAS Curves Pane Scaling Fix (2026-02-24)
+## LAS Curves Pane Scaling Fix (2026-02-24) - REVISED
 - **Issue**: Density curves (0-4.0 g/cc range) appeared flat because data occupied only small portion of range
-- **Solution**: Data-driven range adjustment with padding for density and resistivity curves
+- **Initial solution**: Data-driven range adjustment with padding (reverted - not correct)
+- **Revised solution**: Fixed X-axis scales (0-400 gamma, 0-4.0 density) like 1 Point Desktop
 - **Changes**:
-  - Density curves (`short_space_density`, `long_space_density`, `density`): auto-adjust min/max based on data range ±10% (min padding 0.1 g/cc)
-  - Resistivity curves: auto-adjust with 10% padding (min 1.0 ohm-m)
-  - Ensured density curves cannot go negative (clamp at 0.0)
-  - Maintains expansion beyond default ranges if data exceeds them
+  - Density curves (`short_space_density`, `long_space_density`, `density`): Fixed 0-4.0 g/cc range (only expands if data exceeds)
+  - Gamma curves: Fixed 0-400 API range (expands if data exceeds with 5% padding)
+  - Resistivity curves: Fixed 0-200 ohm-m range
+  - Caliper curves: Fixed 0-300 mm range (expands if data exceeds)
 - **Features**:
-  - Density curves now fill pane width similar to gamma, making variations visible
-  - Consistent scaling approach across all curve types
-  - Backward compatible - existing functionality preserved
-- **Commit**: `7ef9df8` (pushed to GitHub main)
-- **Status**: Ready for manual testing
+  - Consistent with 1 Point Desktop fixed-track scaling
+  - Curves occupy appropriate portion of fixed-scale tracks based on actual data
+  - Horizontal amplitude varies with data range within fixed track
+- **Commit**: `6c93be6` (reverted auto-adjustment, restored fixed scales)
+- **Status**: Ready for manual testing - maintains 1 Point Desktop behavior
 
 ## Current Status
 - Gateway: RUNNING (PID: 64085)
@@ -117,4 +118,4 @@
 - Context: Proactively managed with compaction triggers
 - Last cleanup: 2026-02-20 13:39
 - Last fix: 2026-02-20 15:03 - Watchdog system completely removed
-- **Latest update**: 2026-02-24 - Enhanced column scale fix + LAS curves scaling fix committed
+- **Latest update**: 2026-02-24 - Enhanced column scale fix + LAS curves fixed-scale reversion committed
