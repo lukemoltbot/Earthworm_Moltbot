@@ -218,6 +218,7 @@ class GeologicalAnalysisViewport(QWidget):
         # Create splitter for curves/column
         self._splitter = QSplitter(Qt.Orientation.Horizontal)
         self._splitter.setChildrenCollapsible(False)
+        self._splitter.setHandleWidth(0)
         self.layout().addWidget(self._splitter)
         
         # Create containers for components
@@ -320,12 +321,16 @@ class GeologicalAnalysisViewport(QWidget):
             print(f"  - Adding strat_column to _column_container, parent = {self._strat_column.parent()}")
             self._column_container.layout().addWidget(self._strat_column)
             print(f"  - After add, strat_column parent = {self._strat_column.parent()}")
+            self._strat_column.show()
+            print(f"  - strat_column visible = {self._strat_column.isVisible()}")
         
         if self._curve_plotter:
             self._curve_plotter.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             print(f"  - Adding curve_plotter to _curve_container, parent = {self._curve_plotter.parent()}")
             self._curve_container.layout().addWidget(self._curve_plotter)
             print(f"  - After add, curve_plotter parent = {self._curve_plotter.parent()}")
+            self._curve_plotter.show()
+            print(f"  - curve_plotter visible = {self._curve_plotter.isVisible()}")
         
         # Ensure containers are visible and have minimum size
         self._column_container.setMinimumSize(100, 100)
@@ -728,6 +733,8 @@ class GeologicalAnalysisViewport(QWidget):
         print(f"  - splitter sizes = {self._splitter.sizes()}")
         print(f"  - column_container size = {self._column_container.size()}")
         print(f"  - curve_container size = {self._curve_container.size()}")
+        print(f"  - column_container visible = {self._column_container.isVisible()}")
+        print(f"  - curve_container visible = {self._curve_container.isVisible()}")
         if self._strat_column:
             print(f"  - strat_column parent = {self._strat_column.parent()}, visible = {self._strat_column.isVisible()}")
         if self._curve_plotter:
