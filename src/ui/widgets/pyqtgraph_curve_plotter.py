@@ -145,6 +145,11 @@ class PyQtGraphCurvePlotter(QWidget):
         self.plot_widget.setLabel('left', 'Depth', units='m')
         self.plot_widget.setLabel('bottom', 'Value')
         
+        # Disable auto-range padding for X-axis to ensure exact range control
+        # This prevents PyQtGraph from adding padding that pushes max values off-screen
+        plot_viewbox = self.plot_widget.plotItem.vb
+        plot_viewbox.enableAutoRange(axis='x', enable=False)
+        
         # Get the plot item for dual-axis configuration
         self.plot_item = self.plot_widget.plotItem
         # Ensure no legend - set both public and private attributes
@@ -442,6 +447,9 @@ class PyQtGraphCurvePlotter(QWidget):
         self.gamma_viewbox = pg.ViewBox()
         self.plot_item.scene().addItem(self.gamma_viewbox)
         
+        # Disable auto-range padding for gamma X-axis
+        self.gamma_viewbox.enableAutoRange(axis='x', enable=False)
+        
         # Link top axis to Gamma Ray ViewBox
         self.gamma_axis.linkToView(self.gamma_viewbox)
         self.gamma_viewbox.setXLink(self.plot_item.vb)  # Share X-axis transform (FIXED: link to ViewBox, not PlotItem)
@@ -455,6 +463,10 @@ class PyQtGraphCurvePlotter(QWidget):
         self.caliper_axis.linkToView(self.plot_item.vb)  # Link to main viewbox for Y
         self.caliper_viewbox = pg.ViewBox()
         self.plot_item.scene().addItem(self.caliper_viewbox)
+        
+        # Disable auto-range padding for caliper X-axis
+        self.caliper_viewbox.enableAutoRange(axis='x', enable=False)
+        
         self.caliper_axis.linkToView(self.caliper_viewbox)
         self.caliper_viewbox.setXLink(self.plot_item.vb)  # Share X-axis transform (FIXED: link to ViewBox, not PlotItem)
         self.caliper_viewbox.setYLink(self.plot_item.vb)
@@ -467,6 +479,10 @@ class PyQtGraphCurvePlotter(QWidget):
         self.resistivity_axis.linkToView(self.plot_item.vb)
         self.resistivity_viewbox = pg.ViewBox()
         self.plot_item.scene().addItem(self.resistivity_viewbox)
+        
+        # Disable auto-range padding for resistivity X-axis
+        self.resistivity_viewbox.enableAutoRange(axis='x', enable=False)
+        
         self.resistivity_axis.linkToView(self.resistivity_viewbox)
         self.resistivity_viewbox.setXLink(self.plot_item.vb)  # Share X-axis transform (FIXED: link to ViewBox, not PlotItem)
         self.resistivity_viewbox.setYLink(self.plot_item.vb)
