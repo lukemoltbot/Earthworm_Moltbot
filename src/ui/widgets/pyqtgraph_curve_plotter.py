@@ -1145,12 +1145,13 @@ class PyQtGraphCurvePlotter(QWidget):
             if density_x_max == float('-inf'):
                 density_x_max = 400.0
                 
-            # Adjust range slightly inward to prevent tick clipping by viewport margins
+            # Adjust range to ensure all 4 main ticks are fully visible
             # Original range: 0-400 scaled units (0-4.0 g/cc)
-            # Adjusted: 10-390 (2.5% inward shift) to ensure all 4 main ticks are visible
-            viewport_margin = 10.0  # Shift inward by 10 units (2.5% of 400)
-            adjusted_density_max = density_x_max - viewport_margin  # 400 -> 390
-            adjusted_density_min = density_x_min + viewport_margin  # 0 -> 10
+            # Increased margin to 50 units (12.5%) - previous 10 units was insufficient
+            # Adjusted: 50-450 (shift left edge beyond 400 to include tick 400)
+            viewport_margin = 50.0  # Increased from 10 to 50 units (12.5% of 400)
+            adjusted_density_max = density_x_max + viewport_margin  # 400 -> 450 (extend beyond max)
+            adjusted_density_min = density_x_min + viewport_margin  # 0 -> 50 (shift zero inward)
             
             # Check inversion for density curves
             # Default is inverted=False (well log style, axis inverted)
@@ -1205,11 +1206,11 @@ class PyQtGraphCurvePlotter(QWidget):
             if gamma_x_max == float('-inf'):
                 gamma_x_max = 300
                 
-            # Adjust range slightly inward to prevent tick clipping (same as density)
-            # Original range: 0-400 API, Adjusted: 10-390 (2.5% inward shift)
-            viewport_margin = 10.0  # Same 10-unit shift as density (2.5% of 400)
-            adjusted_gamma_max = gamma_x_max - viewport_margin  # 400 -> 390
-            adjusted_gamma_min = gamma_x_min + viewport_margin  # 0 -> 10
+            # Adjust range to ensure all 4 main ticks are fully visible (same as density)
+            # Original range: 0-400 API, Adjusted: 50-450 (shift left edge beyond 400)
+            viewport_margin = 50.0  # Increased from 10 to 50 units (12.5% of 400)
+            adjusted_gamma_max = gamma_x_max + viewport_margin  # 400 -> 450 (extend beyond max)
+            adjusted_gamma_min = gamma_x_min + viewport_margin  # 0 -> 50 (shift zero inward)
             
             # Check inversion for gamma curves
             # Default is inverted=False (well log style, axis inverted)
