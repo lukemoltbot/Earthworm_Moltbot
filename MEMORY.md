@@ -181,3 +181,4 @@
 - Last cleanup: 2026-02-20 13:39
 - Last fix: 2026-02-20 15:03 - Watchdog system completely removed
 - **Latest update**: 2026-02-24 - Inversion fix + range 0-440 (10% right margin) committed
+- **Debug cleanup**: Removed verbose stratigraphic column and SVG renderer debug output for cleaner console
