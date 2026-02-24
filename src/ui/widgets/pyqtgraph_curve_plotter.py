@@ -1149,8 +1149,8 @@ class PyQtGraphCurvePlotter(QWidget):
             # Always use at least 5% margin to prevent tick labels from being at edge
             plot_width = self.plot_widget.width()
             if plot_width < 400:  # Narrow viewport
-                viewport_margin_right = 20.0  # 5% margin (0-420) for narrow views
-                print(f"DEBUG (update_axis_ranges): Narrow viewport ({plot_width}px) - using 5% margin (0-420)")
+                viewport_margin_right = 60.0  # 15% margin (0-460) for narrow views - ensures tick 400 has ~45px label space
+                print(f"DEBUG (update_axis_ranges): Narrow viewport ({plot_width}px) - using 15% margin (0-460) for label clearance")
             else:
                 viewport_margin_right = 40.0  # 10% margin (0-440) for normal widths
                 print(f"DEBUG (update_axis_ranges): Normal viewport ({plot_width}px) - using 10% margin (0-440)")
@@ -1211,6 +1211,8 @@ class PyQtGraphCurvePlotter(QWidget):
                 
                 tick_dict = [(pos, label) for pos, label in zip(tick_positions, tick_labels)]
                 bottom_axis.setTicks([tick_dict])
+                if plot_width < 400:
+                    bottom_axis.setTickTextOffset(5)  # Move tick labels slightly away from edge
                 print(f"DEBUG (update_axis_ranges): Set custom density axis ticks: {tick_dict}")
         
         # Debug: plot widget geometry
@@ -1235,8 +1237,8 @@ class PyQtGraphCurvePlotter(QWidget):
             # Always use at least 5% margin to prevent tick labels from being at edge
             plot_width = self.plot_widget.width()
             if plot_width < 400:  # Narrow viewport
-                viewport_margin_right = 20.0  # 5% margin (0-420) for narrow views
-                print(f"DEBUG (update_axis_ranges): Narrow viewport ({plot_width}px) - using 5% margin (0-420)")
+                viewport_margin_right = 60.0  # 15% margin (0-460) for narrow views - ensures tick 400 has ~45px label space
+                print(f"DEBUG (update_axis_ranges): Narrow viewport ({plot_width}px) - using 15% margin (0-460) for label clearance")
             else:
                 viewport_margin_right = 40.0  # 10% margin (0-440) for normal widths
                 print(f"DEBUG (update_axis_ranges): Normal viewport ({plot_width}px) - using 10% margin (0-440)")
@@ -1294,6 +1296,8 @@ class PyQtGraphCurvePlotter(QWidget):
                 
                 tick_dict = [(pos, label) for pos, label in zip(tick_positions, tick_labels)]
                 self.gamma_axis.setTicks([tick_dict])
+                if plot_width < 400:
+                    self.gamma_axis.setTickTextOffset(5)  # Move tick labels slightly away from edge
                 print(f"DEBUG (update_axis_ranges): Set custom gamma axis ticks: {tick_dict}")
         
         # Set X-axis range for caliper curves (caliper viewbox, bottom2 axis)
