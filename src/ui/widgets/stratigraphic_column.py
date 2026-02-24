@@ -173,7 +173,8 @@ class StratigraphicColumn(QGraphicsView):
                 print(f"WARNING (StratigraphicColumn): Invalid background_color '{bg_color_str}' for lithology {lithology_code}, falling back to white")
                 bg_color = QColor('#FFFFFF')
 
-            print(f"DEBUG (StratigraphicColumn): Drawing unit {index}: from={from_depth}, to={to_depth}, thickness={thickness}, code={lithology_code}, background_color_raw={unit.get('background_color', 'MISSING')}, color={bg_color.name()}, svg={svg_file}")
+            # Commented out verbose debug - keep console clean
+            # print(f"DEBUG (StratigraphicColumn): Drawing unit {index}: from={from_depth}, to={to_depth}, thickness={thickness}, code={lithology_code}, background_color_raw={unit.get('background_color', 'MISSING')}, color={bg_color.name()}, svg={svg_file}")
 #             print(f"DEBUG (StratigraphicColumn): Unit columns: {list(unit.keys()) if hasattr(unit, 'keys') else 'not a dict'}")
 
             y_start = (from_depth - self.min_depth) * self.depth_scale
