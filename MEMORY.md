@@ -158,18 +158,19 @@
   - `1fe0b8b` (padding=0 parameter + debug)
 - **Status**: Ready for testing - should fix max-value visibility and improve zero alignment
 
-## Viewport Margin Adjustment Fix (2026-02-24) - REVISED
-- **Issue**: After disabling auto-padding, ticks still clipped by viewport margins (max tick only 200/2.0 visible)
-- **Solution**: Increase margin to 50 units (12.5%) and extend range beyond max tick
+## Orientation & Margin Fix (2026-02-24)
+- **Issue**: Max tick only 180/1.8 visible; need origin left, max right, max tick well within viewport
+- **Solution**: Standard orientation (0 left, 400 right) + 5% margin + visible tick debug
 - **Changes**:
-  - Density track: Range `[50, 450]` instead of `[0, 400]` (inverted: `[450, 50]`)
-  - Gamma track: Same adjustment `[50, 450]` (inverted: `[450, 50]`)
-  - Extends left edge beyond 400 to ensure tick 400/4.0 not clipped off left
-  - Maintains same tick positions (0,100,200,300,400 shown on axis)
-  - Keeps inverted (well-log) style: max left, zero right
-- **Rationale**: Previous 10-unit margin insufficient; left edge must exceed max tick value to include it
-- **Commit**: `80e9017` (increased margin adjustment)
-- **Status**: Testing - if max tick still only 200/2.0, inversion may be wrong (should be standard orientation)
+  - **Orientation**: Changed default to standard (origin left, max right) not well-log
+  - **Margin**: 20 units (5%) - range `[20, 420]` for both density and gamma
+  - **Debug**: Added visible tick calculation to diagnose clipping
+  - **Density**: 20-420 scaled units (0.2-4.2 g/cc), tick 400 at position 400 (20 units from right edge)
+  - **Gamma**: 20-420 API, tick 400 at position 400
+  - **Tick positions**: Custom ticks at 0,100,200,300,400 (same as before)
+- **Rationale**: User confirmed origin should be left side; margin ensures tick 400 not clipped by splitter
+- **Commit**: `693cbb2` (orientation + margin + debug)
+- **Status**: Testing - debug will show which ticks are actually visible; if still only up to 180/1.8, viewport may be zoomed or range not applied
 
 ## Current Status
 - Gateway: RUNNING (PID: 64085)
@@ -179,4 +180,4 @@
 - Context: Proactively managed with compaction triggers
 - Last cleanup: 2026-02-20 13:39
 - Last fix: 2026-02-20 15:03 - Watchdog system completely removed
-- **Latest update**: 2026-02-24 - Viewport margin adjustment (tick clipping fix) committed
+- **Latest update**: 2026-02-24 - Orientation fix (origin left, max right) + margin adjustment committed
