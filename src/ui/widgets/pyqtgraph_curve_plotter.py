@@ -1145,21 +1145,15 @@ class PyQtGraphCurvePlotter(QWidget):
             if density_x_max == float('-inf'):
                 density_x_max = 400.0
                 
-            # Adjust range based on viewport width to ensure max tick (400) is visible
-            # For narrow viewports (< 400px), use minimal or no margin to maximize space
-            # For normal viewports, use 10% margin to ensure tick is well within viewport
+            # Adjust range to ensure max tick (400) is visible with label clearance
+            # Always use at least 5% margin to prevent tick labels from being at edge
             plot_width = self.plot_widget.width()
             if plot_width < 400:  # Narrow viewport
-                # Minimal margin: 20 units (5%) or exact range for very narrow
-                if plot_width < 350:
-                    viewport_margin_right = 0.0  # No margin for very narrow views
-                    print(f"DEBUG (update_axis_ranges): Very narrow viewport ({plot_width}px) - using exact range 0-400")
-                else:
-                    viewport_margin_right = 20.0  # 5% margin for moderately narrow
-                    print(f"DEBUG (update_axis_ranges): Narrow viewport ({plot_width}px) - reduced margin to 5%")
+                viewport_margin_right = 20.0  # 5% margin (0-420) for narrow views
+                print(f"DEBUG (update_axis_ranges): Narrow viewport ({plot_width}px) - using 5% margin (0-420)")
             else:
-                viewport_margin_right = 40.0  # 40 units extra on right (10% of 400)
-                print(f"DEBUG (update_axis_ranges): Normal viewport ({plot_width}px) - using 10% margin")
+                viewport_margin_right = 40.0  # 10% margin (0-440) for normal widths
+                print(f"DEBUG (update_axis_ranges): Normal viewport ({plot_width}px) - using 10% margin (0-440)")
             
             adjusted_density_min = density_x_min  # 0 (keep origin at left edge)
             adjusted_density_max = density_x_max + viewport_margin_right  # 400 -> 400+margin
@@ -1198,17 +1192,22 @@ class PyQtGraphCurvePlotter(QWidget):
             # Customize density axis ticks to show 0,1,2,3,4 g/cc at positions 0,100,200,300,400
             bottom_axis = self.plot_item.getAxis('bottom')
             if bottom_axis:
-                # Adaptive tick density based on plot width
+                # Always show all 5 ticks (0,1,2,3,4 g/cc) aligned with gamma ticks
+                tick_positions = [0, 100, 200, 300, 400]
+                tick_labels = ['0', '1', '2', '3', '4']
+                
+                # Adjust font size for narrow viewports to prevent label overlap
                 plot_width = self.plot_widget.width()
-                if plot_width < 350:  # Narrow viewport
-                    # Show only 0, 200, 400 for narrow views to prevent label overlap
-                    tick_positions = [0, 200, 400]
-                    tick_labels = ['0', '2', '4']
-                    print(f"DEBUG (update_axis_ranges): Narrow viewport ({plot_width}px) - reduced tick density for density axis")
+                if plot_width < 400:
+                    # Smaller font for narrow viewports
+                    from PyQt6.QtGui import QFont
+                    small_font = QFont()
+                    small_font.setPointSize(7)  # Smaller than default
+                    bottom_axis.setStyle(tickFont=small_font)
+                    print(f"DEBUG (update_axis_ranges): Narrow viewport ({plot_width}px) - using smaller font for density axis")
                 else:
-                    # Normal width: show all ticks
-                    tick_positions = [0, 100, 200, 300, 400]
-                    tick_labels = ['0', '1', '2', '3', '4']
+                    # Reset to default font for normal widths
+                    bottom_axis.setStyle(tickFont=None)
                 
                 tick_dict = [(pos, label) for pos, label in zip(tick_positions, tick_labels)]
                 bottom_axis.setTicks([tick_dict])
@@ -1232,15 +1231,15 @@ class PyQtGraphCurvePlotter(QWidget):
             if gamma_x_max == float('-inf'):
                 gamma_x_max = 300
                 
-            # Adjust range based on viewport width (same logic as density)
+            # Adjust range to ensure max tick (400) is visible with label clearance
+            # Always use at least 5% margin to prevent tick labels from being at edge
             plot_width = self.plot_widget.width()
             if plot_width < 400:  # Narrow viewport
-                if plot_width < 350:
-                    viewport_margin_right = 0.0  # No margin for very narrow views
-                else:
-                    viewport_margin_right = 20.0  # 5% margin for moderately narrow
+                viewport_margin_right = 20.0  # 5% margin (0-420) for narrow views
+                print(f"DEBUG (update_axis_ranges): Narrow viewport ({plot_width}px) - using 5% margin (0-420)")
             else:
-                viewport_margin_right = 40.0  # 40 units extra on right (10% of 400)
+                viewport_margin_right = 40.0  # 10% margin (0-440) for normal widths
+                print(f"DEBUG (update_axis_ranges): Normal viewport ({plot_width}px) - using 10% margin (0-440)")
             
             adjusted_gamma_min = gamma_x_min  # 0 (keep origin at left edge)
             adjusted_gamma_max = gamma_x_max + viewport_margin_right  # 400 -> 400+margin
@@ -1276,17 +1275,22 @@ class PyQtGraphCurvePlotter(QWidget):
             # Update top axis label if gamma axis exists
             if self.gamma_axis:
                 self.gamma_axis.setLabel('Gamma Ray', units='API', color='#8b008b')
-                # Adaptive tick density based on plot width (same as density axis)
+                # Always show all 5 ticks (0,100,200,300,400 API) aligned with density ticks
+                tick_positions = [0, 100, 200, 300, 400]
+                tick_labels = ['0', '100', '200', '300', '400']
+                
+                # Adjust font size for narrow viewports (same as density axis)
                 plot_width = self.plot_widget.width()
-                if plot_width < 350:  # Narrow viewport
-                    # Show only 0, 200, 400 for narrow views to prevent label overlap
-                    tick_positions = [0, 200, 400]
-                    tick_labels = ['0', '200', '400']
-                    print(f"DEBUG (update_axis_ranges): Narrow viewport ({plot_width}px) - reduced tick density for gamma axis")
+                if plot_width < 400:
+                    # Smaller font for narrow viewports
+                    from PyQt6.QtGui import QFont
+                    small_font = QFont()
+                    small_font.setPointSize(7)  # Smaller than default
+                    self.gamma_axis.setStyle(tickFont=small_font)
+                    print(f"DEBUG (update_axis_ranges): Narrow viewport ({plot_width}px) - using smaller font for gamma axis")
                 else:
-                    # Normal width: show all ticks
-                    tick_positions = [0, 100, 200, 300, 400]
-                    tick_labels = ['0', '100', '200', '300', '400']
+                    # Reset to default font for normal widths
+                    self.gamma_axis.setStyle(tickFont=None)
                 
                 tick_dict = [(pos, label) for pos, label in zip(tick_positions, tick_labels)]
                 self.gamma_axis.setTicks([tick_dict])
