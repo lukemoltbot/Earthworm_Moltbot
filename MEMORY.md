@@ -158,6 +158,18 @@
   - `1fe0b8b` (padding=0 parameter + debug)
 - **Status**: Ready for testing - should fix max-value visibility and improve zero alignment
 
+## Viewport Margin Adjustment Fix (2026-02-24)
+- **Issue**: After disabling auto-padding, ticks still clipped by viewport margins
+- **Solution**: Shift X-range inward by 10 units (2.5%) to ensure all 4 main ticks visible
+- **Changes**:
+  - Density track: Range `[10, 390]` instead of `[0, 400]` (inverted: `[390, 10]`)
+  - Gamma track: Same adjustment `[10, 390]` (inverted: `[390, 10]`)
+  - Maintains same scale and tick positions (0,100,200,300,400 shown on axis)
+  - Keeps inverted (well-log) style: max left, zero right
+- **Rationale**: PyQtGraph draws axis labels/ticks in plot margins; inward shift ensures full visibility
+- **Commit**: `5c91f00` (viewport margin adjustment)
+- **Status**: Ready for testing - should show all 4 main ticks fully visible
+
 ## Current Status
 - Gateway: RUNNING (PID: 64085)
 - Watchdog: REMOVED per user request (2026-02-20 15:03)
@@ -166,4 +178,4 @@
 - Context: Proactively managed with compaction triggers
 - Last cleanup: 2026-02-20 13:39
 - Last fix: 2026-02-20 15:03 - Watchdog system completely removed
-- **Latest update**: 2026-02-24 - Density‑gamma track alignment fix committed
+- **Latest update**: 2026-02-24 - Viewport margin adjustment (tick clipping fix) committed
