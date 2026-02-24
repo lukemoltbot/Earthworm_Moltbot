@@ -158,17 +158,18 @@
   - `1fe0b8b` (padding=0 parameter + debug)
 - **Status**: Ready for testing - should fix max-value visibility and improve zero alignment
 
-## Viewport Margin Adjustment Fix (2026-02-24)
-- **Issue**: After disabling auto-padding, ticks still clipped by viewport margins
-- **Solution**: Shift X-range inward by 10 units (2.5%) to ensure all 4 main ticks visible
+## Viewport Margin Adjustment Fix (2026-02-24) - REVISED
+- **Issue**: After disabling auto-padding, ticks still clipped by viewport margins (max tick only 200/2.0 visible)
+- **Solution**: Increase margin to 50 units (12.5%) and extend range beyond max tick
 - **Changes**:
-  - Density track: Range `[10, 390]` instead of `[0, 400]` (inverted: `[390, 10]`)
-  - Gamma track: Same adjustment `[10, 390]` (inverted: `[390, 10]`)
-  - Maintains same scale and tick positions (0,100,200,300,400 shown on axis)
+  - Density track: Range `[50, 450]` instead of `[0, 400]` (inverted: `[450, 50]`)
+  - Gamma track: Same adjustment `[50, 450]` (inverted: `[450, 50]`)
+  - Extends left edge beyond 400 to ensure tick 400/4.0 not clipped off left
+  - Maintains same tick positions (0,100,200,300,400 shown on axis)
   - Keeps inverted (well-log) style: max left, zero right
-- **Rationale**: PyQtGraph draws axis labels/ticks in plot margins; inward shift ensures full visibility
-- **Commit**: `5c91f00` (viewport margin adjustment)
-- **Status**: Ready for testing - should show all 4 main ticks fully visible
+- **Rationale**: Previous 10-unit margin insufficient; left edge must exceed max tick value to include it
+- **Commit**: `80e9017` (increased margin adjustment)
+- **Status**: Testing - if max tick still only 200/2.0, inversion may be wrong (should be standard orientation)
 
 ## Current Status
 - Gateway: RUNNING (PID: 64085)
