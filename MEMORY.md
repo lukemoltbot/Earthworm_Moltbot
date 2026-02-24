@@ -126,19 +126,33 @@
   - Density X‑axis range set to 0‑400 (same as gamma), remove padding
   - Custom density axis ticks: show 0,1,2,3,4 g/cc at positions 0,100,200,300,400
   - Maintain inverted axes (well‑log style) for both tracks
+- **Debug finding**: Requested range `[400, 0]` but actual `[-24.98, 424.98]` (25 units padding)
 - **Result**: 
-  - Zero points remain aligned (right side)
-  - Max values now align (left side): 4.0 g/cc vertically aligns with 400 API
-  - Density variations visually exaggerated (100× more pixels per unit change)
+  - Zero points should align (right side) but slight range differences may cause misalignment
+  - Max values aligned in data space but pushed off-screen right by padding
+  - Density variations correctly exaggerated (100× scaling working)
 - **Commit**: `3c25f8d` (density‑gamma track alignment)
-- **Status**: **Issue**: Max values extend beyond viewport to the right; zero alignment uncertain
+- **Status**: Auto-range padding fix applied - awaiting test
 
 ## Debug Update (2026-02-24)
 - **Added debug prints** to verify actual X view ranges after setting
 - **Custom gamma axis ticks** at 0,100,200,300,400 (same positions as density)
 - **Verification** of inversion status and view ranges
 - **Commit**: `d74b02d` (debug additions)
-- **Next**: Need console output to diagnose why max values not visible
+- **Diagnosis from console**: Max values (400/4.0) pushed off-screen by ~25 units of auto-padding
+- **Root cause**: PyQtGraph adds ~6.25% padding even with `x_padding=0.0` and inverted range
+
+## Auto-Range Padding Fix (2026-02-24)
+- **Issue**: PyQtGraph auto-range padding pushes max values off-screen right
+- **Solution**: Disable auto-range for X-axis on all viewboxes
+- **Changes**:
+  - Main plot ViewBox: `enableAutoRange(axis='x', enable=False)`
+  - Gamma ViewBox: `enableAutoRange(axis='x', enable=False)`  
+  - Caliper ViewBox: `enableAutoRange(axis='x', enable=False)`
+  - Resistivity ViewBox: `enableAutoRange(axis='x', enable=False)`
+- **Expected result**: Exact range `[400, 0]` (inverted) with no padding
+- **Commit**: `80b199a` (auto-range disable fix)
+- **Status**: Ready for testing - should fix max-value visibility and improve zero alignment
 
 ## Current Status
 - Gateway: RUNNING (PID: 64085)
