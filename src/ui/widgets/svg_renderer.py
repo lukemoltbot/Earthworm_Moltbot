@@ -40,11 +40,12 @@ class SvgRenderer:
                 renderer.render(painter)
                 # print(f"DEBUG (SvgRenderer): Successfully rendered SVG")
             except Exception as e:
-                # print(f"DEBUG (SvgRenderer): Exception during render: {e}")
+                pass
             finally:
                 painter.end() # Ensure painter is ended even if render fails
         else:
             # print(f"DEBUG (SvgRenderer): Failed to begin painting")
+            pass
         
         # print(f"DEBUG (SvgRenderer): Returning pixmap, isNull={pixmap.isNull()}, size={pixmap.size().width()}x{pixmap.size().height()}")
         return pixmap
