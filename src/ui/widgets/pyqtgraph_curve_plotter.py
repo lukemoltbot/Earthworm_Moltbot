@@ -1148,8 +1148,11 @@ class PyQtGraphCurvePlotter(QWidget):
             # Adjust range to ensure max tick (400) is visible with label clearance
             # Always use at least 5% margin to prevent tick labels from being at edge
             plot_width = self.plot_widget.width()
-            if plot_width < 400:  # Narrow viewport
-                viewport_margin_right = 60.0  # 15% margin (0-460) for narrow views - ensures tick 400 has ~45px label space
+            if plot_width < 350:  # Very narrow viewport
+                viewport_margin_right = 100.0  # 25% margin (0-500) for very narrow views
+                print(f"DEBUG (update_axis_ranges): Very narrow viewport ({plot_width}px) - using 25% margin (0-500) for maximum label clearance")
+            elif plot_width < 400:  # Narrow viewport
+                viewport_margin_right = 60.0  # 15% margin (0-460) for narrow views
                 print(f"DEBUG (update_axis_ranges): Narrow viewport ({plot_width}px) - using 15% margin (0-460) for label clearance")
             else:
                 viewport_margin_right = 40.0  # 10% margin (0-440) for normal widths
@@ -1209,10 +1212,19 @@ class PyQtGraphCurvePlotter(QWidget):
                     # Reset to default font for normal widths
                     bottom_axis.setStyle(tickFont=None)
                 
+                # Set major ticks with our custom positions/labels, minor ticks as empty list
                 tick_dict = [(pos, label) for pos, label in zip(tick_positions, tick_labels)]
-                bottom_axis.setTicks([tick_dict])
+                bottom_axis.setTicks([tick_dict, []])  # Major ticks, empty minor ticks
                 if plot_width < 400:
                     bottom_axis.setTickTextOffset(5)  # Move tick labels slightly away from edge
+                
+                # Verify ticks were actually set
+                actual_ticks = bottom_axis.ticks
+                if actual_ticks and len(actual_ticks) > 0:
+                    print(f"DEBUG (update_axis_ranges): Density axis ticks verified: {actual_ticks}")
+                else:
+                    print(f"DEBUG (update_axis_ranges): WARNING: Density axis ticks not set!")
+                
                 print(f"DEBUG (update_axis_ranges): Set custom density axis ticks: {tick_dict}")
         
         # Debug: plot widget geometry
@@ -1234,10 +1246,12 @@ class PyQtGraphCurvePlotter(QWidget):
                 gamma_x_max = 300
                 
             # Adjust range to ensure max tick (400) is visible with label clearance
-            # Always use at least 5% margin to prevent tick labels from being at edge
             plot_width = self.plot_widget.width()
-            if plot_width < 400:  # Narrow viewport
-                viewport_margin_right = 60.0  # 15% margin (0-460) for narrow views - ensures tick 400 has ~45px label space
+            if plot_width < 350:  # Very narrow viewport
+                viewport_margin_right = 100.0  # 25% margin (0-500) for very narrow views
+                print(f"DEBUG (update_axis_ranges): Very narrow viewport ({plot_width}px) - using 25% margin (0-500) for maximum label clearance")
+            elif plot_width < 400:  # Narrow viewport
+                viewport_margin_right = 60.0  # 15% margin (0-460) for narrow views
                 print(f"DEBUG (update_axis_ranges): Narrow viewport ({plot_width}px) - using 15% margin (0-460) for label clearance")
             else:
                 viewport_margin_right = 40.0  # 10% margin (0-440) for normal widths
@@ -1294,10 +1308,19 @@ class PyQtGraphCurvePlotter(QWidget):
                     # Reset to default font for normal widths
                     self.gamma_axis.setStyle(tickFont=None)
                 
+                # Set major ticks with our custom positions/labels, minor ticks as empty list
                 tick_dict = [(pos, label) for pos, label in zip(tick_positions, tick_labels)]
-                self.gamma_axis.setTicks([tick_dict])
+                self.gamma_axis.setTicks([tick_dict, []])  # Major ticks, empty minor ticks
                 if plot_width < 400:
                     self.gamma_axis.setTickTextOffset(5)  # Move tick labels slightly away from edge
+                
+                # Verify ticks were actually set
+                actual_ticks = self.gamma_axis.ticks
+                if actual_ticks and len(actual_ticks) > 0:
+                    print(f"DEBUG (update_axis_ranges): Gamma axis ticks verified: {actual_ticks}")
+                else:
+                    print(f"DEBUG (update_axis_ranges): WARNING: Gamma axis ticks not set!")
+                
                 print(f"DEBUG (update_axis_ranges): Set custom gamma axis ticks: {tick_dict}")
         
         # Set X-axis range for caliper curves (caliper viewbox, bottom2 axis)
