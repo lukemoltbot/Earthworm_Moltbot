@@ -4,6 +4,11 @@
 **Git Branch:** `feature/unified-viewport`  
 **Target Deployment:** Merge to `main` with release tag
 
+## Post-Deployment Update (2026-02-24)
+- **Segfault Fix**: Fixed segmentation fault in `test_interaction_synchronization_fixed.py` by converting test to use pytest fixtures (`headless_app`) and removing duplicate QApplication creation
+- **Test Stability**: Full test suite now runs without segmentation faults (excluding known import errors)
+- **Tick Alignment**: Fix for LAS curve tick visibility and alignment deployed in commit `fc2eb03` (awaiting user verification)
+
 ## Accomplishments
 
 ### Phase 0-6 Overview Completed
@@ -48,7 +53,7 @@ All phases of the Curve and Strat Unification project have been successfully imp
 - **API Documentation** created (`Unified_Viewport_API.md`)
 - **Migration Guide** created for existing users
 - **Architecture documentation** updated
-- **Segfault issue resolved** with Qt cleanup improvements
+- **Segfault issue resolved** with Qt cleanup improvements (verified 2026-02-24)
 
 ## Technical Achievements
 
@@ -99,7 +104,7 @@ All phases of the Curve and Strat Unification project have been successfully imp
 - **Earthworm Headless**: ✅ 6/6 tests passed
 
 ### Stress Testing
-- **Segfault Investigation**: 3-run stress test shows **no segfaults**
+- **Segfault Investigation**: Initial stress tests showed intermittent segfaults; fixed by converting tests to use pytest fixtures (2026-02-24). Current 3-run stress test shows **no segfaults**.
 - **Qt Cleanup**: Improvements in `conftest.py` resolved instability
 - **Test Suite Stability**: Full suite runs without crashes
 
