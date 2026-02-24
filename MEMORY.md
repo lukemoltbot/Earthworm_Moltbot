@@ -158,19 +158,19 @@
   - `1fe0b8b` (padding=0 parameter + debug)
 - **Status**: Ready for testing - should fix max-value visibility and improve zero alignment
 
-## Orientation & Margin Fix (2026-02-24)
+## Orientation & Margin Fix (2026-02-24) - REVISED
 - **Issue**: Max tick only 180/1.8 visible; need origin left, max right, max tick well within viewport
-- **Solution**: Standard orientation (0 left, 400 right) + 5% margin + visible tick debug
+- **Previous fix**: Range `[20, 420]` with 5% margin (still showed only up to 180/1.8)
+- **New fix**: Correct inversion logic + range `[0, 440]` with 10% right margin
 - **Changes**:
-  - **Orientation**: Changed default to standard (origin left, max right) not well-log
-  - **Margin**: 20 units (5%) - range `[20, 420]` for both density and gamma
-  - **Debug**: Added visible tick calculation to diagnose clipping
-  - **Density**: 20-420 scaled units (0.2-4.2 g/cc), tick 400 at position 400 (20 units from right edge)
-  - **Gamma**: 20-420 API, tick 400 at position 400
-  - **Tick positions**: Custom ticks at 0,100,200,300,400 (same as before)
-- **Rationale**: User confirmed origin should be left side; margin ensures tick 400 not clipped by splitter
-- **Commit**: `693cbb2` (orientation + margin + debug)
-- **Status**: Testing - debug will show which ticks are actually visible; if still only up to 180/1.8, viewport may be zoomed or range not applied
+  - **Inversion**: Fixed default (False) → standard orientation (zero left, max right)
+  - **Margin**: 40 units extra on right (10%) → range `[0, 440]` for both tracks
+  - **Result**: Tick 0 at left edge, tick 400 at position 400 (91% of width), well before splitter
+  - **Tick positions**: Custom ticks at 0,100,200,300,400 (unchanged)
+  - **Debug**: Visible tick calculation + range adjustment logging
+- **Rationale**: Previous margin insufficient; right margin ensures tick 400 not clipped; inversion logic was wrong
+- **Commit**: `88125a5` (inversion fix + 0-440 range)
+- **Status**: Testing - if still only up to 180/1.8, need console debug output to diagnose
 
 ## Current Status
 - Gateway: RUNNING (PID: 64085)
@@ -180,4 +180,4 @@
 - Context: Proactively managed with compaction triggers
 - Last cleanup: 2026-02-20 13:39
 - Last fix: 2026-02-20 15:03 - Watchdog system completely removed
-- **Latest update**: 2026-02-24 - Orientation fix (origin left, max right) + margin adjustment committed
+- **Latest update**: 2026-02-24 - Inversion fix + range 0-440 (10% right margin) committed
