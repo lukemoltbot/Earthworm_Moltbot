@@ -1145,14 +1145,24 @@ class PyQtGraphCurvePlotter(QWidget):
             if density_x_max == float('-inf'):
                 density_x_max = 400.0
                 
-            # Adjust range to ensure all 4 main ticks are fully visible
-            # Original range: 0-400 scaled units (0-4.0 g/cc)
-            # Adjusted: 0-440 (10% extra on right) to ensure tick 400 is well within viewport
-            # Standard orientation: 0 left, 400 right (origin left, max right)
-            # Extra 40 units on right gives tick 400 at 400/440 = 91% of width, safely left of splitter
-            viewport_margin_right = 40.0  # 40 units extra on right (10% of 400)
+            # Adjust range based on viewport width to ensure max tick (400) is visible
+            # For narrow viewports (< 400px), use minimal or no margin to maximize space
+            # For normal viewports, use 10% margin to ensure tick is well within viewport
+            plot_width = self.plot_widget.width()
+            if plot_width < 400:  # Narrow viewport
+                # Minimal margin: 20 units (5%) or exact range for very narrow
+                if plot_width < 350:
+                    viewport_margin_right = 0.0  # No margin for very narrow views
+                    print(f"DEBUG (update_axis_ranges): Very narrow viewport ({plot_width}px) - using exact range 0-400")
+                else:
+                    viewport_margin_right = 20.0  # 5% margin for moderately narrow
+                    print(f"DEBUG (update_axis_ranges): Narrow viewport ({plot_width}px) - reduced margin to 5%")
+            else:
+                viewport_margin_right = 40.0  # 40 units extra on right (10% of 400)
+                print(f"DEBUG (update_axis_ranges): Normal viewport ({plot_width}px) - using 10% margin")
+            
             adjusted_density_min = density_x_min  # 0 (keep origin at left edge)
-            adjusted_density_max = density_x_max + viewport_margin_right  # 400 -> 440 (extend beyond max)
+            adjusted_density_max = density_x_max + viewport_margin_right  # 400 -> 400+margin
             print(f"DEBUG (update_axis_ranges): Density range adjustment: {density_x_min:.0f}-{density_x_max:.0f} -> {adjusted_density_min:.0f}-{adjusted_density_max:.0f} (extra {viewport_margin_right} on right)")
             
             # Check inversion for density curves
@@ -1188,9 +1198,18 @@ class PyQtGraphCurvePlotter(QWidget):
             # Customize density axis ticks to show 0,1,2,3,4 g/cc at positions 0,100,200,300,400
             bottom_axis = self.plot_item.getAxis('bottom')
             if bottom_axis:
-                # Create custom ticks: position in scaled units -> label in g/cc
-                tick_positions = [0, 100, 200, 300, 400]
-                tick_labels = ['0', '1', '2', '3', '4']
+                # Adaptive tick density based on plot width
+                plot_width = self.plot_widget.width()
+                if plot_width < 350:  # Narrow viewport
+                    # Show only 0, 200, 400 for narrow views to prevent label overlap
+                    tick_positions = [0, 200, 400]
+                    tick_labels = ['0', '2', '4']
+                    print(f"DEBUG (update_axis_ranges): Narrow viewport ({plot_width}px) - reduced tick density for density axis")
+                else:
+                    # Normal width: show all ticks
+                    tick_positions = [0, 100, 200, 300, 400]
+                    tick_labels = ['0', '1', '2', '3', '4']
+                
                 tick_dict = [(pos, label) for pos, label in zip(tick_positions, tick_labels)]
                 bottom_axis.setTicks([tick_dict])
                 print(f"DEBUG (update_axis_ranges): Set custom density axis ticks: {tick_dict}")
@@ -1213,13 +1232,18 @@ class PyQtGraphCurvePlotter(QWidget):
             if gamma_x_max == float('-inf'):
                 gamma_x_max = 300
                 
-            # Adjust range to ensure all 4 main ticks are fully visible (same as density)
-            # Original range: 0-400 API, Adjusted: 0-440 (10% extra on right)
-            # Standard orientation: 0 left, 400 right (origin left, max right)
-            # Extra 40 units on right gives tick 400 at 400/440 = 91% of width
-            viewport_margin_right = 40.0  # 40 units extra on right (10% of 400)
+            # Adjust range based on viewport width (same logic as density)
+            plot_width = self.plot_widget.width()
+            if plot_width < 400:  # Narrow viewport
+                if plot_width < 350:
+                    viewport_margin_right = 0.0  # No margin for very narrow views
+                else:
+                    viewport_margin_right = 20.0  # 5% margin for moderately narrow
+            else:
+                viewport_margin_right = 40.0  # 40 units extra on right (10% of 400)
+            
             adjusted_gamma_min = gamma_x_min  # 0 (keep origin at left edge)
-            adjusted_gamma_max = gamma_x_max + viewport_margin_right  # 400 -> 440 (extend beyond max)
+            adjusted_gamma_max = gamma_x_max + viewport_margin_right  # 400 -> 400+margin
             print(f"DEBUG (update_axis_ranges): Gamma range adjustment: {gamma_x_min:.0f}-{gamma_x_max:.0f} -> {adjusted_gamma_min:.0f}-{adjusted_gamma_max:.0f} (extra {viewport_margin_right} on right)")
             
             # Check inversion for gamma curves
@@ -1252,9 +1276,18 @@ class PyQtGraphCurvePlotter(QWidget):
             # Update top axis label if gamma axis exists
             if self.gamma_axis:
                 self.gamma_axis.setLabel('Gamma Ray', units='API', color='#8b008b')
-                # Customize gamma axis ticks to show 0,100,200,300,400 at same positions as density
-                tick_positions = [0, 100, 200, 300, 400]
-                tick_labels = ['0', '100', '200', '300', '400']
+                # Adaptive tick density based on plot width (same as density axis)
+                plot_width = self.plot_widget.width()
+                if plot_width < 350:  # Narrow viewport
+                    # Show only 0, 200, 400 for narrow views to prevent label overlap
+                    tick_positions = [0, 200, 400]
+                    tick_labels = ['0', '200', '400']
+                    print(f"DEBUG (update_axis_ranges): Narrow viewport ({plot_width}px) - reduced tick density for gamma axis")
+                else:
+                    # Normal width: show all ticks
+                    tick_positions = [0, 100, 200, 300, 400]
+                    tick_labels = ['0', '100', '200', '300', '400']
+                
                 tick_dict = [(pos, label) for pos, label in zip(tick_positions, tick_labels)]
                 self.gamma_axis.setTicks([tick_dict])
                 print(f"DEBUG (update_axis_ranges): Set custom gamma axis ticks: {tick_dict}")
