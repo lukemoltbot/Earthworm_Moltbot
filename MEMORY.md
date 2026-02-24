@@ -144,14 +144,18 @@
 
 ## Auto-Range Padding Fix (2026-02-24)
 - **Issue**: PyQtGraph auto-range padding pushes max values off-screen right
-- **Solution**: Disable auto-range for X-axis on all viewboxes
+- **Solution**: Two-pronged fix:
+  1. **Disable auto-range** for X-axis on all viewboxes
+  2. **Use padding=0 parameter** in all `setXRange()` calls
 - **Changes**:
-  - Main plot ViewBox: `enableAutoRange(axis='x', enable=False)`
-  - Gamma ViewBox: `enableAutoRange(axis='x', enable=False)`  
-  - Caliper ViewBox: `enableAutoRange(axis='x', enable=False)`
-  - Resistivity ViewBox: `enableAutoRange(axis='x', enable=False)`
-- **Expected result**: Exact range `[400, 0]` (inverted) with no padding
-- **Commit**: `80b199a` (auto-range disable fix)
+  - All ViewBoxes: `enableAutoRange(axis='x', enable=False)` (main, gamma, caliper, resistivity)
+  - All `setXRange()` calls: Use `padding=0.0` parameter instead of manual padding calculation
+  - Debug prints to confirm auto-range disabled
+- **Root cause**: Manual `x_padding` variable didn't prevent PyQtGraph's internal padding
+- **Expected result**: Exact range `[400, 0]` (inverted) with no padding, max values visible
+- **Commits**: 
+  - `80b199a` (auto-range disable)
+  - `1fe0b8b` (padding=0 parameter + debug)
 - **Status**: Ready for testing - should fix max-value visibility and improve zero alignment
 
 ## Current Status
