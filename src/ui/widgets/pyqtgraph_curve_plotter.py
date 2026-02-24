@@ -149,6 +149,7 @@ class PyQtGraphCurvePlotter(QWidget):
         # This prevents PyQtGraph from adding padding that pushes max values off-screen
         plot_viewbox = self.plot_widget.plotItem.vb
         plot_viewbox.enableAutoRange(axis='x', enable=False)
+        print(f"DEBUG (PyQtGraphCurvePlotter.setup_ui): Disabled X auto-range on main viewbox")
         
         # Get the plot item for dual-axis configuration
         self.plot_item = self.plot_widget.plotItem
@@ -449,6 +450,7 @@ class PyQtGraphCurvePlotter(QWidget):
         
         # Disable auto-range padding for gamma X-axis
         self.gamma_viewbox.enableAutoRange(axis='x', enable=False)
+        print(f"DEBUG (PyQtGraphCurvePlotter.setup_dual_axes): Disabled X auto-range on gamma viewbox")
         
         # Link top axis to Gamma Ray ViewBox
         self.gamma_axis.linkToView(self.gamma_viewbox)
@@ -466,6 +468,7 @@ class PyQtGraphCurvePlotter(QWidget):
         
         # Disable auto-range padding for caliper X-axis
         self.caliper_viewbox.enableAutoRange(axis='x', enable=False)
+        print(f"DEBUG (PyQtGraphCurvePlotter.setup_dual_axes): Disabled X auto-range on caliper viewbox")
         
         self.caliper_axis.linkToView(self.caliper_viewbox)
         self.caliper_viewbox.setXLink(self.plot_item.vb)  # Share X-axis transform (FIXED: link to ViewBox, not PlotItem)
@@ -482,6 +485,7 @@ class PyQtGraphCurvePlotter(QWidget):
         
         # Disable auto-range padding for resistivity X-axis
         self.resistivity_viewbox.enableAutoRange(axis='x', enable=False)
+        print(f"DEBUG (PyQtGraphCurvePlotter.setup_dual_axes): Disabled X auto-range on resistivity viewbox")
         
         self.resistivity_axis.linkToView(self.resistivity_viewbox)
         self.resistivity_viewbox.setXLink(self.plot_item.vb)  # Share X-axis transform (FIXED: link to ViewBox, not PlotItem)
@@ -1143,7 +1147,8 @@ class PyQtGraphCurvePlotter(QWidget):
                 
             # NO PADDING for density curves - align exactly with gamma scale
             # Density: 0-400 scaled units should align with Gamma: 0-400 API
-            x_padding = 0.0  # Remove padding for exact alignment
+            # Use padding=0 parameter to prevent PyQtGraph from adding automatic padding
+            padding = 0.0  # No padding
             
             # Check inversion for density curves
             # Default is inverted=False (well log style, axis inverted)
@@ -1151,8 +1156,8 @@ class PyQtGraphCurvePlotter(QWidget):
             if density_configs and density_configs[0].get('inverted', False):
                 pass
                 # Not inverted: low values on left, high on right
-                self.plot_widget.setXRange(density_x_min - x_padding, density_x_max + x_padding)
-                print(f"DEBUG (update_axis_ranges): Density X range set (not inverted): {density_x_min - x_padding:.2f} to {density_x_max + x_padding:.2f}")
+                self.plot_widget.setXRange(density_x_min, density_x_max, padding=padding)
+                print(f"DEBUG (update_axis_ranges): Density X range set (not inverted): {density_x_min:.2f} to {density_x_max:.2f}, padding={padding}")
                 # Verify the range was actually set
                 if hasattr(self.plot_widget, 'viewRange'):
                     actual_range = self.plot_widget.viewRange()
@@ -1161,8 +1166,8 @@ class PyQtGraphCurvePlotter(QWidget):
             else:
                 # Inverted (well log style): low values on right, high on left
                 try:
-                    self.plot_widget.setXRange(density_x_max + x_padding, density_x_min - x_padding)
-                    print(f"DEBUG (update_axis_ranges): Density X range set (inverted): {density_x_max + x_padding:.2f} to {density_x_min - x_padding:.2f}")
+                    self.plot_widget.setXRange(density_x_max, density_x_min, padding=padding)
+                    print(f"DEBUG (update_axis_ranges): Density X range set (inverted): {density_x_max:.2f} to {density_x_min:.2f}, padding={padding}")
                     # Verify the range was actually set
                     if hasattr(self.plot_widget, 'viewRange'):
                         actual_range = self.plot_widget.viewRange()
@@ -1213,8 +1218,8 @@ class PyQtGraphCurvePlotter(QWidget):
             if gamma_configs and gamma_configs[0].get('inverted', False):
                 pass
                 # Not inverted: low values on left, high on right
-                self.gamma_viewbox.setXRange(gamma_x_min, gamma_x_max)
-                print(f"DEBUG (update_axis_ranges): Gamma X range set (not inverted): {gamma_x_min:.2f} to {gamma_x_max:.2f}")
+                self.gamma_viewbox.setXRange(gamma_x_min, gamma_x_max, padding=0.0)
+                print(f"DEBUG (update_axis_ranges): Gamma X range set (not inverted): {gamma_x_min:.2f} to {gamma_x_max:.2f}, padding=0")
                 # Verify the range was actually set
                 if hasattr(self.gamma_viewbox, 'viewRange'):
                     actual_range = self.gamma_viewbox.viewRange()
@@ -1222,8 +1227,8 @@ class PyQtGraphCurvePlotter(QWidget):
                         print(f"DEBUG (update_axis_ranges): Final gamma X view range (not inverted): {actual_range[0]}")
             else:
                 # Inverted (well log style): low values on right, high on left
-                self.gamma_viewbox.setXRange(gamma_x_max, gamma_x_min)
-                print(f"DEBUG (update_axis_ranges): Gamma X range set (inverted): {gamma_x_max:.2f} to {gamma_x_min:.2f}")
+                self.gamma_viewbox.setXRange(gamma_x_max, gamma_x_min, padding=0.0)
+                print(f"DEBUG (update_axis_ranges): Gamma X range set (inverted): {gamma_x_max:.2f} to {gamma_x_min:.2f}, padding=0")
                 # Verify the range was actually set
                 if hasattr(self.gamma_viewbox, 'viewRange'):
                     actual_range = self.gamma_viewbox.viewRange()
@@ -1259,12 +1264,12 @@ class PyQtGraphCurvePlotter(QWidget):
             if caliper_configs and caliper_configs[0].get('inverted', False):
                 pass
                 # Not inverted: low values on left, high on right
-                self.caliper_viewbox.setXRange(caliper_x_min, caliper_x_max)
-                print(f"DEBUG (update_axis_ranges): Caliper X range set (not inverted): {caliper_x_min:.2f} to {caliper_x_max:.2f}")
+                self.caliper_viewbox.setXRange(caliper_x_min, caliper_x_max, padding=0.0)
+                print(f"DEBUG (update_axis_ranges): Caliper X range set (not inverted): {caliper_x_min:.2f} to {caliper_x_max:.2f}, padding=0")
             else:
                 # Inverted (well log style): low values on right, high on left
-                self.caliper_viewbox.setXRange(caliper_x_max, caliper_x_min)
-                print(f"DEBUG (update_axis_ranges): Caliper X range set (inverted): {caliper_x_max:.2f} to {caliper_x_min:.2f}")
+                self.caliper_viewbox.setXRange(caliper_x_max, caliper_x_min, padding=0.0)
+                print(f"DEBUG (update_axis_ranges): Caliper X range set (inverted): {caliper_x_max:.2f} to {caliper_x_min:.2f}, padding=0")
             
             # Update caliper axis label
             if self.caliper_axis:
@@ -1290,12 +1295,12 @@ class PyQtGraphCurvePlotter(QWidget):
             if resistivity_configs and resistivity_configs[0].get('inverted', False):
                 pass
                 # Not inverted: low values on left, high on right
-                self.resistivity_viewbox.setXRange(resistivity_x_min, resistivity_x_max)
-                print(f"DEBUG (update_axis_ranges): Resistivity X range set (not inverted): {resistivity_x_min:.2f} to {resistivity_x_max:.2f}")
+                self.resistivity_viewbox.setXRange(resistivity_x_min, resistivity_x_max, padding=0.0)
+                print(f"DEBUG (update_axis_ranges): Resistivity X range set (not inverted): {resistivity_x_min:.2f} to {resistivity_x_max:.2f}, padding=0")
             else:
                 # Inverted (well log style): low values on right, high on left
-                self.resistivity_viewbox.setXRange(resistivity_x_max, resistivity_x_min)
-                print(f"DEBUG (update_axis_ranges): Resistivity X range set (inverted): {resistivity_x_max:.2f} to {resistivity_x_min:.2f}")
+                self.resistivity_viewbox.setXRange(resistivity_x_max, resistivity_x_min, padding=0.0)
+                print(f"DEBUG (update_axis_ranges): Resistivity X range set (inverted): {resistivity_x_max:.2f} to {resistivity_x_min:.2f}, padding=0")
             
             # Update resistivity axis label
             if self.resistivity_axis:
