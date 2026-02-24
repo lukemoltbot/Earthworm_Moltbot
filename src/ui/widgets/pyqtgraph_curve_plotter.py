@@ -1147,22 +1147,25 @@ class PyQtGraphCurvePlotter(QWidget):
                 
             # Adjust range to ensure all 4 main ticks are fully visible
             # Original range: 0-400 scaled units (0-4.0 g/cc)
-            # Adjusted: 20-420 (5% margin) to ensure tick 400 is well within viewport
+            # Adjusted: 0-440 (10% extra on right) to ensure tick 400 is well within viewport
             # Standard orientation: 0 left, 400 right (origin left, max right)
-            viewport_margin = 20.0  # 20 units margin (5% of 400)
-            adjusted_density_min = density_x_min + viewport_margin  # 0 -> 20 (shift zero inward)
-            adjusted_density_max = density_x_max + viewport_margin  # 400 -> 420 (extend beyond max)
-            print(f"DEBUG (update_axis_ranges): Density range adjustment: {density_x_min:.0f}-{density_x_max:.0f} -> {adjusted_density_min:.0f}-{adjusted_density_max:.0f}")
+            # Extra 40 units on right gives tick 400 at 400/440 = 91% of width, safely left of splitter
+            viewport_margin_right = 40.0  # 40 units extra on right (10% of 400)
+            adjusted_density_min = density_x_min  # 0 (keep origin at left edge)
+            adjusted_density_max = density_x_max + viewport_margin_right  # 400 -> 440 (extend beyond max)
+            print(f"DEBUG (update_axis_ranges): Density range adjustment: {density_x_min:.0f}-{density_x_max:.0f} -> {adjusted_density_min:.0f}-{adjusted_density_max:.0f} (extra {viewport_margin_right} on right)")
             
             # Check inversion for density curves
-            # User wants standard orientation: origin (0) left, max (4.0) right
-            # inverted=False (default) should give standard orientation, inverted=True gives well-log style
-            if density_configs and density_configs[0].get('inverted', True):  # Changed default to True for well-log
-                # Well-log style: low values on right, high on left (inverted)
+            # inverted=True → well-log style (max left, zero right)
+            # inverted=False → standard orientation (zero left, max right) ← what user wants
+            # Default is False (from CURVE_INVERSION_DEFAULTS)
+            is_inverted = density_configs and density_configs[0].get('inverted', False)
+            if is_inverted:
+                # Well-log style: high values on left, low values on right (inverted)
                 self.plot_widget.setXRange(adjusted_density_max, adjusted_density_min, padding=0.0)
                 print(f"DEBUG (update_axis_ranges): Density X range set (well-log/inverted): {adjusted_density_max:.2f} to {adjusted_density_min:.2f}, adjusted from {density_x_max:.2f}-{density_x_min:.2f}")
             else:
-                # Standard orientation: low values on left, high on right (not inverted)
+                # Standard orientation: low values on left, high values on right (not inverted)
                 self.plot_widget.setXRange(adjusted_density_min, adjusted_density_max, padding=0.0)
                 print(f"DEBUG (update_axis_ranges): Density X range set (standard): {adjusted_density_min:.2f} to {adjusted_density_max:.2f}, adjusted from {density_x_min:.2f}-{density_x_max:.2f}")
             
@@ -1211,22 +1214,25 @@ class PyQtGraphCurvePlotter(QWidget):
                 gamma_x_max = 300
                 
             # Adjust range to ensure all 4 main ticks are fully visible (same as density)
-            # Original range: 0-400 API, Adjusted: 20-420 (5% margin)
+            # Original range: 0-400 API, Adjusted: 0-440 (10% extra on right)
             # Standard orientation: 0 left, 400 right (origin left, max right)
-            viewport_margin = 20.0  # 20 units margin (5% of 400)
-            adjusted_gamma_min = gamma_x_min + viewport_margin  # 0 -> 20 (shift zero inward)
-            adjusted_gamma_max = gamma_x_max + viewport_margin  # 400 -> 420 (extend beyond max)
-            print(f"DEBUG (update_axis_ranges): Gamma range adjustment: {gamma_x_min:.0f}-{gamma_x_max:.0f} -> {adjusted_gamma_min:.0f}-{adjusted_gamma_max:.0f}")
+            # Extra 40 units on right gives tick 400 at 400/440 = 91% of width
+            viewport_margin_right = 40.0  # 40 units extra on right (10% of 400)
+            adjusted_gamma_min = gamma_x_min  # 0 (keep origin at left edge)
+            adjusted_gamma_max = gamma_x_max + viewport_margin_right  # 400 -> 440 (extend beyond max)
+            print(f"DEBUG (update_axis_ranges): Gamma range adjustment: {gamma_x_min:.0f}-{gamma_x_max:.0f} -> {adjusted_gamma_min:.0f}-{adjusted_gamma_max:.0f} (extra {viewport_margin_right} on right)")
             
             # Check inversion for gamma curves
-            # User wants standard orientation: origin (0) left, max (400) right
-            # inverted=False (default) should give standard orientation, inverted=True gives well-log style
-            if gamma_configs and gamma_configs[0].get('inverted', True):  # Changed default to True for well-log
-                # Well-log style: low values on right, high on left (inverted)
+            # inverted=True → well-log style (max left, zero right)
+            # inverted=False → standard orientation (zero left, max right) ← what user wants
+            # Default is False (from CURVE_INVERSION_DEFAULTS)
+            is_inverted = gamma_configs and gamma_configs[0].get('inverted', False)
+            if is_inverted:
+                # Well-log style: high values on left, low values on right (inverted)
                 self.gamma_viewbox.setXRange(adjusted_gamma_max, adjusted_gamma_min, padding=0.0)
                 print(f"DEBUG (update_axis_ranges): Gamma X range set (well-log/inverted): {adjusted_gamma_max:.2f} to {adjusted_gamma_min:.2f}, adjusted from {gamma_x_max:.2f}-{gamma_x_min:.2f}")
             else:
-                # Standard orientation: low values on left, high on right (not inverted)
+                # Standard orientation: low values on left, high values on right (not inverted)
                 self.gamma_viewbox.setXRange(adjusted_gamma_min, adjusted_gamma_max, padding=0.0)
                 print(f"DEBUG (update_axis_ranges): Gamma X range set (standard): {adjusted_gamma_min:.2f} to {adjusted_gamma_max:.2f}, adjusted from {gamma_x_min:.2f}-{gamma_x_max:.2f}")
             
