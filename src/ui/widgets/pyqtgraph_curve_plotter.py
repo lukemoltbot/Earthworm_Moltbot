@@ -1147,33 +1147,37 @@ class PyQtGraphCurvePlotter(QWidget):
                 
             # Adjust range to ensure all 4 main ticks are fully visible
             # Original range: 0-400 scaled units (0-4.0 g/cc)
-            # Increased margin to 50 units (12.5%) - previous 10 units was insufficient
-            # Adjusted: 50-450 (shift left edge beyond 400 to include tick 400)
-            viewport_margin = 50.0  # Increased from 10 to 50 units (12.5% of 400)
-            adjusted_density_max = density_x_max + viewport_margin  # 400 -> 450 (extend beyond max)
-            adjusted_density_min = density_x_min + viewport_margin  # 0 -> 50 (shift zero inward)
+            # Adjusted: 20-420 (5% margin) to ensure tick 400 is well within viewport
+            # Standard orientation: 0 left, 400 right (origin left, max right)
+            viewport_margin = 20.0  # 20 units margin (5% of 400)
+            adjusted_density_min = density_x_min + viewport_margin  # 0 -> 20 (shift zero inward)
+            adjusted_density_max = density_x_max + viewport_margin  # 400 -> 420 (extend beyond max)
+            print(f"DEBUG (update_axis_ranges): Density range adjustment: {density_x_min:.0f}-{density_x_max:.0f} -> {adjusted_density_min:.0f}-{adjusted_density_max:.0f}")
             
             # Check inversion for density curves
-            # Default is inverted=False (well log style, axis inverted)
-            # If first density curve has inverted=True, don't invert axis
-            if density_configs and density_configs[0].get('inverted', False):
-                pass
-                # Not inverted: low values on left, high on right
-                self.plot_widget.setXRange(adjusted_density_min, adjusted_density_max, padding=0.0)
-                print(f"DEBUG (update_axis_ranges): Density X range set (not inverted): {adjusted_density_min:.2f} to {adjusted_density_max:.2f}, adjusted from {density_x_min:.2f}-{density_x_max:.2f}")
+            # User wants standard orientation: origin (0) left, max (4.0) right
+            # inverted=False (default) should give standard orientation, inverted=True gives well-log style
+            if density_configs and density_configs[0].get('inverted', True):  # Changed default to True for well-log
+                # Well-log style: low values on right, high on left (inverted)
+                self.plot_widget.setXRange(adjusted_density_max, adjusted_density_min, padding=0.0)
+                print(f"DEBUG (update_axis_ranges): Density X range set (well-log/inverted): {adjusted_density_max:.2f} to {adjusted_density_min:.2f}, adjusted from {density_x_max:.2f}-{density_x_min:.2f}")
             else:
-                # Inverted (well log style): low values on right, high on left
-                try:
-                    self.plot_widget.setXRange(adjusted_density_max, adjusted_density_min, padding=0.0)
-                    print(f"DEBUG (update_axis_ranges): Density X range set (inverted): {adjusted_density_max:.2f} to {adjusted_density_min:.2f}, adjusted from {density_x_max:.2f}-{density_x_min:.2f}")
-                except Exception as e:
-                    print(f"ERROR (update_axis_ranges): Failed to set X range: {e}")
+                # Standard orientation: low values on left, high on right (not inverted)
+                self.plot_widget.setXRange(adjusted_density_min, adjusted_density_max, padding=0.0)
+                print(f"DEBUG (update_axis_ranges): Density X range set (standard): {adjusted_density_min:.2f} to {adjusted_density_max:.2f}, adjusted from {density_x_min:.2f}-{density_x_max:.2f}")
             
             # Verify the range was actually set
             if hasattr(self.plot_widget, 'viewRange'):
                 actual_range = self.plot_widget.viewRange()
                 if actual_range and len(actual_range) > 0:
                     print(f"DEBUG (update_axis_ranges): Final density X view range: {actual_range[0]}")
+                    # Calculate which ticks would be visible
+                    left, right = actual_range[0]
+                    if left < right:  # Increasing range
+                        visible_ticks = [t for t in [0, 100, 200, 300, 400] if left <= t <= right]
+                    else:  # Decreasing range (inverted)
+                        visible_ticks = [t for t in [0, 100, 200, 300, 400] if right <= t <= left]
+                    print(f"DEBUG (update_axis_ranges): Density visible tick positions: {visible_ticks}")
             
             # Update bottom axis label (still shows g/cc)
             self.plot_widget.setLabel('bottom', 'Density', units='g/cc')
@@ -1207,29 +1211,37 @@ class PyQtGraphCurvePlotter(QWidget):
                 gamma_x_max = 300
                 
             # Adjust range to ensure all 4 main ticks are fully visible (same as density)
-            # Original range: 0-400 API, Adjusted: 50-450 (shift left edge beyond 400)
-            viewport_margin = 50.0  # Increased from 10 to 50 units (12.5% of 400)
-            adjusted_gamma_max = gamma_x_max + viewport_margin  # 400 -> 450 (extend beyond max)
-            adjusted_gamma_min = gamma_x_min + viewport_margin  # 0 -> 50 (shift zero inward)
+            # Original range: 0-400 API, Adjusted: 20-420 (5% margin)
+            # Standard orientation: 0 left, 400 right (origin left, max right)
+            viewport_margin = 20.0  # 20 units margin (5% of 400)
+            adjusted_gamma_min = gamma_x_min + viewport_margin  # 0 -> 20 (shift zero inward)
+            adjusted_gamma_max = gamma_x_max + viewport_margin  # 400 -> 420 (extend beyond max)
+            print(f"DEBUG (update_axis_ranges): Gamma range adjustment: {gamma_x_min:.0f}-{gamma_x_max:.0f} -> {adjusted_gamma_min:.0f}-{adjusted_gamma_max:.0f}")
             
             # Check inversion for gamma curves
-            # Default is inverted=False (well log style, axis inverted)
-            # If first gamma curve has inverted=True, don't invert axis
-            if gamma_configs and gamma_configs[0].get('inverted', False):
-                pass
-                # Not inverted: low values on left, high on right
-                self.gamma_viewbox.setXRange(adjusted_gamma_min, adjusted_gamma_max, padding=0.0)
-                print(f"DEBUG (update_axis_ranges): Gamma X range set (not inverted): {adjusted_gamma_min:.2f} to {adjusted_gamma_max:.2f}, adjusted from {gamma_x_min:.2f}-{gamma_x_max:.2f}")
-            else:
-                # Inverted (well log style): low values on right, high on left
+            # User wants standard orientation: origin (0) left, max (400) right
+            # inverted=False (default) should give standard orientation, inverted=True gives well-log style
+            if gamma_configs and gamma_configs[0].get('inverted', True):  # Changed default to True for well-log
+                # Well-log style: low values on right, high on left (inverted)
                 self.gamma_viewbox.setXRange(adjusted_gamma_max, adjusted_gamma_min, padding=0.0)
-                print(f"DEBUG (update_axis_ranges): Gamma X range set (inverted): {adjusted_gamma_max:.2f} to {adjusted_gamma_min:.2f}, adjusted from {gamma_x_max:.2f}-{gamma_x_min:.2f}")
+                print(f"DEBUG (update_axis_ranges): Gamma X range set (well-log/inverted): {adjusted_gamma_max:.2f} to {adjusted_gamma_min:.2f}, adjusted from {gamma_x_max:.2f}-{gamma_x_min:.2f}")
+            else:
+                # Standard orientation: low values on left, high on right (not inverted)
+                self.gamma_viewbox.setXRange(adjusted_gamma_min, adjusted_gamma_max, padding=0.0)
+                print(f"DEBUG (update_axis_ranges): Gamma X range set (standard): {adjusted_gamma_min:.2f} to {adjusted_gamma_max:.2f}, adjusted from {gamma_x_min:.2f}-{gamma_x_max:.2f}")
             
             # Verify the range was actually set
             if hasattr(self.gamma_viewbox, 'viewRange'):
                 actual_range = self.gamma_viewbox.viewRange()
                 if actual_range and len(actual_range) > 0:
                     print(f"DEBUG (update_axis_ranges): Final gamma X view range: {actual_range[0]}")
+                    # Calculate which ticks would be visible
+                    left, right = actual_range[0]
+                    if left < right:  # Increasing range
+                        visible_ticks = [t for t in [0, 100, 200, 300, 400] if left <= t <= right]
+                    else:  # Decreasing range (inverted)
+                        visible_ticks = [t for t in [0, 100, 200, 300, 400] if right <= t <= left]
+                    print(f"DEBUG (update_axis_ranges): Gamma visible tick positions: {visible_ticks}")
             
             # Update top axis label if gamma axis exists
             if self.gamma_axis:
