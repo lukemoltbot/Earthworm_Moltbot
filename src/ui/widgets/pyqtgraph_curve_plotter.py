@@ -1216,7 +1216,12 @@ class PyQtGraphCurvePlotter(QWidget):
                 tick_dict = [(pos, label) for pos, label in zip(tick_positions, tick_labels)]
                 bottom_axis.setTicks([tick_dict, []])  # Major ticks, empty minor ticks
                 if plot_width < 400:
-                    bottom_axis.setTickTextOffset(5)  # Move tick labels slightly away from edge
+                    try:
+                        bottom_axis.setTickTextOffset(5)  # Move tick labels slightly away from edge
+                    except AttributeError:
+                        # PyQtGraph < 0.14.1? Use style dictionary instead
+                        bottom_axis.setStyle(tickTextOffset=[5, 2])
+                        print(f"DEBUG (update_axis_ranges): Used tickTextOffset style (PyQtGraph {pg.__version__})")
                 
                 # Verify ticks were actually set
                 actual_ticks = bottom_axis.ticks
@@ -1312,7 +1317,12 @@ class PyQtGraphCurvePlotter(QWidget):
                 tick_dict = [(pos, label) for pos, label in zip(tick_positions, tick_labels)]
                 self.gamma_axis.setTicks([tick_dict, []])  # Major ticks, empty minor ticks
                 if plot_width < 400:
-                    self.gamma_axis.setTickTextOffset(5)  # Move tick labels slightly away from edge
+                    try:
+                        self.gamma_axis.setTickTextOffset(5)  # Move tick labels slightly away from edge
+                    except AttributeError:
+                        # PyQtGraph < 0.14.1? Use style dictionary instead
+                        self.gamma_axis.setStyle(tickTextOffset=[5, 2])
+                        print(f"DEBUG (update_axis_ranges): Used tickTextOffset style (PyQtGraph {pg.__version__})")
                 
                 # Verify ticks were actually set
                 actual_ticks = self.gamma_axis.ticks
