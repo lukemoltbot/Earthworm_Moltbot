@@ -1,17 +1,22 @@
 """
-Unified Viewport Package
-=======================
+DEPRECATED: System B viewport components.
 
-Provides unified display of LAS curves and stratigraphic column
-with pixel-perfect synchronization.
+⚠️ WARNING: This package is deprecated.
 
-Components:
-- GeologicalAnalysisViewport: Main container widget
-- UnifiedDepthScaleManager: Synchronization engine
-- PixelDepthMapper: Pixel-accurate depth mapping
-- Component adapters for existing widgets
+Use src/ui/graphic_window/ instead for System A architecture.
+See DEPRECATION_NOTICE.md in this directory for migration guide.
 """
 
+import warnings
+
+warnings.warn(
+    "src.ui.widgets.unified_viewport is deprecated. "
+    "Use src.ui.graphic_window instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
+# Keep imports for backward compatibility, but they will trigger deprecation warnings
 from .geological_analysis_viewport import GeologicalAnalysisViewport
 from .pixel_depth_mapper import PixelDepthMapper
 from .unified_depth_scale_manager import UnifiedDepthScaleManager, DepthScaleConfig, DepthScaleMode

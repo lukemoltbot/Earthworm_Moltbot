@@ -1,10 +1,16 @@
 """
-PixelDepthMapper - Pixel-accurate depth to pixel mapping.
+DEPRECATED MODULE: PixelDepthMapper
 
-Provides integer pixel mapping for depth values with 1-pixel accuracy.
+⚠️ WARNING: This module is deprecated and maintained for backward compatibility only.
+
+USE INSTEAD: src/ui/graphic_window/state/depth_coordinate_system.py
+
+System A (DepthCoordinateSystem) provides equivalent functionality with better integration.
+This System B implementation will be removed in a future release.
 """
 
 import logging
+import warnings
 import math
 from typing import Optional, Tuple, List
 from dataclasses import dataclass
@@ -35,6 +41,10 @@ class PixelMappingConfig:
 
 class PixelDepthMapper:
     """
+    DEPRECATED: Pixel-depth coordinate mapping.
+    
+    ⚠️ This class is deprecated. Use DepthCoordinateSystem instead.
+    
     Maps depth values to pixel positions with 1-pixel accuracy.
     
     Provides bidirectional mapping:
@@ -50,11 +60,19 @@ class PixelDepthMapper:
     
     def __init__(self, config: Optional[PixelMappingConfig] = None):
         """
-        Initialize the pixel-depth mapper.
+        Initialize pixel depth mapper.
+        
+        ⚠️ DEPRECATED: Use DepthCoordinateSystem instead.
         
         Args:
             config: Configuration object, or None for defaults
         """
+        warnings.warn(
+            "PixelDepthMapper is deprecated. Use DepthCoordinateSystem instead. "
+            "See src/ui/graphic_window/state/depth_coordinate_system.py",
+            DeprecationWarning,
+            stacklevel=2
+        )
         self.config = config or PixelMappingConfig()
         
         # State

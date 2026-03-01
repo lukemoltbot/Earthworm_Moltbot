@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsRectItem, QG
 from PyQt6.QtSvgWidgets import QGraphicsSvgItem
 from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPixmap, QPen, QLinearGradient, QTransform
 from PyQt6.QtSvg import QSvgRenderer
-from PyQt6.QtCore import QRectF, Qt, pyqtSignal, QPointF, QPoint
+from PyQt6.QtCore import QRectF, Qt, pyqtSignal, pyqtSlot, QPointF, QPoint
 from ...core.config import LITHOLOGY_COLUMN, RECOVERED_THICKNESS_COLUMN
 from .svg_renderer import SvgRenderer
 from .stratigraphic_column import StratigraphicColumn  # Inherit from base class
@@ -24,6 +24,10 @@ from .stratigraphic_column import StratigraphicColumn  # Inherit from base class
 from .sync_state_tracker import SyncStateTracker
 # Zoom state management
 from .zoom_state_manager import ZoomStateManager
+# DepthStateManager for centralized depth synchronization
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ..graphic_window.state.depth_state_manager import DepthStateManager
 
 
 class HoverRectItem(QGraphicsRectItem):
@@ -67,9 +71,12 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
     syncRequested = pyqtSignal()  # Request synchronization with curve plotter
     zoomLevelChanged = pyqtSignal(float)  # zoom_factor (when zoom level changes)
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, depth_state_manager: 'DepthStateManager' = None):
         """Initialize enhanced stratigraphic column with synchronization features."""
         super().__init__(parent)
+        
+        # Store reference to centralized depth state manager
+        self.depth_state_manager = depth_state_manager
         
         self.default_view_range = 10.0  # Show 10 metres by default for detailed lithology viewing (1 Point Desktop style)
         # Enhanced display settings
@@ -132,6 +139,12 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         # Synchronized scale with curve plotter
         self.fixed_scale_enabled = True
         self.sync_enabled_with_curve_plotter = True
+        
+        # Connect DepthStateManager signals if provided
+        if self.depth_state_manager is not None:
+            self.depth_state_manager.viewportRangeChanged.connect(self._on_depth_state_viewport_changed)
+            self.depth_state_manager.cursorDepthChanged.connect(self._on_depth_state_cursor_changed)
+            self.depth_state_manager.zoomLevelChanged.connect(self._on_depth_state_zoom_changed)
         
     def set_classified_data(self, classified_dataframe):
         """Set the classified dataframe containing original curve data."""
@@ -831,6 +844,11 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
             
             # Update synchronization
             self._update_visible_depth_range()
+            
+            # Update state manager so other widgets can sync
+            if self.depth_state_manager:
+                self.depth_state_manager.set_viewport_range(self.visible_min_depth, self.visible_max_depth)
+            
             if self.sync_enabled:
                 center_depth = (self.visible_min_depth + self.visible_max_depth) / 2
                 self.depthScrolled.emit(center_depth)
@@ -872,6 +890,14 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         # Call parent method first
         super().mousePressEvent(event)
         
+        # Calculate clicked depth from event position
+        scene_pos = self.mapToScene(event.pos())
+        clicked_depth = self.min_depth + (scene_pos.y() / self.depth_scale)
+        
+        # Update state manager cursor position for cross-widget sync
+        if self.depth_state_manager:
+            self.depth_state_manager.set_cursor_depth(clicked_depth)
+        
         # Emit enhanced selection signal
         if self.selected_unit_index is not None:
             self.unitSelected.emit(self.selected_unit_index)
@@ -887,6 +913,60 @@ class EnhancedStratigraphicColumn(StratigraphicColumn):
         self.highlight_rect_item = None
         self.units_dataframe = None
         
+    @pyqtSlot(object)  # DepthRange parameter
+    def _on_depth_state_viewport_changed(self, depth_range):
+        """
+        Handle viewport range change from DepthStateManager.
+        
+        Args:
+            depth_range: DepthRange object with from_depth and to_depth
+        """
+        if self.depth_state_manager is None:
+            return
+        
+        self.visible_min_depth = depth_range.from_depth
+        self.visible_max_depth = depth_range.to_depth
+        self.visible_range = depth_range.range_size
+        
+        # Scroll to center depth while preserving range
+        center_depth = (depth_range.from_depth + depth_range.to_depth) / 2
+        self.scroll_to_depth(center_depth)
+        
+        # Trigger redraw
+        self.viewport().update()
+    
+    @pyqtSlot(float)
+    def _on_depth_state_cursor_changed(self, depth):
+        """
+        Handle cursor depth change from DepthStateManager.
+        
+        Args:
+            depth: Cursor depth value
+        """
+        if self.depth_state_manager is None:
+            return
+        
+        self.cursor_depth = depth
+        
+        # Trigger redraw with cursor highlight
+        self.viewport().update()
+    
+    @pyqtSlot(float)
+    def _on_depth_state_zoom_changed(self, zoom_level):
+        """
+        Handle zoom level change from DepthStateManager.
+        
+        Args:
+            zoom_level: Zoom factor (1.0 = 100%)
+        """
+        if self.depth_state_manager is None:
+            return
+        
+        self.zoom_factor = zoom_level
+        
+        # Trigger redraw with adjusted scaling
+        self.viewport().update()
+    
     def update_synchronization(self):
         """Force update of synchronization with curve plotter."""
         if self.sync_enabled and self.sync_curve_plotter:

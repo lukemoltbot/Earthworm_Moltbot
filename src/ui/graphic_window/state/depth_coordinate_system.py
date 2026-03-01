@@ -111,3 +111,42 @@ class DepthCoordinateSystem:
         right = self.canvas_width - self.padding_right
         bottom = self.canvas_height - self.padding_bottom
         return (left, top, right, bottom)
+    
+    # ===== BACKWARD COMPATIBILITY =====
+    # These aliases exist for backward compatibility with System B
+    # Prefer depth_to_screen_y and screen_y_to_depth for new code
+    
+    def depth_to_pixel(self, depth: float) -> int:
+        """
+        DEPRECATED ALIAS: Use depth_to_screen_y() instead.
+        
+        Convert depth value to pixel position.
+        
+        Args:
+            depth: Depth value in meters
+            
+        Returns:
+            Pixel position on screen (0 = top)
+        """
+        return int(self.depth_to_screen_y(depth))
+    
+    def pixel_to_depth(self, pixel: float) -> float:
+        """
+        DEPRECATED ALIAS: Use screen_y_to_depth() instead.
+        
+        Convert pixel position back to depth value.
+        
+        Args:
+            pixel: Pixel position on screen
+            
+        Returns:
+            Depth value in meters
+        """
+        return self.screen_y_to_depth(pixel)
+    
+    def depth_to_screen_y_int(self, depth: float) -> int:
+        """
+        Convert depth to screen Y coordinate as integer pixels.
+        Alias for depth_to_pixel for code clarity.
+        """
+        return int(self.depth_to_screen_y(depth))

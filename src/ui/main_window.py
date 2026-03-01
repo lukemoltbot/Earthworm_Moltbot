@@ -27,10 +27,12 @@ from .widgets.stratigraphic_column import StratigraphicColumn
 from .widgets.enhanced_stratigraphic_column import EnhancedStratigraphicColumn
 from .widgets.svg_renderer import SvgRenderer
 from .widgets.curve_plotter import CurvePlotter # Import CurvePlotter
+from src.ui.graphic_window.state.depth_state_manager import DepthStateManager
 from .widgets.pyqtgraph_curve_plotter import PyQtGraphCurvePlotter # Import PyQtGraph-based plotter
-from .widgets.unified_viewport.geological_analysis_viewport import GeologicalAnalysisViewport # Import unified geological viewport
-from .widgets.unified_viewport.unified_depth_scale_manager import UnifiedDepthScaleManager, DepthScaleConfig, DepthScaleMode
-from .widgets.unified_viewport.pixel_depth_mapper import PixelDepthMapper, PixelMappingConfig
+# DEPRECATED - System B imports (do not use)
+# from .widgets.unified_viewport.geological_analysis_viewport import GeologicalAnalysisViewport # Import unified geological viewport
+# from .widgets.unified_viewport.unified_depth_scale_manager import UnifiedDepthScaleManager, DepthScaleConfig, DepthScaleMode
+# from .widgets.unified_viewport.pixel_depth_mapper import PixelDepthMapper, PixelMappingConfig
 from .widgets.enhanced_range_gap_visualizer import EnhancedRangeGapVisualizer # Import enhanced widget
 from .widgets.curve_visibility_manager import CurveVisibilityManager # Import curve visibility manager
 from .widgets.curve_visibility_toolbar import CurveVisibilityToolbar # Import curve visibility toolbar
@@ -103,42 +105,51 @@ class HoleEditorWindow(QWidget):
         self.dataframe = None
         self.file_metadata = None
 
-        # Create widgets - using PyQtGraphCurvePlotter for better performance
-        self.curvePlotter = PyQtGraphCurvePlotter()
-        self.stratigraphicColumnView = StratigraphicColumn()  # Overview column (entire hole)
-        self.enhancedStratColumnView = EnhancedStratigraphicColumn()  # Enhanced column (detailed, synchronized)
+        # ========================================
+        # PHASE 4: SYSTEM A - CENTRALIZED STATE MANAGER
+        # ========================================
         
-        # Create unified geological analysis viewport (Phase 4)
-        # Configure depth scale manager for pixel-perfect synchronization
-        # Default view range: show 10m for detailed lithology viewing (1 Point Desktop style)
-        depth_config = DepthScaleConfig(
-            mode=DepthScaleMode.PIXEL_PERFECT,
-            pixel_tolerance=1,
-            min_depth=0.0,
-            max_depth=10000.0,
-            default_view_range=(0.0, 10.0)  # Changed from 1000m to 10m for detailed view
-        )
-        self.unified_depth_manager = UnifiedDepthScaleManager(depth_config)
+        # Create centralized DepthStateManager (single source of truth)
+        self.depth_state_manager = DepthStateManager()
         
-        # Configure pixel mapper with default viewport size (will be updated on resize)
-        pixel_config = PixelMappingConfig(
-            min_depth=0.0,
-            max_depth=100.0,  # Reduced from 1000m to 100m as reasonable default
-            viewport_width=800,
-            viewport_height=600,
-            vertical_padding=2,
-            pixel_tolerance=1
-        )
-        self.unified_pixel_mapper = PixelDepthMapper(pixel_config)
+        # Create widgets with DepthStateManager reference
+        self.curvePlotter = PyQtGraphCurvePlotter(depth_state_manager=self.depth_state_manager)
+        self.stratigraphicColumnView = StratigraphicColumn()  # Overview only, no sync needed
+        self.enhancedStratColumnView = EnhancedStratigraphicColumn(depth_state_manager=self.depth_state_manager)
         
-        # Create the unified viewport
-        self.unifiedViewport = GeologicalAnalysisViewport()
-        self.unifiedViewport.set_components(
-            self.curvePlotter,
-            self.enhancedStratColumnView,
-            self.unified_depth_manager,
-            self.unified_pixel_mapper
-        )
+        # ========================================
+        # DEPRECATED: System B components (do not use)
+        # ========================================
+        # The following System B components are deprecated:
+        # - UnifiedDepthScaleManager
+        # - PixelDepthMapper
+        # - GeologicalAnalysisViewport
+        # Use DepthStateManager above instead.
+        # REMOVED - System B deprecated, using System A (DepthStateManager)
+        # depth_config = DepthScaleConfig(
+        #     mode=DepthScaleMode.PIXEL_PERFECT,
+        #     pixel_tolerance=1,
+        #     min_depth=0.0,
+        #     max_depth=10000.0,
+        #     default_view_range=(0.0, 10.0)
+        # )
+        # self.unified_depth_manager = UnifiedDepthScaleManager(depth_config)
+        # pixel_config = PixelMappingConfig(
+        #     min_depth=0.0,
+        #     max_depth=100.0,
+        #     viewport_width=800,
+        #     viewport_height=600,
+        #     vertical_padding=2,
+        #     pixel_tolerance=1
+        # )
+        # self.unified_pixel_mapper = PixelDepthMapper(pixel_config)
+        # self.unifiedViewport = GeologicalAnalysisViewport()
+        # self.unifiedViewport.set_components(
+        #     self.curvePlotter,
+        #     self.enhancedStratColumnView,
+        #     self.unified_depth_manager,
+        #     self.unified_pixel_mapper
+        # )
         self.editorTable = LithologyTableWidget()
         
         # Create icon buttons for actions
@@ -162,18 +173,19 @@ class HoleEditorWindow(QWidget):
         # Connect engineering scale signal
         self.zoom_state_manager.engineeringScaleChanged.connect(self._on_engineering_scale_changed)
         
-        # Connect zoom signals to unified viewport (Phase 4)
-        if hasattr(self, 'unifiedViewport'):
-            # Zoom state changed (center, min, max) -> set depth range on unified viewport
-            self.zoom_state_manager.zoomStateChanged.connect(
-                lambda center, min_depth, max_depth: self.unifiedViewport.set_depth_range(min_depth, max_depth)
-            )
-            # Zoom level changed -> set zoom level on unified viewport
-            self.zoom_state_manager.zoomLevelChanged.connect(self.unifiedViewport.set_zoom_level)
-            
-            # Connect unified viewport signals back to zoom manager
-            self.unifiedViewport.viewRangeChanged.connect(self.zoom_state_manager.zoom_to_range)
-            # Note: zoomLevelChanged from unified viewport is already connected via depth manager
+        # ========================================
+        # Wire Zoom Control to Depth State Manager
+        # ========================================
+        
+        # Connect zoom state manager → depth state manager
+        self.zoom_state_manager.zoomLevelChanged.connect(
+            self.depth_state_manager.set_zoom_level
+        )
+        
+        # Connect depth state manager → zoom state manager (bidirectional)
+        self.depth_state_manager.zoomLevelChanged.connect(
+            self.zoom_state_manager.set_zoom_level
+        )
         
         # Create scale keyboard controls
         self.scale_keyboard_controls = ScaleKeyboardControls(self, self.zoom_state_manager.scale_converter)
@@ -197,7 +209,7 @@ class HoleEditorWindow(QWidget):
         # Connect curve visibility changes to unified viewport
         if hasattr(self.curve_visibility_manager, 'visibility_changed'):
             self.curve_visibility_manager.visibility_changed.connect(
-                self.unifiedViewport.set_curve_visibility
+                self.unified_viewport.set_curve_visibility
             )
         
         # Create curve display modes manager
@@ -359,12 +371,28 @@ class HoleEditorWindow(QWidget):
         self.table_container = table_container
         self.overview_container = overview_container
 
+        # ========================================
+        # Create System A Unified Container
+        # ========================================
+        from src.ui.graphic_window.unified_graphic_window import UnifiedGraphicWindow
+        
+        self.unified_viewport = UnifiedGraphicWindow(
+            self.depth_state_manager,
+            self.curvePlotter,
+            self.enhancedStratColumnView
+        )
+        
         # Create unified viewport container (replaces plot + enhanced column)
         unified_container = QWidget()
         unified_layout = QVBoxLayout(unified_container)
         unified_layout.setContentsMargins(0, 0, 0, 0)
         unified_layout.setSpacing(5)
-        unified_layout.addWidget(self.unifiedViewport)
+        
+        # REMOVED - System B deprecated
+        # unified_layout.addWidget(self.unifiedViewport)
+        
+        # Add to layout
+        unified_layout.addWidget(self.unified_viewport)
 
         # Create a splitter for the first 2 widgets (Unified Viewport | Table)
         # Overview will be a fixed-width sidebar (NO SPLITTER)
@@ -1973,7 +2001,7 @@ class MainWindow(QMainWindow):
 
         # Keep references to widgets for backward compatibility with existing methods
         self.curvePlotter = self.editor_hole.curvePlotter
-        self.unifiedViewport = self.editor_hole.unifiedViewport
+        self.unified_viewport = self.editor_hole.unified_viewport
         self.stratigraphicColumnView = self.editor_hole.stratigraphicColumnView
         self.enhancedStratColumnView = self.editor_hole.enhancedStratColumnView
         self.editorTable = self.editor_hole.editorTable
@@ -5054,10 +5082,10 @@ class MainWindow(QMainWindow):
         # Debug viewport attributes
         viewport_attrs = [attr for attr in dir(self) if 'viewport' in attr.lower() or 'unified' in attr.lower()]
         print(f"DEBUG (_finalize_analysis_display): viewport attributes: {viewport_attrs}")
-        if hasattr(self, 'unifiedViewport'):
-            print(f"DEBUG (_finalize_analysis_display): unifiedViewport visible={self.unifiedViewport.isVisible()}, size={self.unifiedViewport.size().width()}x{self.unifiedViewport.size().height()}")
+        if hasattr(self, 'unified_viewport'):
+            print(f"DEBUG (_finalize_analysis_display): unified_viewport visible={self.unified_viewport.isVisible()}, size={self.unified_viewport.size().width()}x{self.unified_viewport.size().height()}")
         else:
-            print(f"DEBUG (_finalize_analysis_display): unifiedViewport attribute missing")
+            print(f"DEBUG (_finalize_analysis_display): unified_viewport attribute missing")
         separator_thickness = self.initial_separator_thickness
         draw_separators = self.initial_draw_separators
 
@@ -5188,27 +5216,9 @@ class MainWindow(QMainWindow):
         self.curvePlotter.set_depth_range(min_overall_depth, max_overall_depth)
         
         # Also set the unified viewport depth range to ensure all components sync
-        if hasattr(self, 'unifiedViewport') and self.unifiedViewport:
+        if hasattr(self, 'unified_viewport') and self.unified_viewport:
             print(f"DEBUG (_finalize_analysis_display): Setting unified viewport depth range {min_overall_depth}-{max_overall_depth}")
-            self.unifiedViewport.set_depth_range(min_overall_depth, max_overall_depth)
-            
-            # Update pixel mapper depth range to match hole data
-            if hasattr(self, 'unified_pixel_mapper'):
-                self.unified_pixel_mapper.set_depth_range(min_overall_depth, max_overall_depth)
-                print(f"DEBUG (_finalize_analysis_display): Updated pixel mapper depth range to {min_overall_depth}-{max_overall_depth}")
-            
-            # Set initial visible view range to top 10m for detailed lithology viewing (1 Point Desktop style)
-            # This ensures users can see small lithology units clearly
-            visible_range_size = 10.0  # Show 10 metres initially
-            visible_end_depth = min(min_overall_depth + visible_range_size, max_overall_depth)
-            
-            if hasattr(self, 'unified_depth_manager'):
-                self.unified_depth_manager.set_view_range(min_overall_depth, visible_end_depth)
-                print(f"DEBUG (_finalize_analysis_display): Set visible view range to top {visible_range_size}m: {min_overall_depth}-{visible_end_depth}")
-            elif hasattr(self.unifiedViewport, 'set_view_range'):
-                # Fallback to viewport method if available
-                self.unifiedViewport.set_view_range(min_overall_depth, visible_end_depth)
-                print(f"DEBUG (_finalize_analysis_display): Set viewport visible range to top {visible_range_size}m")
+            self.unified_viewport.set_depth_range(min_overall_depth, max_overall_depth)
         if hasattr(self, 'enhancedStratColumnView'):
             print(f"DEBUG (_finalize_analysis_display): Drawing enhanced column, hasattr: {hasattr(self, 'enhancedStratColumnView')}")
             # Set classified data for curve values in tooltips

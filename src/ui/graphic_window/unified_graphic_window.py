@@ -1,6 +1,12 @@
 """
 UnifiedGraphicWindow - Main container for graphic window components.
 Replicates 1 Point Desktop layout with synchronized components.
+
+SYSTEM A ARCHITECTURE:
+- Single source of truth: DepthStateManager
+- Broadcast-based signal flow: state → components
+- Synchronizers prevent circular loops
+- Pixel-perfect synchronization across all viewports
 """
 
 from PyQt6.QtWidgets import (
@@ -8,12 +14,21 @@ from PyQt6.QtWidgets import (
     QSplitter, QTabWidget
 )
 from PyQt6.QtCore import Qt
+
 from src.core.graphic_models import HoleDataProvider
 from src.ui.graphic_window.state import DepthStateManager, DepthCoordinateSystem
 from src.ui.graphic_window.components import (
     PreviewWindow, StratigraphicColumn, LASCurvesDisplay, 
     LithologyDataTable, InformationPanel
 )
+from src.ui.graphic_window.synchronizers import (
+    DepthSynchronizer, ScrollSynchronizer, SelectionSynchronizer
+)
+
+# Feature flags for System A architecture
+ENABLE_DEPTH_STATE_MANAGER = True
+ENABLE_SYNCHRONIZERS = True
+DISABLE_SYSTEM_B = True
 
 
 class UnifiedGraphicWindow(QMainWindow):
@@ -33,6 +48,23 @@ class UnifiedGraphicWindow(QMainWindow):
     """
     
     def __init__(self, hole_data_provider: HoleDataProvider):
+        """
+        Initialize unified geological analysis viewport.
+        
+        Args:
+            hole_data_provider: HoleDataProvider instance with geological data
+        
+        Architecture (System A):
+        - DepthStateManager: Single source of truth for all depth/viewport/cursor state
+        - Synchronizers: Prevent circular signal loops, handle advanced interactions
+            - DepthSynchronizer: Cursor snapping to data points
+            - ScrollSynchronizer: Smooth scrolling with acceleration
+            - SelectionSynchronizer: Multi-select validation and modes
+        - Components: Subscribe to state manager signals, emit on user interaction
+        - Flow: User interaction → Component signal → Synchronizer → State update → Broadcast
+        
+        Result: Pixel-perfect synchronization across all viewports
+        """
         super().__init__()
         
         self.setWindowTitle("Unified Graphic Window - Earthworm")
@@ -43,8 +75,27 @@ class UnifiedGraphicWindow(QMainWindow):
         # Get hole depth range for state managers
         min_depth, max_depth = hole_data_provider.get_depth_range()
         
-        # Initialize SHARED state managers (SINGLE INSTANCES)
-        self.depth_state = DepthStateManager(min_depth, max_depth, data_provider=hole_data_provider)
+        # ============================================================
+        # PHASE 5: System A Architecture Initialization
+        # ============================================================
+        
+        # Initialize SHARED state manager (SINGLE INSTANCE - single source of truth)
+        if ENABLE_DEPTH_STATE_MANAGER:
+            self.depth_state = DepthStateManager(
+                min_depth, max_depth, 
+                data_provider=hole_data_provider
+            )
+            # Note: DepthStateManager internally initializes all synchronizers:
+            #   - scroll_sync: ScrollSynchronizer
+            #   - selection_sync: SelectionSynchronizer
+            #   - depth_sync: DepthSynchronizer
+            
+            # For explicit reference and verification (Phase 5 audit):
+            self.scroll_synchronizer = self.depth_state.scroll_sync
+            self.selection_synchronizer = self.depth_state.selection_sync
+            self.depth_synchronizer = self.depth_state.depth_sync
+        
+        # Initialize coordinate system for pixel-space conversion
         self.depth_coords = DepthCoordinateSystem(
             canvas_height=600,  # Will be updated in resize
             canvas_width=1200

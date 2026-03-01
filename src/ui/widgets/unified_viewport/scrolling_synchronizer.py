@@ -1,11 +1,13 @@
 """
-ScrollingSynchronizer - Synchronized scrolling engine for unified viewport.
+DEPRECATED MODULE: ScrollingSynchronizer
 
-Provides pixel-perfect synchronized scrolling between curves and stratigraphic column
-with performance targets of 60+ FPS for 10,000 data points.
+⚠️ WARNING: This module is part of System B (deprecated) and is maintained for backward compatibility only.
+
+System A implementations should be used instead. See src/ui/graphic_window/ for System A components.
 """
 
 import logging
+import warnings
 import time
 from typing import Optional, Tuple, Dict, Any, List
 from dataclasses import dataclass
@@ -92,7 +94,9 @@ class ScrollState:
 
 class ScrollingSynchronizer(QObject):
     """
-    Synchronized scrolling engine for unified geological viewport.
+    DEPRECATED: Synchronized scrolling engine for unified geological viewport.
+    
+    ⚠️ This class is deprecated. System A implementations provide better integration.
     
     Key features:
     1. Pixel-perfect synchronization between curves and strat column
@@ -108,7 +112,16 @@ class ScrollingSynchronizer(QObject):
     performanceAlert = pyqtSignal(str, float)  # alert_type, value
     
     def __init__(self, config: Optional[ScrollPerformanceConfig] = None):
-        """Initialize scrolling synchronizer."""
+        """
+        Initialize scrolling synchronizer.
+        
+        ⚠️ DEPRECATED: Use System A implementations instead.
+        """
+        warnings.warn(
+            "This component is deprecated. Use System A implementations instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         super().__init__()
         
         # Configuration

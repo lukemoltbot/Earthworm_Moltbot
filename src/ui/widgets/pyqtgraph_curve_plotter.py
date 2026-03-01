@@ -7,7 +7,7 @@ Supports dual-axis plotting for LAS comparative analysis.
 import numpy as np
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QDoubleSpinBox, QPushButton, QToolTip
 from PyQt6.QtGui import QColor, QPen, QFont
-from PyQt6.QtCore import Qt, pyqtSignal, QPointF, QTimer
+from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot, QPointF, QTimer
 import pyqtgraph as pg
 # Disable auto-legend globally in pyqtgraph
 pg.setConfigOptions(antialias=True, foreground='k', background='w')
@@ -39,8 +39,18 @@ class PyQtGraphCurvePlotter(QWidget):
     # Signal emitted when a boundary line is dragged (for updating table data)
     boundaryDragged = pyqtSignal(int, str, float)  # row_index, boundary_type, new_depth
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, depth_state_manager: 'DepthStateManager' = None):
         super().__init__(parent)
+        
+        # Store reference to centralized depth state manager
+        self.depth_state_manager = depth_state_manager
+        
+        # Connect DepthStateManager signals if provided
+        if self.depth_state_manager:
+            from src.ui.graphic_window.state.depth_range import DepthRange
+            self.depth_state_manager.viewportRangeChanged.connect(self._on_state_viewport_changed)
+            self.depth_state_manager.cursorDepthChanged.connect(self._on_state_cursor_changed)
+            self.depth_state_manager.zoomLevelChanged.connect(self._on_state_zoom_changed)
         
         # Configuration
         self.data = None
@@ -1741,6 +1751,118 @@ class PyQtGraphCurvePlotter(QWidget):
         view_range = self.plot_widget.viewRange()
         return view_range[1][0], view_range[1][1]  # y_min, y_max
     
+    # =========================================================================
+    # DepthStateManager Signal Handlers (Phase 3 Synchronization)
+    # =========================================================================
+    
+    @pyqtSlot(object)  # DepthRange parameter
+    def _on_state_viewport_changed(self, depth_range):
+        """
+        Handle viewport range change from DepthStateManager.
+        
+        Updates the Y-axis range in PyQtGraph to match state manager.
+        Well logs use inverted Y-axis (max at top, min at bottom).
+        
+        Args:
+            depth_range: DepthRange object with from_depth and to_depth
+        """
+        min_depth = depth_range.from_depth
+        max_depth = depth_range.to_depth
+        
+        # Update Y-axis range in PyQtGraph plot
+        # Well logs are inverted: set max depth at top, min depth at bottom
+        if hasattr(self, 'plot_widget') and self.plot_widget:
+            # Disable auto-range to allow manual control
+            self.plot_widget.enableAutoRange(axis='y', enable=False)
+            
+            # Set Y range (inverted for well logs)
+            self.plot_widget.setYRange(max_depth, min_depth, padding=0)
+            
+            # Trigger redraw
+            self.plot_widget.replot()
+
+    @pyqtSlot(float)
+    def _on_state_cursor_changed(self, depth):
+        """
+        Handle cursor depth change from DepthStateManager.
+        
+        Draws a horizontal line at the cursor depth for visual feedback.
+        
+        Args:
+            depth: Cursor depth value
+        """
+        self.cursor_depth = depth
+        
+        # Update cursor line visualization
+        self._update_cursor_line(depth)
+
+    @pyqtSlot(float)
+    def _on_state_zoom_changed(self, zoom_level):
+        """
+        Handle zoom level change from DepthStateManager.
+        
+        Adjusts the visible depth range based on zoom factor.
+        
+        Args:
+            zoom_level: Zoom factor (1.0 = 100%, 2.0 = 200% zoom)
+        """
+        self.zoom_factor = zoom_level
+        
+        # Calculate new viewport range based on zoom
+        # Get current center depth
+        current_range = self.get_current_depth_range()
+        if current_range:
+            center_depth = (current_range[0] + current_range[1]) / 2.0
+            half_width = (current_range[1] - current_range[0]) / (2.0 * zoom_level)
+            
+            # Create new depth range and update
+            from src.ui.graphic_window.state.depth_range import DepthRange
+            new_range = DepthRange(center_depth - half_width, center_depth + half_width)
+            self._on_state_viewport_changed(new_range)
+    
+    def _update_cursor_line(self, depth):
+        """
+        Update the cursor depth line visualization.
+        
+        Args:
+            depth: Depth value where cursor line should be drawn
+        """
+        if not hasattr(self, 'plot_widget') or not self.plot_widget:
+            return
+        
+        # Remove old cursor line if it exists
+        if hasattr(self, '_cursor_line') and self._cursor_line:
+            self.plot_widget.removeItem(self._cursor_line)
+            self._cursor_line = None
+        
+        # Draw new cursor line
+        from pyqtgraph import InfiniteLine
+        self._cursor_line = InfiniteLine(pos=depth, angle=0, pen=None)
+        self.plot_widget.addItem(self._cursor_line)
+    
+    def get_current_depth_range(self):
+        """
+        Get the current visible depth range from the plot.
+        
+        Returns:
+            Tuple of (min_depth, max_depth) or None if plot not available
+        """
+        if not hasattr(self, 'plot_widget') or not self.plot_widget:
+            return None
+        
+        # Get Y-axis range (inverted for well logs)
+        view_range = self.plot_widget.viewRange()
+        if not view_range or len(view_range) < 2:
+            return None
+            
+        y_min, y_max = view_range[1]
+        
+        # Convert back to depth (min_depth is smaller, max_depth is larger)
+        min_depth = min(y_min, y_max)
+        max_depth = max(y_min, y_max)
+        
+        return (min_depth, max_depth)
+    
     def _get_downsampled_data(self, values, depths, view_range=None, max_points=1000):
         """
         Downsample data for performance optimization.
@@ -1880,6 +2002,13 @@ class PyQtGraphCurvePlotter(QWidget):
         
         # Apply the new Y range (this will emit viewRangeChanged signal)
         self.setYRange(new_y_min, new_y_max)
+        
+        # Update state manager so other widgets sync
+        if self.depth_state_manager:
+            self.depth_state_manager.set_viewport_range(new_y_min, new_y_max)
+        
+        # Also emit local signal for backward compatibility
+        self.viewRangeChanged.emit(new_y_min, new_y_max)
         
         # Accept the event
         event.accept()

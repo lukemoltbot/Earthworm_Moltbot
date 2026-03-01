@@ -1,13 +1,13 @@
 """
-Component Adapter - Connects scrolling synchronizer to actual components.
+DEPRECATED MODULE: ComponentAdapter
 
-Provides integration between ScrollingSynchronizer and:
-1. PyQtGraphCurvePlotter
-2. EnhancedStratigraphicColumn
-3. PixelDepthMapper
+⚠️ WARNING: This module is part of System B (deprecated) and is maintained for backward compatibility only.
+
+System A implementations should be used instead. See src/ui/graphic_window/ for System A components.
 """
 
 import logging
+import warnings
 from typing import Optional, Tuple, Dict, Any
 from dataclasses import dataclass
 
@@ -34,7 +34,9 @@ class ComponentConfig:
 
 class ComponentAdapter(QObject):
     """
-    Adapter for connecting scrolling synchronizer to actual components.
+    DEPRECATED: Adapter for connecting scrolling synchronizer to actual components.
+    
+    ⚠️ This class is deprecated. System A implementations provide better integration.
     
     Handles:
     1. Signal/slot connections between components
@@ -49,7 +51,16 @@ class ComponentAdapter(QObject):
     performanceMetrics = pyqtSignal(dict)  # metrics dict
     
     def __init__(self, config: Optional[ComponentConfig] = None):
-        """Initialize component adapter."""
+        """
+        Initialize component adapter.
+        
+        ⚠️ DEPRECATED: Use System A implementations instead.
+        """
+        warnings.warn(
+            "This component is deprecated. Use System A implementations instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         super().__init__()
         
         self.config = config or ComponentConfig()

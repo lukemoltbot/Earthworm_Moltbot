@@ -1,11 +1,13 @@
 """
-Component adapters for unified viewport integration.
+DEPRECATED MODULE: ComponentAdapters
 
-Provides standardized interfaces for curve plotter and stratigraphic column
-components to work with the scrolling synchronizer.
+⚠️ WARNING: This module is part of System B (deprecated) and is maintained for backward compatibility only.
+
+System A implementations should be used instead. See src/ui/graphic_window/ for System A components.
 """
 
 import logging
+import warnings
 from typing import Optional, Tuple, Dict, Any
 from dataclasses import dataclass
 
@@ -28,7 +30,9 @@ class ComponentViewState:
 
 class CurvePlotterAdapter(QObject):
     """
-    Adapter for curve plotter component.
+    DEPRECATED: Adapter for curve plotter component.
+    
+    ⚠️ This class is deprecated. System A implementations provide better integration.
     
     Provides standardized interface for scrolling synchronizer.
     """
@@ -38,7 +42,16 @@ class CurvePlotterAdapter(QObject):
     depthPositionChanged = pyqtSignal(float)  # current_depth
     
     def __init__(self, curve_plotter):
-        """Initialize adapter with curve plotter instance."""
+        """
+        Initialize adapter with curve plotter instance.
+        
+        ⚠️ DEPRECATED: Use System A implementations instead.
+        """
+        warnings.warn(
+            "This component is deprecated. Use System A implementations instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         super().__init__()
         self._curve_plotter = curve_plotter
         self._state = ComponentViewState()
@@ -149,7 +162,9 @@ class CurvePlotterAdapter(QObject):
 
 class StratigraphicColumnAdapter(QObject):
     """
-    Adapter for stratigraphic column component.
+    DEPRECATED: Adapter for stratigraphic column component.
+    
+    ⚠️ This class is deprecated. System A implementations provide better integration.
     
     Provides standardized interface for scrolling synchronizer.
     """
@@ -159,7 +174,16 @@ class StratigraphicColumnAdapter(QObject):
     depthPositionChanged = pyqtSignal(float)  # current_depth
     
     def __init__(self, strat_column):
-        """Initialize adapter with stratigraphic column instance."""
+        """
+        Initialize adapter with stratigraphic column instance.
+        
+        ⚠️ DEPRECATED: Use System A implementations instead.
+        """
+        warnings.warn(
+            "This component is deprecated. Use System A implementations instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         super().__init__()
         self._strat_column = strat_column
         self._state = ComponentViewState()
@@ -258,7 +282,9 @@ class StratigraphicColumnAdapter(QObject):
 
 class UnifiedComponentManager(QObject):
     """
-    Manager for unified component integration.
+    DEPRECATED: Manager for unified component integration.
+    
+    ⚠️ This class is deprecated. System A implementations provide better integration.
     
     Coordinates between scrolling synchronizer and component adapters.
     """
@@ -268,7 +294,16 @@ class UnifiedComponentManager(QObject):
     synchronizationError = pyqtSignal(str)  # error_message
     
     def __init__(self):
-        """Initialize component manager."""
+        """
+        Initialize component manager.
+        
+        ⚠️ DEPRECATED: Use System A implementations instead.
+        """
+        warnings.warn(
+            "This component is deprecated. Use System A implementations instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         super().__init__()
         
         self._curve_adapter = None

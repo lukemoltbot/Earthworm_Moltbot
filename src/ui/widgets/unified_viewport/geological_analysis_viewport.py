@@ -1,11 +1,13 @@
 """
-GeologicalAnalysisViewport - Main unified viewport widget.
+DEPRECATED MODULE: GeologicalAnalysisViewport
 
-Provides pixel-perfect synchronized display of LAS curves and
-stratigraphic column in a single viewport.
+⚠️ WARNING: This module is part of System B (deprecated) and is maintained for backward compatibility only.
+
+System A implementations should be used instead. See src/ui/graphic_window/ for System A components.
 """
 
 import logging
+import warnings
 from typing import Optional, Dict, Any, List, Tuple
 from dataclasses import dataclass
 
@@ -97,7 +99,9 @@ class ViewportConfig:
 
 class GeologicalAnalysisViewport(QWidget):
     """
-    Unified viewport for geological analysis.
+    DEPRECATED: Unified viewport for geological analysis.
+    
+    ⚠️ This class is deprecated. System A implementations provide better integration.
     
     Combines LAS curve display and stratigraphic column display
     with pixel-perfect synchronization.
@@ -125,7 +129,16 @@ class GeologicalAnalysisViewport(QWidget):
     curveVisibilityChanged = pyqtSignal(str, bool)  # Curve visibility changed (curve_name, visible)
     
     def __init__(self, parent: Optional[QWidget] = None):
-        """Initialize the unified viewport."""
+        """
+        Initialize the unified viewport.
+        
+        ⚠️ DEPRECATED: Use System A implementations instead.
+        """
+        warnings.warn(
+            "This component is deprecated. Use System A implementations instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         super().__init__(parent)
         
         # Configuration

@@ -1,0 +1,62 @@
+src/ui//main_window.py:from .widgets.unified_viewport.geological_analysis_viewport import GeologicalAnalysisViewport # Import unified geological viewport
+src/ui//main_window.py:from .widgets.unified_viewport.unified_depth_scale_manager import UnifiedDepthScaleManager, DepthScaleConfig, DepthScaleMode
+src/ui//main_window.py:from .widgets.unified_viewport.pixel_depth_mapper import PixelDepthMapper, PixelMappingConfig
+src/ui//main_window.py:        self.unified_depth_manager = UnifiedDepthScaleManager(depth_config)
+src/ui//main_window.py:        self.unified_pixel_mapper = PixelDepthMapper(pixel_config)
+src/ui//main_window.py:        self.unifiedViewport = GeologicalAnalysisViewport()
+src/ui//widgets/enhanced_stratigraphic_column.py:        # Skip scaling when column is part of unified viewport (scaling managed by UnifiedDepthScaleManager)
+src/ui//widgets/enhanced_stratigraphic_column.py:        # Skip scaling when column is part of unified viewport (scaling managed by UnifiedDepthScaleManager)
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:GeologicalAnalysisViewport - Main unified viewport widget.
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:from .pixel_depth_mapper import PixelDepthMapper, PixelMappingConfig
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:from .unified_depth_scale_manager import UnifiedDepthScaleManager, DepthScaleConfig
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:    """Configuration for GeologicalAnalysisViewport."""
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:class GeologicalAnalysisViewport(QWidget):
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:        │ GeologicalAnalysisViewport                  │
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:        logger.info("GeologicalAnalysisViewport initialized")
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:            GeologicalAnalysisViewport {{
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:            depth_manager: UnifiedDepthScaleManager instance
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:            pixel_mapper: PixelDepthMapper instance
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:        print(f"DEBUG (GeologicalAnalysisViewport.set_components):")
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:        print(f"DEBUG (GeologicalAnalysisViewport.set_components): Components added successfully")
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:        print(f"DEBUG (GeologicalAnalysisViewport.set_depth_range): Setting range {min_depth:.2f}-{max_depth:.2f}")
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:            print(f"DEBUG (GeologicalAnalysisViewport.set_depth_range): Depth manager updated")
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:            print(f"DEBUG (GeologicalAnalysisViewport.set_depth_range): Curve plotter range set")
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:            print(f"DEBUG (GeologicalAnalysisViewport.set_depth_range): Strat column range set")
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:        print(f"DEBUG (GeologicalAnalysisViewport.showEvent):")
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:            print(f"DEBUG (GeologicalAnalysisViewport.resizeEvent):")
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:    """Test function for GeologicalAnalysisViewport."""
+src/ui//widgets/unified_viewport/geological_analysis_viewport.py:    viewport = GeologicalAnalysisViewport()
+src/ui//widgets/unified_viewport/component_adapter.py:3. PixelDepthMapper
+src/ui//widgets/unified_viewport/component_adapter.py:            pixel_mapper: PixelDepthMapper instance
+src/ui//widgets/unified_viewport/__init__.py:- GeologicalAnalysisViewport: Main container widget
+src/ui//widgets/unified_viewport/__init__.py:- UnifiedDepthScaleManager: Synchronization engine
+src/ui//widgets/unified_viewport/__init__.py:- PixelDepthMapper: Pixel-accurate depth mapping
+src/ui//widgets/unified_viewport/__init__.py:from .geological_analysis_viewport import GeologicalAnalysisViewport
+src/ui//widgets/unified_viewport/__init__.py:from .pixel_depth_mapper import PixelDepthMapper
+src/ui//widgets/unified_viewport/__init__.py:from .unified_depth_scale_manager import UnifiedDepthScaleManager, DepthScaleConfig, DepthScaleMode
+src/ui//widgets/unified_viewport/__init__.py:    'GeologicalAnalysisViewport',
+src/ui//widgets/unified_viewport/__init__.py:    'UnifiedDepthScaleManager',
+src/ui//widgets/unified_viewport/__init__.py:    'PixelDepthMapper',
+src/ui//widgets/unified_viewport/unified_depth_scale_manager.py:UnifiedDepthScaleManager - Synchronization engine for unified viewport.
+src/ui//widgets/unified_viewport/unified_depth_scale_manager.py:class UnifiedDepthScaleManager(QObject):
+src/ui//widgets/unified_viewport/unified_depth_scale_manager.py:        logger.debug(f"UnifiedDepthScaleManager initialized with mode: {self.config.mode}")
+src/ui//widgets/unified_viewport/pixel_depth_mapper.py:PixelDepthMapper - Pixel-accurate depth to pixel mapping.
+src/ui//widgets/unified_viewport/pixel_depth_mapper.py:class PixelDepthMapper:
+src/ui//widgets/unified_viewport/pixel_depth_mapper.py:        logger.debug(f"PixelDepthMapper initialized: {self.config}")
+src/ui//widgets/unified_viewport/pixel_depth_mapper.py:    """Test function for PixelDepthMapper."""
+src/ui//widgets/unified_viewport/pixel_depth_mapper.py:    print("Testing PixelDepthMapper...")
+src/ui//widgets/unified_viewport/pixel_depth_mapper.py:    mapper = PixelDepthMapper(config)
+src//ui/main_window.py:from .widgets.unified_viewport.geological_analysis_viewport import GeologicalAnalysisViewport # Import unified geological viewport
+src//ui/main_window.py:from .widgets.unified_viewport.unified_depth_scale_manager import UnifiedDepthScaleManager, DepthScaleConfig, DepthScaleMode
+src//ui/main_window.py:from .widgets.unified_viewport.pixel_depth_mapper import PixelDepthMapper, PixelMappingConfig
+src//ui/widgets/enhanced_stratigraphic_column.py:    from ..graphic_window.state.depth_state_manager import DepthStateManager
+src//ui/graphic_window/synchronizers/scroll_synchronizer.py:from src.ui.graphic_window.state.depth_range import DepthRange
+src//ui/graphic_window/synchronizers/selection_synchronizer.py:from src.ui.graphic_window.state.depth_range import DepthRange
+src//ui/graphic_window/components/stratigraphic_column.py:from src.ui.graphic_window.state import DepthStateManager, DepthRange, DepthCoordinateSystem
+src//ui/graphic_window/components/las_curves_display.py:from src.ui.graphic_window.state import DepthStateManager, DepthRange, DepthCoordinateSystem
+src//ui/graphic_window/components/lithology_data_table.py:from src.ui.graphic_window.state import DepthStateManager, DepthRange
+src//ui/graphic_window/components/information_panel.py:from src.ui.graphic_window.state import DepthStateManager, DepthRange
+src//ui/graphic_window/components/preview_window.py:from src.ui.graphic_window.state import DepthStateManager, DepthRange, DepthCoordinateSystem
+src//ui/graphic_window/unified_graphic_window.py:from src.ui.graphic_window.state import DepthStateManager, DepthCoordinateSystem
+src//core/depth/__init__.py:from src.ui.graphic_window.state.depth_state_manager import DepthStateManager, DepthRange
+src//core/depth/__init__.py:from src.ui.graphic_window.state.depth_coordinate_system import DepthCoordinateSystem

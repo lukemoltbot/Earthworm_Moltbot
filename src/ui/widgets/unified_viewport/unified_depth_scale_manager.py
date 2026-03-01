@@ -1,11 +1,28 @@
 """
-UnifiedDepthScaleManager - Synchronization engine for unified viewport.
+DEPRECATED MODULE: UnifiedDepthScaleManager
 
+⚠️ WARNING: This module is deprecated and maintained for backward compatibility only.
+
+USE INSTEAD: src/ui/graphic_window/state/depth_state_manager.py
+
+System A (DepthStateManager) is the preferred implementation for all new code.
+This System B implementation will be removed in a future release.
+
+Migration Guide:
+- Replace UnifiedDepthScaleManager with DepthStateManager
+- Replace PixelDepthMapper with DepthCoordinateSystem
+- Inject DepthStateManager into widgets via __init__ parameter
+- Wire signals: state_manager.viewportRangeChanged → component.set_viewport_range()
+
+---
+
+Original docstring for reference:
 Manages pixel-perfect depth synchronization between curves and stratigraphic column
 with signal emission for depth and zoom changes.
 """
 
 import logging
+import warnings
 import math
 from typing import Optional, Tuple, Dict, Any, List
 from dataclasses import dataclass
@@ -53,7 +70,9 @@ class DepthScaleConfig:
 
 class UnifiedDepthScaleManager(QObject):
     """
-    Manages depth scale synchronization between unified viewport components.
+    DEPRECATED: Centralized depth scale management.
+    
+    ⚠️ This class is deprecated. Use DepthStateManager instead.
     
     Provides pixel-perfect depth mapping and emits signals for depth and zoom changes.
     """
@@ -66,11 +85,19 @@ class UnifiedDepthScaleManager(QObject):
     
     def __init__(self, config: Optional[DepthScaleConfig] = None):
         """
-        Initialize the depth scale manager.
+        Initialize depth scale manager.
+        
+        ⚠️ DEPRECATED: Use DepthStateManager instead.
         
         Args:
             config: Configuration for depth scale management
         """
+        warnings.warn(
+            "UnifiedDepthScaleManager is deprecated. Use DepthStateManager instead. "
+            "See src/ui/graphic_window/state/depth_state_manager.py",
+            DeprecationWarning,
+            stacklevel=2
+        )
         super().__init__()
         
         self.config = config or DepthScaleConfig()
