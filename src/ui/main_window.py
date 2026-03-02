@@ -296,6 +296,11 @@ class HoleEditorWindow(QWidget):
 
         self.setup_ui()
         self.setup_ui_enhancements()
+        
+        # CRITICAL FIX: Ensure unified_viewport is visible
+        if hasattr(self, 'unified_viewport'):
+            self.unified_viewport.show()
+            print(f"✓ CRITICAL FIX: unified_viewport.show() called, now visible={self.unified_viewport.isVisible()}")
 
         if file_path:
             pass
@@ -304,11 +309,18 @@ class HoleEditorWindow(QWidget):
 
     def setup_ui_enhancements(self):
         """Setup UI enhancements like tooltips, styles, and additional features."""
-        # Diagnostic: Check if unified_viewport is properly displayed
+        # CRITICAL FIX: Ensure all widgets are shown
         if hasattr(self, 'unified_viewport'):
-            print(f"✓ unified_viewport visible: {self.unified_viewport.isVisible()}, size: {self.unified_viewport.width()}x{self.unified_viewport.height()}")
+            self.unified_viewport.show()
+            print(f"✓ AFTER show(): unified_viewport visible={self.unified_viewport.isVisible()}, size={self.unified_viewport.width()}x{self.unified_viewport.height()}")
             if hasattr(self.unified_viewport, 'main_splitter'):
                 print(f"✓ main_splitter widget count: {self.unified_viewport.main_splitter.count()}")
+        
+        if hasattr(self, 'curvePlotter'):
+            self.curvePlotter.show()
+        
+        if hasattr(self, 'enhancedStratColumnView'):
+            self.enhancedStratColumnView.show()
         
         # Connect curve visibility changes to unified viewport (now that it exists)
         if hasattr(self, 'unified_viewport') and hasattr(self.curve_visibility_manager, 'visibility_changed'):
@@ -5231,6 +5243,8 @@ class MainWindow(QMainWindow):
         print(f"DEBUG (_finalize_analysis_display): curve_configs count = {len(curve_configs)}")
         print(f"DEBUG (_finalize_analysis_display): curvePlotter id={id(self.curvePlotter)}")
         print(f"DEBUG (_finalize_analysis_display): ABOUT to call set_curve_configs then set_data")
+        # CRITICAL FIX: Ensure curve plotter is visible
+        self.curvePlotter.show()
         self.curvePlotter.set_curve_configs(curve_configs)
         print(f"DEBUG (_finalize_analysis_display): set_curve_configs called, NOW calling set_data")
         self.curvePlotter.set_data(classified_dataframe)
@@ -5243,6 +5257,8 @@ class MainWindow(QMainWindow):
             self.unified_viewport.set_depth_range(min_overall_depth, max_overall_depth)
         if hasattr(self, 'enhancedStratColumnView'):
             print(f"⚠️ DRAWING ENHANCED COLUMN (enhancedStratColumnView): overview_mode={self.enhancedStratColumnView.overview_mode}")
+            # CRITICAL FIX: Ensure widget is visible
+            self.enhancedStratColumnView.show()
             # Set classified data for curve values in tooltips
             self.enhancedStratColumnView.set_classified_data(classified_dataframe)
             # CRITICAL: Ensure overview mode is False for detailed view
