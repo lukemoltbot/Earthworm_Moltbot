@@ -126,24 +126,16 @@ class UnifiedGraphicWindow(QWidget):
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter.setStyleSheet("QSplitter::handle { background: #CCCCCC; width: 4px; }")
         
-        # DEBUG: Verify widgets are not None and check parents
-        print(f"DEBUG (UnifiedGraphicWindow): strat_column type={type(self.strat_column).__name__}, is None={self.strat_column is None}")
-        print(f"DEBUG (UnifiedGraphicWindow): strat_column parent={type(self.strat_column.parent()).__name__ if self.strat_column.parent() else 'None'}")
-        print(f"DEBUG (UnifiedGraphicWindow): curve_plotter type={type(self.curve_plotter).__name__}, is None={self.curve_plotter is None}")
-        print(f"DEBUG (UnifiedGraphicWindow): curve_plotter parent={type(self.curve_plotter.parent()).__name__ if self.curve_plotter.parent() else 'None'}")
-        
         # ============ LEFT: Enhanced Stratigraphic Column (System A) ============
         # This is the passed System A widget, already wired to depth_state_manager
         self.strat_column.setMinimumWidth(80)
         self.strat_column.setMaximumWidth(300)
         self.main_splitter.addWidget(self.strat_column)
-        print(f"DEBUG (UnifiedGraphicWindow): Added strat_column to splitter")
         
         # ============ RIGHT: PyQtGraph Curve Plotter (System A) ============
         # This is the passed System A widget, already wired to depth_state_manager
         self.curve_plotter.setMinimumWidth(200)
         self.main_splitter.addWidget(self.curve_plotter)
-        print(f"DEBUG (UnifiedGraphicWindow): Added curve_plotter to splitter")
         
         # Set initial splitter sizes (approximate: 25% strat column, 75% curves)
         self.main_splitter.setSizes([250, 750])
@@ -153,7 +145,9 @@ class UnifiedGraphicWindow(QWidget):
         self.main_splitter.setCollapsible(1, False)
         
         layout.addWidget(self.main_splitter)
-        print(f"DEBUG (UnifiedGraphicWindow): Component area created with splitter, count={self.main_splitter.count()}")
+        
+        # DIAGNOSTIC: Print only when visualization is complete
+        print(f"✓ UnifiedGraphicWindow: Created with {self.main_splitter.count()} widgets in splitter (strat_col + curves)")
         return container
     
     def set_depth_range(self, min_depth: float, max_depth: float):

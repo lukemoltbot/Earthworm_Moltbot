@@ -304,9 +304,11 @@ class HoleEditorWindow(QWidget):
 
     def setup_ui_enhancements(self):
         """Setup UI enhancements like tooltips, styles, and additional features."""
-        # This method is called after setup_ui() to add polish and enhancements
-        # For now, just log that it was called
-        print("DEBUG (HoleEditorWindow): UI enhancements setup (placeholder)")
+        # Diagnostic: Check if unified_viewport is properly displayed
+        if hasattr(self, 'unified_viewport'):
+            print(f"✓ unified_viewport visible: {self.unified_viewport.isVisible()}, size: {self.unified_viewport.width()}x{self.unified_viewport.height()}")
+            if hasattr(self.unified_viewport, 'main_splitter'):
+                print(f"✓ main_splitter widget count: {self.unified_viewport.main_splitter.count()}")
         
         # Connect curve visibility changes to unified viewport (now that it exists)
         if hasattr(self, 'unified_viewport') and hasattr(self.curve_visibility_manager, 'visibility_changed'):
@@ -387,13 +389,11 @@ class HoleEditorWindow(QWidget):
         # ========================================
         from src.ui.graphic_window.unified_graphic_window import UnifiedGraphicWindow
         
-        print(f"DEBUG (HoleEditorWindow): Creating unified_viewport...")
         self.unified_viewport = UnifiedGraphicWindow(
             self.depth_state_manager,
             self.curvePlotter,
             self.enhancedStratColumnView
         )
-        print(f"DEBUG (HoleEditorWindow): unified_viewport created, type={type(self.unified_viewport).__name__}")
         
         # Create unified viewport container (replaces plot + enhanced column)
         unified_container = QWidget()
@@ -401,12 +401,9 @@ class HoleEditorWindow(QWidget):
         unified_layout.setContentsMargins(0, 0, 0, 0)
         unified_layout.setSpacing(5)
         
-        # REMOVED - System B deprecated
-        # unified_layout.addWidget(self.unifiedViewport)
-        
         # Add to layout
         unified_layout.addWidget(self.unified_viewport)
-        print(f"DEBUG (HoleEditorWindow): unified_viewport added to unified_layout")
+        print(f"✓ HoleEditorWindow: unified_viewport created and added to layout")
 
         # Create a splitter for the first 2 widgets (Unified Viewport | Table)
         # Overview will be a fixed-width sidebar (NO SPLITTER)
@@ -5092,6 +5089,14 @@ class MainWindow(QMainWindow):
     def _finalize_analysis_display(self, units_dataframe, classified_dataframe):
         """Finalize the analysis display after all processing is complete."""
         print(f"DEBUG (_finalize_analysis_display): called with units shape {units_dataframe.shape}, classified shape {classified_dataframe.shape}")
+        
+        # DIAGNOSTIC: Check unified_viewport state after analysis
+        if hasattr(self, 'unified_viewport'):
+            print(f"⚠️ DIAGNOSTIC: unified_viewport visible={self.unified_viewport.isVisible()}, size={self.unified_viewport.width()}x{self.unified_viewport.height()}")
+            if hasattr(self.unified_viewport, 'main_splitter'):
+                print(f"⚠️ DIAGNOSTIC: splitter has {self.unified_viewport.main_splitter.count()} widgets")
+                print(f"⚠️ DIAGNOSTIC: strat_column visible={self.unified_viewport.strat_column.isVisible()}, size={self.unified_viewport.strat_column.width()}x{self.unified_viewport.strat_column.height()}")
+                print(f"⚠️ DIAGNOSTIC: curve_plotter visible={self.unified_viewport.curve_plotter.isVisible()}, size={self.unified_viewport.curve_plotter.width()}x{self.unified_viewport.curve_plotter.height()}")
         # Settings UI widgets only exist in SettingsDialog, use attribute values directly
         # Debug viewport attributes
         viewport_attrs = [attr for attr in dir(self) if 'viewport' in attr.lower() or 'unified' in attr.lower()]
