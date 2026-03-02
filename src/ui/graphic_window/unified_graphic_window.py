@@ -84,8 +84,7 @@ class UnifiedGraphicWindow(QWidget):
             canvas_width=1200
         )
         
-        # DIAGNOSTIC: Set background color to verify widget renders
-        self.setStyleSheet("QWidget { background-color: #FFE0E0; }")  # Light red background
+        # Diagnostic backgrounds removed - widget tree verified correct
         
         # Create main UI (unified layout)
         self.setup_ui()
@@ -149,8 +148,14 @@ class UnifiedGraphicWindow(QWidget):
         
         layout.addWidget(self.main_splitter)
         
-        # DIAGNOSTIC: Print only when visualization is complete
-        print(f"✓ UnifiedGraphicWindow: Created with {self.main_splitter.count()} widgets in splitter (strat_col + curves)")
+        # CRITICAL DIAGNOSTIC: Check splitter internal state
+        print(f"✓ UnifiedGraphicWindow: Created with {self.main_splitter.count()} widgets in splitter")
+        print(f"⚠️ SPLITTER GEOMETRY: {self.main_splitter.geometry()}")
+        print(f"⚠️ SPLITTER SIZES: {self.main_splitter.sizes()}")
+        for i in range(self.main_splitter.count()):
+            widget = self.main_splitter.widget(i)
+            print(f"⚠️ SPLITTER WIDGET {i}: type={type(widget).__name__}, visible={widget.isVisible()}, geometry={widget.geometry()}, parent={type(widget.parent()).__name__}")
+        print(f"⚠️ CONTAINER GEOMETRY: {container.geometry()}")
         return container
     
     def set_depth_range(self, min_depth: float, max_depth: float):

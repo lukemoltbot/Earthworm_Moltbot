@@ -297,20 +297,8 @@ class HoleEditorWindow(QWidget):
         self.setup_ui()
         self.setup_ui_enhancements()
         
-        # CRITICAL FIX: Ensure entire widget hierarchy is visible and in foreground
-        self.show()  # Show the HoleEditorWindow itself
-        if hasattr(self, 'unified_viewport'):
-            # Show all parent containers in the hierarchy
-            if hasattr(self, 'main_content_widget'):
-                self.main_content_widget.show()
-            # Raise unified_viewport to foreground
-            self.unified_viewport.raise_()
-            self.unified_viewport.show()
-            # Force layout update to ensure widgets are positioned correctly
-            self.unified_viewport.adjustSize()
-            print(f"✓ CRITICAL FIX: Widget hierarchy shown, raised to foreground, unified_viewport visible={self.unified_viewport.isVisible()}")
-            print(f"⚠️ DEBUG: unified_viewport geometry: {self.unified_viewport.geometry()}")
-            print(f"⚠️ DEBUG: unified_viewport pos: ({self.unified_viewport.x()}, {self.unified_viewport.y()})")
+        # Show the HoleEditorWindow (layout handles child visibility automatically)
+        self.show()
 
         if file_path:
             pass
@@ -319,25 +307,6 @@ class HoleEditorWindow(QWidget):
 
     def setup_ui_enhancements(self):
         """Setup UI enhancements like tooltips, styles, and additional features."""
-        # Diagnostic: Check widget parent hierarchy
-        if hasattr(self, 'unified_viewport'):
-            # Trace the parent chain
-            widget = self.unified_viewport
-            parent_chain = []
-            while widget:
-                parent_chain.append(type(widget).__name__)
-                widget = widget.parent()
-            print(f"⚠️ PARENT CHAIN: {' <- '.join(parent_chain)}")
-            print(f"⚠️ unified_viewport parent: {type(self.unified_viewport.parent()).__name__ if self.unified_viewport.parent() else 'None'}")
-            
-            # Ensure parent is visible too
-            if self.unified_viewport.parent():
-                self.unified_viewport.parent().show()
-                
-            self.unified_viewport.show()
-            print(f"✓ AFTER show(): unified_viewport visible={self.unified_viewport.isVisible()}, size={self.unified_viewport.width()}x{self.unified_viewport.height()}")
-            if hasattr(self.unified_viewport, 'main_splitter'):
-                print(f"✓ main_splitter widget count: {self.unified_viewport.main_splitter.count()}")
         
         # Connect curve visibility changes to unified viewport (now that it exists)
         if hasattr(self, 'unified_viewport') and hasattr(self.curve_visibility_manager, 'visibility_changed'):
@@ -429,8 +398,7 @@ class HoleEditorWindow(QWidget):
         
         # Create unified viewport container (replaces plot + enhanced column)
         unified_container = QWidget()
-        # DIAGNOSTIC: Set visible background to verify container renders
-        unified_container.setStyleSheet("QWidget { background-color: #E0E0FF; }")  # Light blue
+        # Diagnostic background removed - widget tree verified correct
         unified_layout = QVBoxLayout(unified_container)
         unified_layout.setContentsMargins(0, 0, 0, 0)
         unified_layout.setSpacing(5)
@@ -438,7 +406,7 @@ class HoleEditorWindow(QWidget):
         # Add to layout
         unified_layout.addWidget(self.unified_viewport)
         print(f"✓ HoleEditorWindow: unified_viewport created and added to layout")
-        print(f"⚠️ DIAGNOSTIC: unified_container background set (light blue) to verify rendering")
+        # Diagnostic print removed
 
         # Create a splitter for the first 2 widgets (Unified Viewport | Table)
         # Overview will be a fixed-width sidebar (NO SPLITTER)
@@ -466,12 +434,11 @@ class HoleEditorWindow(QWidget):
 
         # Create container for main content and zoom controls
         main_content_widget = QWidget()
-        # DIAGNOSTIC: Set background to verify rendering hierarchy
-        main_content_widget.setStyleSheet("QWidget { background-color: #E0FFE0; }")  # Light green
+        # Diagnostic background removed - widget tree verified correct
         main_content_layout = QVBoxLayout(main_content_widget)
         main_content_layout.setContentsMargins(0, 0, 0, 0)
         main_content_layout.setSpacing(5)
-        print(f"⚠️ DIAGNOSTIC: main_content_widget background set (light green)")
+        # Diagnostic print removed
         
         # Create horizontal layout: [3-widget splitter] + [fixed-width overview sidebar]
         horizontal_layout = QHBoxLayout()
