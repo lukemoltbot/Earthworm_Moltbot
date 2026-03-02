@@ -387,11 +387,13 @@ class HoleEditorWindow(QWidget):
         # ========================================
         from src.ui.graphic_window.unified_graphic_window import UnifiedGraphicWindow
         
+        print(f"DEBUG (HoleEditorWindow): Creating unified_viewport...")
         self.unified_viewport = UnifiedGraphicWindow(
             self.depth_state_manager,
             self.curvePlotter,
             self.enhancedStratColumnView
         )
+        print(f"DEBUG (HoleEditorWindow): unified_viewport created, type={type(self.unified_viewport).__name__}")
         
         # Create unified viewport container (replaces plot + enhanced column)
         unified_container = QWidget()
@@ -404,6 +406,7 @@ class HoleEditorWindow(QWidget):
         
         # Add to layout
         unified_layout.addWidget(self.unified_viewport)
+        print(f"DEBUG (HoleEditorWindow): unified_viewport added to unified_layout")
 
         # Create a splitter for the first 2 widgets (Unified Viewport | Table)
         # Overview will be a fixed-width sidebar (NO SPLITTER)
