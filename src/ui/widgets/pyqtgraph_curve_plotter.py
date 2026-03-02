@@ -1230,7 +1230,8 @@ class PyQtGraphCurvePlotter(QWidget):
                         bottom_axis.setTickTextOffset(5)  # Move tick labels slightly away from edge
                     except AttributeError:
                         # PyQtGraph < 0.14.1? Use style dictionary instead
-                        bottom_axis.setStyle(tickTextOffset=[5, 2])
+                        # Note: tickTextOffset must be int, not list
+                        bottom_axis.setStyle(tickTextOffset=5)
                         print(f"DEBUG (update_axis_ranges): Used tickTextOffset style (PyQtGraph {pg.__version__})")
                 
                 # Verify ticks were actually set
@@ -1331,7 +1332,8 @@ class PyQtGraphCurvePlotter(QWidget):
                         self.gamma_axis.setTickTextOffset(5)  # Move tick labels slightly away from edge
                     except AttributeError:
                         # PyQtGraph < 0.14.1? Use style dictionary instead
-                        self.gamma_axis.setStyle(tickTextOffset=[5, 2])
+                        # Note: tickTextOffset must be int, not list
+                        self.gamma_axis.setStyle(tickTextOffset=5)
                         print(f"DEBUG (update_axis_ranges): Used tickTextOffset style (PyQtGraph {pg.__version__})")
                 
                 # Verify ticks were actually set
