@@ -297,10 +297,15 @@ class HoleEditorWindow(QWidget):
         self.setup_ui()
         self.setup_ui_enhancements()
         
-        # CRITICAL FIX: Ensure unified_viewport is visible
+        # CRITICAL FIX: Ensure entire widget hierarchy is visible
+        # Start from the root and work down to ensure all parents are shown
+        self.show()  # Show the HoleEditorWindow itself
         if hasattr(self, 'unified_viewport'):
+            # Show all parent containers in the hierarchy
+            if hasattr(self, 'main_content_widget'):
+                self.main_content_widget.show()
             self.unified_viewport.show()
-            print(f"✓ CRITICAL FIX: unified_viewport.show() called, now visible={self.unified_viewport.isVisible()}")
+            print(f"✓ CRITICAL FIX: Widget hierarchy shown, unified_viewport visible={self.unified_viewport.isVisible()}")
 
         if file_path:
             pass
@@ -309,18 +314,25 @@ class HoleEditorWindow(QWidget):
 
     def setup_ui_enhancements(self):
         """Setup UI enhancements like tooltips, styles, and additional features."""
-        # CRITICAL FIX: Ensure all widgets are shown
+        # Diagnostic: Check widget parent hierarchy
         if hasattr(self, 'unified_viewport'):
+            # Trace the parent chain
+            widget = self.unified_viewport
+            parent_chain = []
+            while widget:
+                parent_chain.append(type(widget).__name__)
+                widget = widget.parent()
+            print(f"⚠️ PARENT CHAIN: {' <- '.join(parent_chain)}")
+            print(f"⚠️ unified_viewport parent: {type(self.unified_viewport.parent()).__name__ if self.unified_viewport.parent() else 'None'}")
+            
+            # Ensure parent is visible too
+            if self.unified_viewport.parent():
+                self.unified_viewport.parent().show()
+                
             self.unified_viewport.show()
             print(f"✓ AFTER show(): unified_viewport visible={self.unified_viewport.isVisible()}, size={self.unified_viewport.width()}x{self.unified_viewport.height()}")
             if hasattr(self.unified_viewport, 'main_splitter'):
                 print(f"✓ main_splitter widget count: {self.unified_viewport.main_splitter.count()}")
-        
-        if hasattr(self, 'curvePlotter'):
-            self.curvePlotter.show()
-        
-        if hasattr(self, 'enhancedStratColumnView'):
-            self.enhancedStratColumnView.show()
         
         # Connect curve visibility changes to unified viewport (now that it exists)
         if hasattr(self, 'unified_viewport') and hasattr(self.curve_visibility_manager, 'visibility_changed'):
