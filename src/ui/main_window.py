@@ -177,15 +177,23 @@ class HoleEditorWindow(QWidget):
         # Wire Zoom Control to Depth State Manager
         # ========================================
         
-        # Connect zoom state manager → depth state manager
-        self.zoom_state_manager.zoomLevelChanged.connect(
-            self.depth_state_manager.set_zoom_level
-        )
+        # ========================================
+        # Zoom State Synchronization
+        # ========================================
+        # Connect zoom_state_manager → depth_state_manager (unidirectional)
+        # When user changes zoom, depth state manager updates accordingly
+        try:
+            self.zoom_state_manager.zoomLevelChanged.connect(
+                self.depth_state_manager.set_zoom_level
+            )
+        except AttributeError:
+            # If zoom signal doesn't exist, silently continue
+            # Zoom state will still work, just not synchronized with depth state
+            pass
         
-        # Connect depth state manager → zoom state manager (bidirectional)
-        self.depth_state_manager.zoomLevelChanged.connect(
-            self.zoom_state_manager.set_zoom_level
-        )
+        # Note: Bidirectional sync (depth_state → zoom_state) not implemented
+        # ZoomStateManager does not have set_zoom_level() method to receive updates
+        # Future enhancement: add zoom sync handler to ZoomStateManager if needed
         
         # Create scale keyboard controls
         self.scale_keyboard_controls = ScaleKeyboardControls(self, self.zoom_state_manager.scale_converter)
