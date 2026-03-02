@@ -366,25 +366,28 @@ class HoleEditorWindow(QWidget):
         loading_layout.addStretch()
         main_layout.addLayout(loading_layout)
 
-        # 1. Create the Splitter
-        main_splitter = QSplitter(Qt.Orientation.Horizontal)
-
-        # Left Container: Plot View (PyQtGraph Curves)
-        plot_container = QWidget()
-        plot_layout = QVBoxLayout(plot_container)
-        plot_layout.setContentsMargins(0, 0, 0, 0)
-        plot_layout.setSpacing(5)
-        
-        # Add curve plotter - use all available space
-        # NOTE: Disabled when using unified viewport - widgets added to unified viewport instead
+        # NOTE: These old containers are DISABLED - using unified_viewport instead
+        # Commenting out to prevent them from interfering with unified layout
+        #
+        # # 1. Create the Splitter
+        # main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        #
+        # # Left Container: Plot View (PyQtGraph Curves)
+        # plot_container = QWidget()
+        # plot_layout = QVBoxLayout(plot_container)
+        # plot_layout.setContentsMargins(0, 0, 0, 0)
+        # plot_layout.setSpacing(5)
         # plot_layout.addWidget(self.curvePlotter)
-
-        # Second Container: Enhanced Stratigraphic Column (detailed, synchronized)
-        enhanced_column_container = QWidget()
-        enhanced_column_layout = QVBoxLayout(enhanced_column_container)
-        enhanced_column_layout.setContentsMargins(0, 0, 0, 0)
-        # NOTE: Disabled when using unified viewport - widgets added to unified viewport instead
+        #
+        # # Second Container: Enhanced Stratigraphic Column (detailed, synchronized)
+        # enhanced_column_container = QWidget()
+        # enhanced_column_layout = QVBoxLayout(enhanced_column_container)
+        # enhanced_column_layout.setContentsMargins(0, 0, 0, 0)
         # enhanced_column_layout.addWidget(self.enhancedStratColumnView)
+        
+        # Placeholder variables for pane management (still needed by other code)
+        plot_container = None
+        enhanced_column_container = None
 
         # Third Container: Data Table (Lithology Editor)
         table_container = QWidget()
