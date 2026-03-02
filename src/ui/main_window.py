@@ -4996,9 +4996,12 @@ class MainWindow(QMainWindow):
                 max_depth = self.last_classified_dataframe[DEPTH_COLUMN].max()
                 self.stratigraphicColumnView.draw_column(updated_df, min_depth, max_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
                 if hasattr(self, 'enhancedStratColumnView'):
-                    pass
                     # Set classified data for curve values in tooltips
                     self.enhancedStratColumnView.set_classified_data(self.last_classified_dataframe)
+                    # CRITICAL: Ensure overview mode is False for detailed view
+                    if self.enhancedStratColumnView.overview_mode:
+                        print(f"⚠️ WARNING: enhancedStratColumnView.overview_mode is True! Setting to False...")
+                        self.enhancedStratColumnView.set_overview_mode(False)
                     self.enhancedStratColumnView.draw_column(updated_df, min_depth, max_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
 
         QMessageBox.information(self, "Interbedding Created", f"Successfully created interbedding with {len(new_rows)} components.")
@@ -5120,7 +5123,7 @@ class MainWindow(QMainWindow):
 #                   f"{min_overall_depth:.2f} - {max_overall_depth:.2f}")
 
         # Pass the overall depth range to both stratigraphic columns
-#         print(f"DEBUG (_finalize_analysis_display): Drawing overview column")
+        print(f"⚠️ DRAWING OVERVIEW COLUMN (stratigraphicColumnView): overview_mode={self.stratigraphicColumnView.overview_mode}")
         self.stratigraphicColumnView.draw_column(units_dataframe, min_overall_depth, max_overall_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
         # Prepare curve configurations for the single CurvePlotter
         print(f"DEBUG (_finalize_analysis_display): self = {self}, has curvePlotter: {hasattr(self, 'curvePlotter')}, has unifiedViewport: {hasattr(self, 'unifiedViewport')}")
@@ -5239,9 +5242,13 @@ class MainWindow(QMainWindow):
             print(f"DEBUG (_finalize_analysis_display): Setting unified viewport depth range {min_overall_depth}-{max_overall_depth}")
             self.unified_viewport.set_depth_range(min_overall_depth, max_overall_depth)
         if hasattr(self, 'enhancedStratColumnView'):
-            print(f"DEBUG (_finalize_analysis_display): Drawing enhanced column, hasattr: {hasattr(self, 'enhancedStratColumnView')}")
+            print(f"⚠️ DRAWING ENHANCED COLUMN (enhancedStratColumnView): overview_mode={self.enhancedStratColumnView.overview_mode}")
             # Set classified data for curve values in tooltips
             self.enhancedStratColumnView.set_classified_data(classified_dataframe)
+            # CRITICAL: Ensure overview mode is False for detailed view
+            if self.enhancedStratColumnView.overview_mode:
+                print(f"⚠️ WARNING: enhancedStratColumnView.overview_mode is True! Setting to False...")
+                self.enhancedStratColumnView.set_overview_mode(False)
             self.enhancedStratColumnView.draw_column(units_dataframe, min_overall_depth, max_overall_depth, separator_thickness, draw_separators, disable_svg=self.disable_svg)
         else:
             print(f"DEBUG (_finalize_analysis_display): enhancedStratColumnView not found!")
