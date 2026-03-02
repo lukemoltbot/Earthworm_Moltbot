@@ -426,6 +426,8 @@ class HoleEditorWindow(QWidget):
         
         # Create unified viewport container (replaces plot + enhanced column)
         unified_container = QWidget()
+        # DIAGNOSTIC: Set visible background to verify container renders
+        unified_container.setStyleSheet("QWidget { background-color: #E0E0FF; }")  # Light blue
         unified_layout = QVBoxLayout(unified_container)
         unified_layout.setContentsMargins(0, 0, 0, 0)
         unified_layout.setSpacing(5)
@@ -433,6 +435,7 @@ class HoleEditorWindow(QWidget):
         # Add to layout
         unified_layout.addWidget(self.unified_viewport)
         print(f"✓ HoleEditorWindow: unified_viewport created and added to layout")
+        print(f"⚠️ DIAGNOSTIC: unified_container background set (light blue) to verify rendering")
 
         # Create a splitter for the first 2 widgets (Unified Viewport | Table)
         # Overview will be a fixed-width sidebar (NO SPLITTER)
@@ -460,9 +463,12 @@ class HoleEditorWindow(QWidget):
 
         # Create container for main content and zoom controls
         main_content_widget = QWidget()
+        # DIAGNOSTIC: Set background to verify rendering hierarchy
+        main_content_widget.setStyleSheet("QWidget { background-color: #E0FFE0; }")  # Light green
         main_content_layout = QVBoxLayout(main_content_widget)
         main_content_layout.setContentsMargins(0, 0, 0, 0)
         main_content_layout.setSpacing(5)
+        print(f"⚠️ DIAGNOSTIC: main_content_widget background set (light green)")
         
         # Create horizontal layout: [3-widget splitter] + [fixed-width overview sidebar]
         horizontal_layout = QHBoxLayout()

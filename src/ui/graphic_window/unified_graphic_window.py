@@ -84,6 +84,9 @@ class UnifiedGraphicWindow(QWidget):
             canvas_width=1200
         )
         
+        # DIAGNOSTIC: Set background color to verify widget renders
+        self.setStyleSheet("QWidget { background-color: #FFE0E0; }")  # Light red background
+        
         # Create main UI (unified layout)
         self.setup_ui()
     
