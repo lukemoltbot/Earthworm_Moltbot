@@ -10,20 +10,13 @@ SYSTEM A ARCHITECTURE:
 """
 
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-    QSplitter, QTabWidget
+    QWidget, QVBoxLayout, QHBoxLayout, 
+    QSplitter
 )
 from PyQt6.QtCore import Qt
+from typing import Optional
 
-from src.core.graphic_models import HoleDataProvider
 from src.ui.graphic_window.state import DepthStateManager, DepthCoordinateSystem
-from src.ui.graphic_window.components import (
-    PreviewWindow, StratigraphicColumn, LASCurvesDisplay, 
-    LithologyDataTable, InformationPanel
-)
-from src.ui.graphic_window.synchronizers import (
-    DepthSynchronizer, ScrollSynchronizer, SelectionSynchronizer
-)
 
 # Feature flags for System A architecture
 ENABLE_DEPTH_STATE_MANAGER = True
@@ -31,174 +24,160 @@ ENABLE_SYNCHRONIZERS = True
 DISABLE_SYSTEM_B = True
 
 
-class UnifiedGraphicWindow(QMainWindow):
+class UnifiedGraphicWindow(QWidget):
     """
-    Main graphic window replicating 1 Point Desktop layout.
-    This is the PRIMARY container for all graphic window components.
+    Unified viewport container for System A components (Option B architecture).
+    
+    This container takes System A widgets (PyQtGraphCurvePlotter, EnhancedStratigraphicColumn)
+    and unifies them into a single viewport with shared depth synchronization.
     
     Layout:
-    ┌─────────────────────────────────────────────────────────┐
-    │ Preview │ Strat Column │ LAS Curves │ Lithology Table   │
-    │ Window  │              │            │                   │
-    │         │              │            │                   │
-    │         │              │            │                   │
-    ├─────────────────────────────────────────────────────────┤
-    │ Information Panel (tabs: Info, Core Photo, Quality...) │
-    └─────────────────────────────────────────────────────────┘
+    ┌──────────────────────────────────────┐
+    │  Strat Column  │ (seam) │  Curves   │
+    │  (System A)    │        │ (System A)│
+    │  EnhancedSC    │        │ PyQtGraph │
+    └──────────────────────────────────────┘
+    
+    Architecture (System A):
+    - Single DepthStateManager: Shared across all components (SINGLE SOURCE OF TRUTH)
+    - No duplicate state managers
+    - All widgets subscribe to signals and emit on user interaction
+    - Unified depth coordinate system for pixel-perfect synchronization
     """
     
-    def __init__(self, hole_data_provider: HoleDataProvider):
+    def __init__(self, 
+                 depth_state_manager: DepthStateManager,
+                 curve_plotter: 'PyQtGraphCurvePlotter',
+                 strat_column: 'EnhancedStratigraphicColumn',
+                 hole_data_provider: Optional[object] = None):
         """
-        Initialize unified geological analysis viewport.
+        Initialize unified viewport with System A widgets.
         
         Args:
-            hole_data_provider: HoleDataProvider instance with geological data
+            depth_state_manager: Shared DepthStateManager (single source of truth)
+            curve_plotter: PyQtGraphCurvePlotter instance (System A widget)
+            strat_column: EnhancedStratigraphicColumn instance (System A widget)
+            hole_data_provider: Optional HoleDataProvider for metadata/context
         
-        Architecture (System A):
-        - DepthStateManager: Single source of truth for all depth/viewport/cursor state
-        - Synchronizers: Prevent circular signal loops, handle advanced interactions
-            - DepthSynchronizer: Cursor snapping to data points
-            - ScrollSynchronizer: Smooth scrolling with acceleration
-            - SelectionSynchronizer: Multi-select validation and modes
-        - Components: Subscribe to state manager signals, emit on user interaction
-        - Flow: User interaction → Component signal → Synchronizer → State update → Broadcast
-        
-        Result: Pixel-perfect synchronization across all viewports
+        Architecture:
+        - depth_state_manager is the SINGLE SOURCE OF TRUTH for all depth/viewport state
+        - All components (curve_plotter, strat_column) already have references to this manager
+        - No new DepthStateManager created here (prevents dual-manager conflict)
+        - Unified container just arranges the widgets in a single viewport
         """
         super().__init__()
         
-        self.setWindowTitle("Unified Graphic Window - Earthworm")
-        self.setGeometry(100, 100, 1600, 900)
-        
+        self.depth_state_manager = depth_state_manager
+        self.curve_plotter = curve_plotter
+        self.strat_column = strat_column
         self.data_provider = hole_data_provider
         
-        # Get hole depth range for state managers
-        min_depth, max_depth = hole_data_provider.get_depth_range()
-        
         # ============================================================
-        # PHASE 5: System A Architecture Initialization
+        # SYSTEM A: Single Source of Truth (No duplicate state managers)
         # ============================================================
+        # All state management is via self.depth_state_manager (already shared)
+        # All synchronizers already initialized in DepthStateManager
         
-        # Initialize SHARED state manager (SINGLE INSTANCE - single source of truth)
-        if ENABLE_DEPTH_STATE_MANAGER:
-            self.depth_state = DepthStateManager(
-                min_depth, max_depth, 
-                data_provider=hole_data_provider
-            )
-            # Note: DepthStateManager internally initializes all synchronizers:
-            #   - scroll_sync: ScrollSynchronizer
-            #   - selection_sync: SelectionSynchronizer
-            #   - depth_sync: DepthSynchronizer
-            
-            # For explicit reference and verification (Phase 5 audit):
-            self.scroll_synchronizer = self.depth_state.scroll_sync
-            self.selection_synchronizer = self.depth_state.selection_sync
-            self.depth_synchronizer = self.depth_state.depth_sync
-        
-        # Initialize coordinate system for pixel-space conversion
+        # Initialize coordinate system for pixel-perfect positioning
         self.depth_coords = DepthCoordinateSystem(
-            canvas_height=600,  # Will be updated in resize
+            canvas_height=600,  # Will be updated in resizeEvent
             canvas_width=1200
         )
         
-        # Create main UI
+        # Create main UI (unified layout)
         self.setup_ui()
-        
-        # Initialize viewport to show first 10 meters
-        self.depth_state.set_viewport_range(min_depth, min(max_depth, min_depth + 10))
+    
     
     def setup_ui(self):
-        """Create the main UI layout."""
-        # Central widget
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
+        """Create the main UI layout with unified System A components."""
+        # Main layout (entire widget is the unified viewport)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
         
-        # Main vertical layout (top: components, bottom: info panel)
-        main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(5, 5, 5, 5)
-        main_layout.setSpacing(5)
-        
-        # ============ TOP: Component Area ============
+        # ============ Component Area: Unified Viewport ============
+        # Contains strat column and curves in a single splitter
         component_area = self.create_component_area()
-        main_layout.addWidget(component_area, stretch=3)
+        main_layout.addWidget(component_area)
         
-        # ============ BOTTOM: Information Panel ============
-        self.info_panel = InformationPanel(self.depth_state, self.depth_coords)
-        main_layout.addWidget(self.info_panel, stretch=1)
+        # Note: Information Panel removed for Option B (can be added back if needed)
+        # If InformationPanel is still required, it would go here as a bottom panel
     
     def create_component_area(self) -> QWidget:
-        """Create the main component area with splitters."""
+        """Create the unified viewport with System A components.
+        
+        Uses passed PyQtGraphCurvePlotter and EnhancedStratigraphicColumn widgets
+        instead of creating generic components.
+        
+        Layout:
+        ┌──────────────────────────────────────┐
+        │  Strat Column  │ (seam) │  Curves   │
+        │  (System A)    │        │ (System A)│
+        └──────────────────────────────────────┘
+        """
         container = QWidget()
         layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         
-        # Create horizontal splitter for flexible resizing
-        main_splitter = QSplitter(Qt.Orientation.Horizontal)
-        main_splitter.setStyleSheet("QSplitter::handle { background: #CCCCCC; width: 4px; }")
+        # ============================================================
+        # Create unified splitter with System A components
+        # ============================================================
+        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.main_splitter.setStyleSheet("QSplitter::handle { background: #CCCCCC; width: 4px; }")
         
-        # ============ LEFT: Preview Window ============
-        self.preview_window = PreviewWindow(
-            self.data_provider,
-            self.depth_state,
-            self.depth_coords
-        )
-        self.preview_window.setMaximumWidth(150)
-        main_splitter.addWidget(self.preview_window)
+        # ============ LEFT: Enhanced Stratigraphic Column (System A) ============
+        # This is the passed System A widget, already wired to depth_state_manager
+        self.strat_column.setMinimumWidth(80)
+        self.strat_column.setMaximumWidth(300)
+        self.main_splitter.addWidget(self.strat_column)
         
-        # ============ CENTER: Main Visualization Area ============
-        # This uses another splitter for strat column, LAS curves, and table
-        visualization_splitter = QSplitter(Qt.Orientation.Horizontal)
-        visualization_splitter.setStyleSheet("QSplitter::handle { background: #DDDDDD; width: 3px; }")
+        # ============ RIGHT: PyQtGraph Curve Plotter (System A) ============
+        # This is the passed System A widget, already wired to depth_state_manager
+        self.curve_plotter.setMinimumWidth(200)
+        self.main_splitter.addWidget(self.curve_plotter)
         
-        # --- Stratigraphic Column ---
-        self.strat_column = StratigraphicColumn(
-            self.data_provider,
-            self.depth_state,
-            self.depth_coords
-        )
-        self.strat_column.setMinimumWidth(100)
-        visualization_splitter.addWidget(self.strat_column)
+        # Set initial splitter sizes (approximate: 25% strat column, 75% curves)
+        self.main_splitter.setSizes([250, 750])
         
-        # --- LAS Curves Display ---
-        self.las_curves = LASCurvesDisplay(
-            self.data_provider,
-            self.depth_state,
-            self.depth_coords
-        )
-        self.las_curves.setMinimumWidth(400)
-        visualization_splitter.addWidget(self.las_curves)
+        # Allow users to resize the seam
+        self.main_splitter.setCollapsible(0, False)
+        self.main_splitter.setCollapsible(1, False)
         
-        # --- Lithology Data Table ---
-        self.lithology_table = LithologyDataTable(
-            self.data_provider,
-            self.depth_state,
-            self.depth_coords
-        )
-        self.lithology_table.setMinimumWidth(200)
-        visualization_splitter.addWidget(self.lithology_table)
-        
-        # Set initial splitter sizes (approximate percentages)
-        visualization_splitter.setSizes([150, 700, 300])
-        
-        # Add visualization splitter to main splitter
-        main_splitter.addWidget(visualization_splitter)
-        
-        # Set main splitter sizes
-        main_splitter.setSizes([150, 1150])  # Preview: 150px, Visualization: rest
-        
-        layout.addWidget(main_splitter)
+        layout.addWidget(self.main_splitter)
         return container
+    
+    def set_depth_range(self, min_depth: float, max_depth: float):
+        """Set the visible depth range for all components.
+        
+        Args:
+            min_depth: Minimum visible depth
+            max_depth: Maximum visible depth
+        """
+        if self.depth_state_manager:
+            self.depth_state_manager.set_viewport_range(min_depth, max_depth)
+    
+    def set_curve_visibility(self, curve_name: str, visible: bool):
+        """Set curve visibility (proxy to curve plotter).
+        
+        Args:
+            curve_name: Name of the curve
+            visible: Whether the curve should be visible
+        """
+        if hasattr(self.curve_plotter, 'set_curve_visibility'):
+            self.curve_plotter.set_curve_visibility(curve_name, visible)
     
     def resizeEvent(self, event):
         """Handle window resize - update coordinate system canvas size."""
         super().resizeEvent(event)
         
-        # Update coordinate system canvas size based on LAS curves display size
-        if hasattr(self, 'las_curves'):
-            # Use LAS curves display size for coordinate system
-            self.depth_coords.canvas_height = self.las_curves.height()
-            self.depth_coords.canvas_width = self.las_curves.width()
+        # Update coordinate system canvas size based on curve plotter display size
+        if hasattr(self, 'curve_plotter'):
+            # Use curve plotter size for coordinate system
+            self.depth_coords.canvas_height = self.curve_plotter.height()
+            self.depth_coords.canvas_width = self.curve_plotter.width()
             
-            # Trigger repaint of all components
-            self.depth_state.viewportRangeChanged.emit(self.depth_state.get_viewport_range())
+            # Notify depth state manager of size change
+            if hasattr(self.depth_state_manager, 'viewportRangeChanged'):
+                viewport_range = self.depth_state_manager.get_viewport_range()
+                self.depth_state_manager.viewportRangeChanged.emit(viewport_range)
