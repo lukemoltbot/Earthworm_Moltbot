@@ -126,9 +126,11 @@ class UnifiedGraphicWindow(QWidget):
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter.setStyleSheet("QSplitter::handle { background: #CCCCCC; width: 4px; }")
         
-        # DEBUG: Verify widgets are not None
+        # DEBUG: Verify widgets are not None and check parents
         print(f"DEBUG (UnifiedGraphicWindow): strat_column type={type(self.strat_column).__name__}, is None={self.strat_column is None}")
+        print(f"DEBUG (UnifiedGraphicWindow): strat_column parent={type(self.strat_column.parent()).__name__ if self.strat_column.parent() else 'None'}")
         print(f"DEBUG (UnifiedGraphicWindow): curve_plotter type={type(self.curve_plotter).__name__}, is None={self.curve_plotter is None}")
+        print(f"DEBUG (UnifiedGraphicWindow): curve_plotter parent={type(self.curve_plotter.parent()).__name__ if self.curve_plotter.parent() else 'None'}")
         
         # ============ LEFT: Enhanced Stratigraphic Column (System A) ============
         # This is the passed System A widget, already wired to depth_state_manager
