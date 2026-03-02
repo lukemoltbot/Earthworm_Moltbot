@@ -297,15 +297,20 @@ class HoleEditorWindow(QWidget):
         self.setup_ui()
         self.setup_ui_enhancements()
         
-        # CRITICAL FIX: Ensure entire widget hierarchy is visible
-        # Start from the root and work down to ensure all parents are shown
+        # CRITICAL FIX: Ensure entire widget hierarchy is visible and in foreground
         self.show()  # Show the HoleEditorWindow itself
         if hasattr(self, 'unified_viewport'):
             # Show all parent containers in the hierarchy
             if hasattr(self, 'main_content_widget'):
                 self.main_content_widget.show()
+            # Raise unified_viewport to foreground
+            self.unified_viewport.raise_()
             self.unified_viewport.show()
-            print(f"✓ CRITICAL FIX: Widget hierarchy shown, unified_viewport visible={self.unified_viewport.isVisible()}")
+            # Force layout update to ensure widgets are positioned correctly
+            self.unified_viewport.adjustSize()
+            print(f"✓ CRITICAL FIX: Widget hierarchy shown, raised to foreground, unified_viewport visible={self.unified_viewport.isVisible()}")
+            print(f"⚠️ DEBUG: unified_viewport geometry: {self.unified_viewport.geometry()}")
+            print(f"⚠️ DEBUG: unified_viewport pos: ({self.unified_viewport.x()}, {self.unified_viewport.y()})")
 
         if file_path:
             pass
