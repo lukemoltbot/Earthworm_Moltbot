@@ -214,11 +214,8 @@ class HoleEditorWindow(QWidget):
         # Create curve visibility toolbar
         self.curve_visibility_toolbar = CurveVisibilityToolbar(self, self.curve_visibility_manager)
         
-        # Connect curve visibility changes to unified viewport
-        if hasattr(self.curve_visibility_manager, 'visibility_changed'):
-            self.curve_visibility_manager.visibility_changed.connect(
-                self.unified_viewport.set_curve_visibility
-            )
+        # Note: unified_viewport is created later in setup_ui()
+        # Connection to unified_viewport.set_curve_visibility will be made in setup_ui_enhancements()
         
         # Create curve display modes manager
         self.curve_display_modes_manager = create_curve_display_modes()
@@ -310,6 +307,12 @@ class HoleEditorWindow(QWidget):
         # This method is called after setup_ui() to add polish and enhancements
         # For now, just log that it was called
         print("DEBUG (HoleEditorWindow): UI enhancements setup (placeholder)")
+        
+        # Connect curve visibility changes to unified viewport (now that it exists)
+        if hasattr(self, 'unified_viewport') and hasattr(self.curve_visibility_manager, 'visibility_changed'):
+            self.curve_visibility_manager.visibility_changed.connect(
+                self.unified_viewport.set_curve_visibility
+            )
         
         # Add any UI enhancements here
         # Example: tooltips, styles, additional widgets, etc.
